@@ -140,12 +140,13 @@ public partial class InfoViewModel : ViewModelBase
         string exePath = hkExeFolder.FullName;
         
         // check if path contains steam_api64.dll
-        var x86_64Folder = managedParent?
-            .GetDirectories().FirstOrDefault(d => d.Name == "Plugins")?
-            .GetDirectories().FirstOrDefault(d => d.Name == "x86_64");
+        var isSteam = File.Exists(Path.Combine(
+            managedParent.FullName,
+            "Plugins",
+            "x86_64",
+            "steam_api64.dll"
+        ));
         
-        var isSteam = x86_64Folder?.GetFiles("steam_api64.dll").Any() ?? false;
-
         return (exePath, exeName, isSteam);
     }
 
