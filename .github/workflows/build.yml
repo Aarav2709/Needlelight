@@ -28,7 +28,7 @@ jobs:
       - name: Setup .NET for windows build
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
       - name: Build
         run: |
           cd Needlelight
@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Needlelight-Windows
-          path: Needlelight/bin/Release/net9.0/win-x64/publish/
+          path: Needlelight/bin/Release/net10.0/win-x64/publish/
 
   build-linux:
     runs-on: ubuntu-latest
@@ -48,14 +48,14 @@ jobs:
       - name: Setup .NET for linux build
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
       - name: Build
         run: |
           cd Needlelight
           dotnet publish -r linux-x64 -p:PublishSingleFile=true -p:Configuration=Release --self-contained true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded
           cd ..
-          chmod +x Needlelight/bin/Release/net9.0/linux-x64/publish/Needlelight
-          zip -jr linux.zip Needlelight/bin/Release/net9.0/linux-x64/publish/*
+          chmod +x Needlelight/bin/Release/net10.0/linux-x64/publish/Needlelight
+          zip -jr linux.zip Needlelight/bin/Release/net10.0/linux-x64/publish/*
       - name: Upload linux binary
         # NOTE: upgraded upload-artifact from v3 -> v4 to avoid deprecated action failures
         uses: actions/upload-artifact@v4
@@ -72,7 +72,7 @@ jobs:
       - name: Setup .NET for macos build
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
       - name: Build
         run: |
           cd Needlelight
@@ -80,9 +80,9 @@ jobs:
           cd ..
           cd Scripts
           # Ensure the published binary is executable before creating the .app bundle
-          chmod +x ../Needlelight/bin/Release/net9.0/osx-x64/publish/Needlelight || true
+          chmod +x ../Needlelight/bin/Release/net10.0/osx-x64/publish/Needlelight || true
           chmod +x ./Needlelight.app/Contents/MacOS/Needlelight || true
-          python3 make_mac_app.py Needlelight.app ../Needlelight/bin/Release/net9.0/osx-x64/publish ../out
+          python3 make_mac_app.py Needlelight.app ../Needlelight/bin/Release/net10.0/osx-x64/publish ../out
           cd ..
       - name: Upload macos binary
         # NOTE: upgraded upload-artifact from v3 -> v4 to avoid deprecated action failures
@@ -106,7 +106,7 @@ jobs:
       - name: Setup .NET for AU build
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -124,7 +124,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Needlelight.AU
-          path: Needlelight.AU/bin/Release/net9.0/win-x64/publish/
+          path: Needlelight.AU/bin/Release/net10.0/win-x64/publish/
 
   release:
     needs: [build-macos, build-windows, build-linux, build-auto-updater]
