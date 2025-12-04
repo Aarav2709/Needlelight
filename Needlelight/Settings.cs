@@ -92,22 +92,32 @@ namespace Needlelight
     {
       // Linux defaults and symlinks + macOS Steam default app bundle path
       var name = profile.Name;
-      // Attempt a lowercase underscore variant for macOS bundle name if needed
       var macBundleGuess = name.Replace(' ', '_').ToLowerInvariant() + ".app";
+      var macBundleCanonical = name + ".app";
 
-      return new List<string>
-            {
-                // Linux
-                $".local/share/Steam/steamapps/common/{name}",
-                $".steam/steam/steamapps/common/{name}",
-                // Flatpak
-                ".var/app/ocm.valvesoftware.Steam/data/Steam/steamapps/common",
-                // Symlinks to the Steam root on linux
-                ".steam/steam",
-                ".steam/root",
-                // macOS (Steam default app bundle under common)
-                $"Library/Application Support/Steam/steamapps/common/{name}/{macBundleGuess}"
-            }.ToImmutableList();
+      var linuxRoots = new[]
+      {
+        ".local/share/Steam/steamapps/common",
+        ".steam/steam/steamapps/common",
+        ".steam/root/steamapps/common",
+        ".var/app/com.valvesoftware.Steam/data/Steam/steamapps/common"
+      };
+
+      var suffixes = new List<string>();
+
+      foreach (var root in linuxRoots)
+      {
+        suffixes.Add($"{root}/{name}");
+      }
+
+      // macOS (Steam default app bundle under common)
+      suffixes.Add($"Library/Application Support/Steam/steamapps/common/{name}");
+      suffixes.Add($"Library/Application Support/Steam/steamapps/common/{name}/{macBundleCanonical}");
+      suffixes.Add($"Library/Application Support/Steam/steamapps/common/{macBundleCanonical}");
+      suffixes.Add($"Library/Application Support/Steam/steamapps/common/{name}/{macBundleGuess}");
+      suffixes.Add($"Library/Application Support/Steam/steamapps/common/{macBundleGuess}");
+
+      return suffixes.ToImmutableList();
     }
     // @formatter:on
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -210,6 +211,28 @@ namespace Needlelight.Services
             yield return root;
         }
 
+        private static IEnumerable<string> EnumerateAssemblyLinks(JsonElement root, IReadOnlyList<string> jsonGameKeys, IEnumerable<string> candidateKeys)
+        {
+            HashSet<string> emitted = new(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var node in EnumerateAssemblyNodes(root, jsonGameKeys))
+            {
+                foreach (var key in candidateKeys)
+                {
+                    if (!TryGetPropertyCaseInsensitive(node, key, out var linkElem) ||
+                        linkElem.ValueKind != JsonValueKind.String)
+                        continue;
+
+                    var link = linkElem.GetString();
+                    if (string.IsNullOrWhiteSpace(link))
+                        continue;
+
+                    if (emitted.Add(link))
+                        yield return link!;
+                }
+            }
+        }
+
         private static bool TryGetPropertyCaseInsensitive(JsonElement element, string propertyName, out JsonElement value)
         {
             foreach (var property in element.EnumerateObject())
@@ -222,6 +245,32 @@ namespace Needlelight.Services
             }
 
             value = default;
+            return false;
+        }
+
+        private static async Task<bool> ValidateAssemblyLinkAsync(HttpClient hc, Uri uri)
+        {
+            using var cts = new CancellationTokenSource(TIMEOUT);
+
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Head, uri);
+                using var response = await hc.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+                if (response.IsSuccessStatusCode)
+                    return true;
+
+                if (response.StatusCode == HttpStatusCode.MethodNotAllowed)
+                {
+                    using var getRequest = new HttpRequestMessage(HttpMethod.Get, uri);
+                    using var getResponse = await hc.SendAsync(getRequest, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+                    return getResponse.IsSuccessStatusCode;
+                }
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+            {
+                Trace.TraceWarning($"Probe for assembly link {uri} failed: {e.Message}");
+            }
+
             return false;
         }
 
@@ -420,7 +469,7 @@ namespace Needlelight.Services
 
         public static async Task<string> FetchVanillaAssemblyLink(ISettings? settings)
         {
-            var hc = new HttpClient();
+            using var hc = new HttpClient();
             hc.DefaultRequestHeaders.Add("User-Agent", "Needlelight");
 
             var sources = GetContentSources(settings);
@@ -434,18 +483,18 @@ namespace Needlelight.Services
                     var payload = await hc.GetStringAsync2(settings, endpoint, cts.Token);
 
                     using var json = JsonDocument.Parse(payload);
-                    foreach (var node in EnumerateAssemblyNodes(json.RootElement, sources.JsonGameKeys))
+                    foreach (var link in EnumerateAssemblyLinks(json.RootElement, sources.JsonGameKeys, candidateKeys))
                     {
-                        foreach (var key in candidateKeys)
+                        if (!Uri.TryCreate(link, UriKind.Absolute, out var uri))
                         {
-                            if (TryGetPropertyCaseInsensitive(node, key, out var linkElem) &&
-                                linkElem.ValueKind == JsonValueKind.String)
-                            {
-                                var link = linkElem.GetString();
-                                if (!string.IsNullOrWhiteSpace(link))
-                                    return link;
-                            }
+                            Trace.TraceWarning($"Ignoring invalid assembly link '{link}' from {endpoint}.");
+                            continue;
                         }
+
+                        if (await ValidateAssemblyLinkAsync(hc, uri))
+                            return uri.ToString();
+
+                        Trace.TraceWarning($"Assembly link {uri} responded with a failure code; trying next candidate.");
                     }
                 }
                 catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
@@ -458,7 +507,7 @@ namespace Needlelight.Services
                 }
             }
 
-            throw new Exception("Needlelight was unable to get vanilla assembly link from its resources. Please verify integrity of game files instead");
+            throw new Exception("Needlelight was unable to get a working vanilla assembly link from its resources. Please verify integrity of game files instead");
         }
     }
 

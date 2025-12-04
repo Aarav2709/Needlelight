@@ -2,7 +2,16 @@
 
 Source code adapted from: https://github.com/TheMulhima/Lumafly
 
-[v6.0.0.0](#changes-in-v6000)
+[v6.1.0.3](#changes-in-v61103)
+
+## Changes in v6.1.0.3
+
+DATE: 2025-12-04
+
+- Allows Silksong-only installs to register without detecting Hollow Knight first by accepting Linux/MacSteam/flatpak paths and macOS `.app` bundles during path selection.
+- Launcher metadata now includes Silksong and Linux executable names so launching the correct binary no longer requires a hidden Hollow Knight install.
+- Vanilla assembly discovery validates each manifest URL, skips 404 responses, and falls through to other sources so InstallVanilla succeeds even when upstream feeds misbehave.
+- API toggles detect manual/BepInEx-heavy installs and keep the toggle responsive, ensuring Silksong/Hollow Knight auto-updates no longer crash when metadata is missing.
 
 ## Changes in v6.1.0.2
 

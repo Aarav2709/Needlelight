@@ -1,3 +1,4 @@
+  using System;
   using System.Collections.Generic;
 
   namespace Needlelight.Models;
@@ -48,7 +49,7 @@
     {
       Name = "Hollow Knight",
       SteamAppId = "367520",
-      ExeNames = new[] { "Hollow Knight.exe", "hollow_knight.exe" },
+      ExeNames = new[] { "Hollow Knight.exe", "hollow_knight.exe", "Hollow Knight.x86_64", "hollow_knight.x86_64" },
       DataFolder = "Hollow Knight_Data",
       GogIds = new[] { "1308320804" },
       SavePaths = new Dictionary<string, string[]>
@@ -66,9 +67,16 @@
       // steamapps/common/{profile.Name}) will find the Silksong installation in the
       // Steam default location: ".../steamapps/common/Hollow Knight Silksong".
       Name = "Hollow Knight Silksong",
-  SteamAppId = "1030300", // Silksong Steam App ID (provided)
+      SteamAppId = "1030300", // Silksong Steam App ID (provided)
       // Use the Steam game executable name as observed in the official Steam folder.
-      ExeNames = new[] { "Hollow Knight Silksong.exe", "Silksong.exe" }, // include common variants
+      ExeNames = new[]
+      {
+        "Hollow Knight Silksong.exe",
+        "Silksong.exe",
+        "Hollow Knight Silksong.x86_64",
+        "Silksong.x86_64",
+        "silksong.x86_64"
+      },
       // Data folder name in Steam common directory; keep consistent with exe prefix + _Data
       DataFolder = "Hollow Knight Silksong_Data",
       GogIds = new string[] { /* TODO: Confirm GOG IDs if applicable */ },
@@ -97,22 +105,30 @@
     public static string[] GetDataFolderCandidates(GameProfile profile)
     {
       var canonical = profile.DataFolder;
-      var alt = canonical;
-
-      // Convert prefix to steam-style lowercase with underscores, preserving the trailing "_Data" with capital D if present
       const string suffix = "_Data";
-      if (canonical.EndsWith(suffix))
+
+      var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
       {
-        var prefix = canonical.Substring(0, canonical.Length - suffix.Length);
-        prefix = prefix.Replace(' ', '_').ToLowerInvariant();
-        alt = prefix + suffix;
+        canonical
+      };
+
+      if (canonical.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+      {
+        var prefix = canonical[..^suffix.Length];
+        candidates.Add(prefix.Replace(' ', '_').ToLowerInvariant() + suffix);
       }
       else
       {
-        alt = canonical.Replace(' ', '_').ToLowerInvariant();
+        candidates.Add(canonical.Replace(' ', '_').ToLowerInvariant());
       }
 
-      return canonical == alt ? new[] { canonical } : new[] { canonical, alt };
+      if (ReferenceEquals(profile, Silksong))
+      {
+        candidates.Add("Silksong_Data");
+        candidates.Add("silksong_Data");
+      }
+
+      return candidates.ToArray();
     }
   }
 
