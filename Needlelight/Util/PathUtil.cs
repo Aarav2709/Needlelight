@@ -45,7 +45,7 @@ namespace Needlelight.Util
           continue;
         }
 
-        if (ValidateWithSuffixForProfile(result[0].Path.LocalPath, profile) is not var (managed, suffix))
+        if (!TryResolveProfiledPath(result[0].Path.LocalPath, profile, out var validPath, out _))
         {
           var res = await MessageBoxUtil.GetMessageBoxCustomWindow(new MessageBoxCustomParams
           {
@@ -62,7 +62,7 @@ namespace Needlelight.Util
         }
         else
         {
-          return Path.Combine(managed, suffix);
+          return Path.Combine(validPath.Root, validPath.Suffix);
         }
 
         if (fail) return null!;
@@ -92,7 +92,7 @@ namespace Needlelight.Util
           await MessageBoxUtil
               .GetMessageBoxStandardWindow(Resources.GAME_InvalidPathHeader.FormatWith(profile.Name), Resources.PU_NoSelectMac).ShowAsPopupAsync(AvaloniaUtils.GetMainWindow());
         }
-        else if (ValidateWithSuffixForProfile(result[0], profile) is not var (managed, suffix))
+        else if (!TryResolveProfiledPath(result[0], profile, out var validPath, out _))
         {
           var res = await MessageBoxUtil.GetMessageBoxCustomWindow(new MessageBoxCustomParams()
           {
@@ -107,7 +107,7 @@ namespace Needlelight.Util
           if (res == Resources.XAML_ReportError) ReportError();
         }
         else
-          return Path.Combine(managed, suffix);
+          return Path.Combine(validPath.Root, validPath.Suffix);
 
         if (fail)
           return null!;
@@ -146,7 +146,7 @@ namespace Needlelight.Util
           continue;
         }
 
-        if (ValidateWithSuffixForProfile(root, profile) is not var (managed, suffix))
+        if (!TryResolveProfiledPath(root, profile, out var validPath, out _))
         {
           var res = await MessageBoxUtil.GetMessageBoxCustomWindow(new MessageBoxCustomParams
           {
@@ -163,7 +163,7 @@ namespace Needlelight.Util
         }
         else
         {
-          return Path.Combine(managed, suffix);
+          return Path.Combine(validPath.Root, validPath.Suffix);
         }
 
         if (fail) return null!;
@@ -228,6 +228,33 @@ namespace Needlelight.Util
         return null;
 
       return new ValidPath(root, suffix);
+    }
+
+    private static bool TryResolveProfiledPath(string root, GameProfile requestedProfile, out ValidPath validPath, out GameProfile resolvedProfile)
+    {
+      validPath = null!;
+      resolvedProfile = requestedProfile;
+
+      if (ValidateWithSuffixForProfile(root, requestedProfile) is { } direct)
+      {
+        validPath = direct;
+        return true;
+      }
+
+      foreach (var profile in new[] { GameProfiles.HollowKnight, GameProfiles.Silksong })
+      {
+        if (ReferenceEquals(profile, requestedProfile))
+          continue;
+
+        if (ValidateWithSuffixForProfile(root, profile) is { } fallback)
+        {
+          validPath = fallback;
+          resolvedProfile = profile;
+          return true;
+        }
+      }
+
+      return false;
     }
 
     private static string RemoveIfEndsWith(this string @string, string toRemove)

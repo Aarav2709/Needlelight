@@ -750,6 +750,12 @@ namespace Needlelight.Services
 
             if (current_version == null)
             {
+                if (TryDetectManualApi(out var manualState))
+                {
+                    await _installed.RecordApiState(manualState);
+                    return true;
+                }
+
                 await _installed.RecordApiState(new NotInstalledState());
                 return false;
             }
@@ -765,6 +771,28 @@ namespace Needlelight.Services
                 await _installed.RecordApiState(new InstalledState(enabled, new((int)current_version, 0, 0), api_state.Updated));
             }
 
+            return true;
+        }
+
+        private bool TryDetectManualApi(out InstalledState state)
+        {
+            state = null!;
+
+            var managed = _config.ManagedFolder;
+            var vanillaPath = Path.Combine(managed, Vanilla);
+            var moddedPath = Path.Combine(managed, Modded);
+            var currentPath = Path.Combine(managed, Current);
+
+            bool hasCurrent = _fs.File.Exists(currentPath);
+            bool hasVanillaBackup = _fs.File.Exists(vanillaPath);
+            bool hasModdedBackup = _fs.File.Exists(moddedPath);
+
+            if (!hasCurrent || (!hasVanillaBackup && !hasModdedBackup))
+                return false;
+
+            var enabled = hasVanillaBackup;
+            Trace.TraceWarning("API version could not be determined; enabling manual toggle mode.");
+            state = new InstalledState(enabled, new Version(0, 0, 0), false);
             return true;
         }
     }
