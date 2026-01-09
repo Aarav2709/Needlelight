@@ -96,7 +96,7 @@ Because the app isn’t code-signed with a paid certificate, Windows SmartScreen
 
 Note: Fully removing SmartScreen requires a trusted code‑signing certificate (paid). The steps above avoid the “downloaded from the internet” flag and keep things safe and free.
 
-## 🔐 Verify downloads (SHA‑256)
+## Verify downloads (SHA‑256)
 
 Each release includes a `SHA256SUMS.txt` file. Verify the file(s) you downloaded match the published checksums.
 
