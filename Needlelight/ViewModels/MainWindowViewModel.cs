@@ -195,8 +195,9 @@ namespace Needlelight.ViewModels
         settings.Save();
       }
 
-      if (!PathUtil.ValidateExisting(settings.ManagedFolder))
-        settings = await ResetSettings();
+      if (!PathUtil.ValidateExisting(settings.ManagedFolder) ||
+          !PathUtil.ManagedFolderMatchesProfile(settings.ManagedFolder, settings.CurrentProfile))
+        settings = await ResetSettings(settings.CurrentProfile);
 
       await EnsureAccessToConfigFile();
 
@@ -583,14 +584,14 @@ namespace Needlelight.ViewModels
       }
     }
 
-    private static async Task<Settings> ResetSettings()
+    private static async Task<Settings> ResetSettings(GameProfile? targetProfile = null)
     {
       Trace.WriteLine("Settings path is invalid, forcing re-selection.");
 
       // Use the currently loaded settings' selected game if available so the message
       // reflects the actual profile (e.g., Silksong) rather than hardcoding Hollow Knight.
       var loaded = Settings.Load();
-      var profileName = loaded?.CurrentProfile?.Name ?? Needlelight.Models.GameProfiles.HollowKnight.Name;
+      var profileName = targetProfile?.Name ?? loaded?.CurrentProfile?.Name ?? Needlelight.Models.GameProfiles.HollowKnight.Name;
 
       await MessageBoxUtil.GetMessageBoxStandardWindow
       (
@@ -604,18 +605,27 @@ namespace Needlelight.ViewModels
           }
       ).ShowWindowDialogAsync(AvaloniaUtils.GetMainWindow());
 
-      return Settings.Create(await GetSettingsPath());
+      return Settings.Create(await GetSettingsPath(targetProfile ?? loaded?.CurrentProfile));
     }
 
-    private static async Task<string> GetSettingsPath()
+    private static async Task<string> GetSettingsPath(GameProfile? desiredProfile = null)
     {
   // Detect based on currently selected/loaded profile, not whatever was persisted before
   var loaded = Settings.Load();
-  var profile = loaded?.CurrentProfile ?? Needlelight.Models.GameProfiles.HollowKnight;
-  var path = await Settings.TryAutoDetect(profile);
+  var profile = desiredProfile ?? loaded?.CurrentProfile ?? Needlelight.Models.GameProfiles.HollowKnight;
 
-  // Ensure `profile` is available for both the "unable to detect" and "detected" UI flows.
-  // Previously `profile` was declared after being used which caused CS0103/CS0841 errors.
+  // First, try to detect only the currently selected profile (no cross-game fallback).
+  var primary = await Settings.TryAutoDetect(profile, allowCrossProfileFallback: false);
+  ValidPath? path = primary;
+  var detectedProfile = profile;
+
+  // If not found, fall back to any supported game so first-time users still get a suggestion.
+  if (path is null)
+  {
+    var any = await Settings.TryAutoDetectAnyGame();
+    path = any.Path;
+    detectedProfile = any.Profile ?? profile;
+  }
 
       if (path is null)
       {
@@ -624,7 +634,7 @@ namespace Needlelight.ViewModels
             new MessageBoxStandardParams
             {
               ContentHeader = Resources.MWVM_Info,
-              ContentMessage = Resources.GAME_UnableToDetect_Message.FormatWith(profile.Name),
+              ContentMessage = Resources.GAME_UnableToDetect_Message.FormatWith(detectedProfile.Name),
               MinWidth = 550
             }
         );
@@ -632,7 +642,7 @@ namespace Needlelight.ViewModels
         await info.ShowAsPopupAsync(AvaloniaUtils.GetMainWindow());
 
         // If we can load an existing settings just to get the game selection, pass its profile to the dialog
-        return await PathUtil.SelectPath(profile: profile);
+        return await PathUtil.SelectPath(profile: detectedProfile);
       }
 
       Trace.WriteLine($"Settings doesn't exist. Creating it at detected path {path}.");
@@ -642,7 +652,7 @@ namespace Needlelight.ViewModels
           new MessageBoxStandardParams
           {
             ContentHeader = Resources.MWVM_DetectedPath_Title,
-            ContentMessage = Resources.GAME_DetectedPath_Message.FormatWith(profile.Name, path.Root),
+            ContentMessage = Resources.GAME_DetectedPath_Message.FormatWith(detectedProfile.Name, path.Root),
             ButtonDefinitions = ButtonEnum.YesNo
           }
       );
@@ -653,7 +663,7 @@ namespace Needlelight.ViewModels
         return Path.Combine(path.Root, path.Suffix);
 
       var loaded2 = Settings.Load();
-      var profile2 = loaded2?.CurrentProfile ?? Needlelight.Models.GameProfiles.HollowKnight;
+      var profile2 = loaded2?.CurrentProfile ?? detectedProfile;
       return await PathUtil.SelectPath(profile: profile2);
     }
 
@@ -717,11 +727,11 @@ namespace Needlelight.ViewModels
         bool detectedForSelected = false;
         try
         {
-          var vp = await Settings.TryAutoDetect(selectedProfile);
+          var vp = await Settings.TryAutoDetect(selectedProfile, allowCrossProfileFallback: false);
           if (vp is not null)
           {
             var managed = System.IO.Path.Combine(vp.Root, vp.Suffix);
-            if (System.IO.Directory.Exists(managed))
+            if (System.IO.Directory.Exists(managed) && PathUtil.ManagedFolderMatchesProfile(managed, selectedProfile))
             {
               s.ManagedFolder = managed;
               detectedForSelected = true;
@@ -736,15 +746,7 @@ namespace Needlelight.ViewModels
         {
           try
           {
-            var dataFolders = Needlelight.Models.GameProfiles.GetDataFolderCandidates(selectedProfile)
-                .Concat(new[] { System.IO.Path.Combine("Contents", "Resources", "Data") })
-                .Distinct()
-                .Select(df => System.IO.Path.Combine(df, "Managed"));
-
-            bool managedMatchesSelected = dataFolders.Any(df => s.ManagedFolder?.Replace('/', System.IO.Path.DirectorySeparatorChar)
-                .EndsWith(df.Replace('/', System.IO.Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) == true);
-
-            if (!managedMatchesSelected)
+            if (!PathUtil.ManagedFolderMatchesProfile(s.ManagedFolder, selectedProfile))
             {
               s.ManagedFolder = string.Empty; // invalidate to trigger ResetSettings()
             }
@@ -777,4 +779,3 @@ namespace Needlelight.ViewModels
     }
   }
 }
-

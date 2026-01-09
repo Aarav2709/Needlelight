@@ -215,7 +215,8 @@ namespace Needlelight.ViewModels
 
     public async Task ChangePathAsync()
     {
-      string? path = await PathUtil.SelectPathFallible();
+      var profile = _settings.CurrentProfile;
+      string? path = await PathUtil.SelectPath(true, profile);
 
       if (path is null)
         return;
@@ -245,4 +246,3 @@ namespace Needlelight.ViewModels
 
   }
 }
-

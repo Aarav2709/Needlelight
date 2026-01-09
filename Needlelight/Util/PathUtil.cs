@@ -230,6 +230,23 @@ namespace Needlelight.Util
       return new ValidPath(root, suffix);
     }
 
+    public static bool ManagedFolderMatchesProfile(string managedPath, GameProfile profile)
+    {
+      if (string.IsNullOrWhiteSpace(managedPath) || profile is null)
+        return false;
+
+      var di = new DirectoryInfo(managedPath);
+      if (!di.Exists)
+        return false;
+
+      var dataFolder = di.Parent?.Name ?? string.Empty;
+      if (string.IsNullOrWhiteSpace(dataFolder))
+        return false;
+
+      var candidates = GameProfiles.GetDataFolderCandidates(profile);
+      return candidates.Any(c => dataFolder.Equals(c, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static bool TryResolveProfiledPath(string root, GameProfile requestedProfile, out ValidPath validPath, out GameProfile resolvedProfile)
     {
       validPath = null!;
@@ -284,4 +301,3 @@ namespace Needlelight.Util
 
   }
 }
-
