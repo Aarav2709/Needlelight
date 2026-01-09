@@ -23,7 +23,28 @@ namespace Needlelight
   [Serializable]
   public class Settings : ISettings
   {
-    public string ManagedFolder { get; set; }
+    private string _managedFolder = string.Empty;
+
+    public Dictionary<string, string> ManagedFolders { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public string ManagedFolder
+    {
+      get
+      {
+        var resolved = GetManagedFolderForGame(Game);
+        return string.IsNullOrWhiteSpace(resolved) ? _managedFolder : resolved;
+      }
+      set
+      {
+        _managedFolder = value ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(Game) && !string.IsNullOrWhiteSpace(value))
+        {
+          var key = NormalizeGameKey(Game);
+          if (!string.IsNullOrEmpty(key))
+            ManagedFolders[key] = value;
+        }
+      }
+    }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public AutoRemoveUnusedDepsOptions AutoRemoveUnusedDeps { get; set; } = AutoRemoveUnusedDepsOptions.Never;
@@ -67,6 +88,17 @@ namespace Needlelight
     public string Game { get; set; } = GameProfiles.HollowKnightKey;
 
     public GameProfile CurrentProfile => GameProfiles.GetByKey(Game);
+
+    private string NormalizeGameKey(string? key) =>
+      string.IsNullOrWhiteSpace(key) ? GameProfiles.HollowKnightKey : key.Trim().ToLowerInvariant();
+
+    private string GetManagedFolderForGame(string? key)
+    {
+      var normalized = NormalizeGameKey(key);
+      if (ManagedFolders.TryGetValue(normalized, out var stored) && !string.IsNullOrWhiteSpace(stored))
+        return stored;
+      return _managedFolder ?? string.Empty;
+    }
 
     // @formatter:off
     private static ImmutableList<string> BuildStaticPaths(GameProfile profile)
@@ -146,7 +178,7 @@ namespace Needlelight
     // Used by serializer.
     public Settings()
     {
-      ManagedFolder = null!;
+      ManagedFolder = string.Empty;
       AutoRemoveUnusedDeps = AutoRemoveUnusedDepsOptions.Never;
       PreferredLanguage = null;
       LowStorageMode = false;
@@ -181,7 +213,7 @@ namespace Needlelight
     /// Attempts to auto-detect a valid Managed folder for the provided game profile, without
     /// consulting on-disk settings. Returns null if nothing is found.
     /// </summary>
-    internal static async Task<ValidPath?> TryAutoDetect(GameProfile profile)
+    internal static async Task<ValidPath?> TryAutoDetect(GameProfile profile, bool allowCrossProfileFallback = true)
     {
       // Use an internal synchronous detector so we can attempt fallbacks without recursion.
       ValidPath? TryDetectInternal(GameProfile p)
@@ -215,7 +247,7 @@ namespace Needlelight
 
       // If we couldn't find the requested profile, attempt reasonable fallbacks (e.g., if looking for Hollow Knight
       // but only Silksong is installed, accept Silksong so the user can still use the mod manager).
-      if (profile == GameProfiles.HollowKnight)
+      if (allowCrossProfileFallback && profile == GameProfiles.HollowKnight)
       {
         var fallback = TryDetectInternal(GameProfiles.Silksong);
         if (fallback is not null)
@@ -226,6 +258,18 @@ namespace Needlelight
       await DisplayErrors.AskForAdminReload("Path was not automatically found from registry.");
 
       return null; // explicit null if nothing detected
+    }
+
+    internal static async Task<(ValidPath? Path, GameProfile? Profile)> TryAutoDetectAnyGame()
+    {
+      // Prefer Hollow Knight first, then Silksong without cross-fallback to avoid looping.
+      var hk = await TryAutoDetect(GameProfiles.HollowKnight);
+      if (hk is not null) return (hk, GameProfiles.HollowKnight);
+
+      var ss = await TryAutoDetect(GameProfiles.Silksong, allowCrossProfileFallback: false);
+      if (ss is not null) return (ss, GameProfiles.Silksong);
+
+      return (null, null);
     }
 
     private static bool TryDetectFromRegistry([MaybeNullWhen(false)] out ValidPath path, GameProfile profile)
@@ -366,7 +410,23 @@ namespace Needlelight
 
       try
       {
-        return JsonSerializer.Deserialize<Settings>(content);
+        var loaded = JsonSerializer.Deserialize<Settings>(content);
+        if (loaded is not null)
+        {
+          var normalizedGame = loaded.NormalizeGameKey(loaded.Game);
+          if (string.IsNullOrWhiteSpace(loaded._managedFolder) &&
+              loaded.ManagedFolders.TryGetValue(normalizedGame, out var mapped) &&
+              !string.IsNullOrWhiteSpace(mapped))
+          {
+            loaded._managedFolder = mapped;
+          }
+          else
+          {
+            loaded.EnsureCurrentGameFolderMapping();
+          }
+        }
+
+        return loaded;
       }
       // The JSON is malformed, act as if we don't have settings as a backup
       catch (Exception e) when (e is JsonException or ArgumentNullException)
@@ -399,8 +459,22 @@ namespace Needlelight
       return settings;
     }
 
+    private void EnsureCurrentGameFolderMapping()
+    {
+      if (string.IsNullOrWhiteSpace(Game) || string.IsNullOrWhiteSpace(_managedFolder))
+        return;
+
+      var key = NormalizeGameKey(Game);
+      if (string.IsNullOrWhiteSpace(key)) return;
+
+      if (!ManagedFolders.TryGetValue(key, out var existing) || string.IsNullOrWhiteSpace(existing))
+        ManagedFolders[key] = _managedFolder;
+    }
+
     public void Save()
     {
+      EnsureCurrentGameFolderMapping();
+
       string content = JsonSerializer.Serialize(this, new JsonSerializerOptions()
       {
         WriteIndented = true,
@@ -414,4 +488,3 @@ namespace Needlelight
     }
   }
 }
-
