@@ -46,6 +46,7 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0-preview.7.23375.6" />
         <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2" />
         <PackageReference Include="Mono.Cecil" Version="0.11.5" />
+        <PackageReference Include="SkiaSharp" Version="2.88.7" />
     <!-- Auto-update packages removed because auto-update functionality has been disabled -->
         <PackageReference Include="PropertyChanged.SourceGenerator" Version="1.0.8">
             <PrivateAssets>all</PrivateAssets>
@@ -77,4 +78,3 @@
         </Compile>
     </ItemGroup>
 </Project>
-

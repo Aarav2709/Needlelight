@@ -10,6 +10,7 @@
         <RootNamespace>Needlelight.AU</RootNamespace>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
 
         <PublishAot>true</PublishAot>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
@@ -17,4 +18,3 @@
         <ApplicationManifest>app.manifest</ApplicationManifest>
     </PropertyGroup>
 </Project>
-
