@@ -42,19 +42,19 @@ namespace Needlelight.Views.Pages
                 .ToList();
 
         }
-        
+
         // MenuItem's Popup is not created when ctor is run. I randomly override methods until
         // I found one that is called after Popup is created. There is nothing special about ArrangeCore
         protected override void ArrangeCore(Rect finalRect)
         {
             base.ArrangeCore(finalRect);
-            
+
             SetUpFlyoutPopup();
 
             ModListViewModel.OnSelectModsWithFilter += ModFilterSelected;
-            
+
             ModListViewModel.OnModDownloaded += (action, modName) => _notify?.Show(
-                new Notification($"Mod {action}", 
+                new Notification($"Mod {action}",
                     $"{modName} has been {action.ToLower()} successfully",
                     NotificationType.Success, new TimeSpan(0,0,0,2)));
 
@@ -64,9 +64,9 @@ namespace Needlelight.Views.Pages
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
-            
+
             var topLevel = TopLevel.GetTopLevel(this);
-            
+
             _notify = new WindowNotificationManager(topLevel)
             {
                 MaxItems = 1,
@@ -96,14 +96,15 @@ namespace Needlelight.Views.Pages
                 popup.IsLightDismissEnabled = true;
             }
         }
-        
+
         private void OnKeyDown(object? sender, KeyEventArgs e)
         {
             if (Search == null) return;
-            
-            if (!Search.IsFocused && ModListViewModel.IsNormalSearch)
+
+            if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.F && !Search.IsFocused && ModListViewModel.IsNormalSearch)
             {
                 Search.Focus();
+                e.Handled = true;
             }
         }
 
@@ -111,10 +112,10 @@ namespace Needlelight.Views.Pages
         {
             if (!e.Element.GetVisualChildren().Any())
                 return;
-            
+
             var expander = e.Element.GetVisualChildren().OfType<Expander>().FirstOrDefault();
             if (expander != null) expander.IsExpanded = false;
-            
+
             // CTextBlock is the element that markdown avalonia uses for the text
             var cTextBlock = e.Element.GetLogicalDescendants().OfType<CTextBlock>().FirstOrDefault();
             if (cTextBlock != null) cTextBlock.FontSize = 12;
@@ -159,17 +160,17 @@ namespace Needlelight.Views.Pages
                 ModFilterState.WhatsNew => ModFilter_WhatsNew,
                 _ => throw new InvalidOperationException()
             };
-            
+
             foreach (var menuItem in _modFilterItems.Where(x => x.Name != selectedMenuItem.Name))
             {
                 menuItem.Background = Brushes.Transparent;
             }
 
             Debug.WriteLine(selectedMenuItem.Name);
-            
+
             selectedMenuItem.Background = Application.Current?.Resources["HighlightBlue"] as IBrush;
 
-            
+
             // mod filter all background sometimes gets stuck on blue for no reason. So bandage solution it this ig
             Dispatcher.UIThread.InvokeAsync(async () =>
             {
