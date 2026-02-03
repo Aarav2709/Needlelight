@@ -166,6 +166,23 @@ namespace Needlelight
     private static string ConfigPath => Path.Combine(ConfigFolderPath, "HKInstallerSettings.json");
     public string CacheFolder => Path.Combine(ConfigFolderPath, "HKInstallerCache");
 
+    public string ModsFolder
+    {
+      get
+      {
+        if (string.Equals(Game, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase))
+        {
+          var root = PathUtil.TryGetGameRootFromManagedFolder(ManagedFolder);
+          if (!string.IsNullOrWhiteSpace(root))
+            return Path.Combine(root, "BepInEx", "plugins");
+        }
+
+        return Path.Combine(ManagedFolder, "Mods");
+      }
+    }
+
+    public string DisabledFolder => Path.Combine(ModsFolder, "Disabled");
+
     internal Settings(string path)
     {
       ManagedFolder = path;
