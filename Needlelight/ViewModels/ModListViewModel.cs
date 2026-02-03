@@ -666,7 +666,7 @@ namespace Needlelight.ViewModels
 
     public void OpenModsDirectory()
     {
-      var modsFolder = Path.Combine(_settings.ManagedFolder, "Mods");
+      var modsFolder = _settings.ModsFolder;
 
       // Create the directory if it doesn't exist,
       // so we don't open a non-existent folder.

@@ -282,7 +282,8 @@ namespace Needlelight.ViewModels
           _ => throw new ArgumentOutOfRangeException()
         };
 
-        var linksCacheExists = File.Exists(modLinksCache) && File.Exists(apiLinksCache);
+        var linksCacheExists = File.Exists(modLinksCache) && File.Exists(apiLinksCache) &&
+                   new FileInfo(modLinksCache).Length > 0 && new FileInfo(apiLinksCache).Length > 0;
 
         if (!linksCacheExists)
         {

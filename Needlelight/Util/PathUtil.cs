@@ -248,6 +248,44 @@ namespace Needlelight.Util
       return candidates.Any(c => dataFolder.Equals(c, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Attempts to resolve the game root folder from a Unity Managed folder path.
+    /// Returns null when the path is invalid or cannot be resolved.
+    /// </summary>
+    public static string? TryGetGameRootFromManagedFolder(string managedFolder)
+    {
+      if (string.IsNullOrWhiteSpace(managedFolder))
+        return null;
+
+      var di = new DirectoryInfo(managedFolder);
+      if (!di.Exists)
+        return null;
+
+      if (!di.Name.Equals("Managed", StringComparison.OrdinalIgnoreCase))
+        return null;
+
+      var dataFolder = di.Parent;
+      if (dataFolder is null)
+        return null;
+
+      // macOS app bundles: <App>.app/Contents/Resources/Data/Managed
+      if (dataFolder.Name.Equals("Data", StringComparison.OrdinalIgnoreCase))
+      {
+        var resources = dataFolder.Parent;
+        var contents = resources?.Parent;
+        var appRoot = contents?.Parent;
+        if (resources?.Name.Equals("Resources", StringComparison.OrdinalIgnoreCase) == true &&
+            contents?.Name.Equals("Contents", StringComparison.OrdinalIgnoreCase) == true &&
+            appRoot is not null)
+        {
+          return appRoot.FullName;
+        }
+      }
+
+      // Windows/Linux: <Game>_Data/Managed
+      return dataFolder.Parent?.FullName;
+    }
+
     private static bool TryResolveProfiledPath(string root, GameProfile requestedProfile, out ValidPath validPath, out GameProfile resolvedProfile)
     {
       validPath = null!;

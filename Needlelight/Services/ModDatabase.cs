@@ -370,6 +370,19 @@ namespace Needlelight.Services
             // although slower to fetch one by one, prevents silent errors and hence resulting in
             // empty screen with no error
             ModLinks ml = await FetchModLinks(hc, settings, fetchOfficial);
+
+            if (ml.Manifests.Length == 0 &&
+                string.Equals(settings.Game, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase))
+            {
+                var tsFallback = await ThunderstoreModLinksBuilder.BuildAsync(hc, settings, new CancellationTokenSource(TIMEOUT).Token);
+                if (tsFallback is not null && tsFallback.Manifests.Length > 0)
+                    ml = tsFallback;
+            }
+
+            if (string.IsNullOrWhiteSpace(ml.Raw) && ml.Manifests.Length > 0)
+            {
+                ml.Raw = ThunderstoreModLinksBuilder.BuildRawXml(ml.Manifests);
+            }
             ApiLinks al = await FetchApiLinks(hc, settings);
 
             return (ml, al);
@@ -409,6 +422,15 @@ namespace Needlelight.Services
             // Normalize settings to a guaranteed non-null instance for the rest of this method.
             var effectiveSettings = settings ?? Settings.Load() ?? new Settings();
 
+            // For Silksong, prefer Thunderstore when using official sources.
+            if (fetchOfficial && !effectiveSettings.UseCustomModlinks &&
+                string.Equals(effectiveSettings.Game, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase))
+            {
+                var ts = await ThunderstoreModLinksBuilder.BuildAsync(hc, effectiveSettings, new CancellationTokenSource(TIMEOUT).Token);
+                if (ts is not null && ts.Manifests.Length > 0)
+                    return ts;
+            }
+
             if (!fetchOfficial && effectiveSettings.UseCustomModlinks)
             {
                 try
@@ -421,7 +443,14 @@ namespace Needlelight.Services
                     var modlinksUri = new Uri(customUri);
                     if (modlinksUri.IsFile)
                     {
-                        return FromString<ModLinks>(await File.ReadAllTextAsync(modlinksUri.LocalPath));
+                        var local = FromString<ModLinks>(await File.ReadAllTextAsync(modlinksUri.LocalPath));
+                        if (local.Manifests.Length == 0 && string.Equals(effectiveSettings.Game, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var tsFallback = await ThunderstoreModLinksBuilder.BuildAsync(hc, effectiveSettings, new CancellationTokenSource(TIMEOUT).Token);
+                            if (tsFallback is not null && tsFallback.Manifests.Length > 0)
+                                return tsFallback;
+                        }
+                        return local;
                     }
 
                     var cts = new CancellationTokenSource(TIMEOUT);
@@ -439,7 +468,14 @@ namespace Needlelight.Services
                         customUri = customUri.Replace("pastebin.com", "pastebin.com/raw");
                     }
 
-            return FromString<ModLinks>(await hc.GetStringAsync2(effectiveSettings, new Uri(customUri), cts.Token));
+            var remote = FromString<ModLinks>(await hc.GetStringAsync2(effectiveSettings, new Uri(customUri), cts.Token));
+            if (remote.Manifests.Length == 0 && string.Equals(effectiveSettings.Game, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase))
+            {
+                var tsFallback = await ThunderstoreModLinksBuilder.BuildAsync(hc, effectiveSettings, new CancellationTokenSource(TIMEOUT).Token);
+                if (tsFallback is not null && tsFallback.Manifests.Length > 0)
+                    return tsFallback;
+            }
+            return remote;
                 }
                 catch (Exception e)
                 {

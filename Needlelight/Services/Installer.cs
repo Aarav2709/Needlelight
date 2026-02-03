@@ -587,7 +587,14 @@ namespace Needlelight.Services
             {
                 case ".zip":
                 {
-                    ExtractZip(data, mod_folder);
+                    if (IsSilksong() && TryGetBepInExPluginsPrefix(data, out var prefix))
+                    {
+                        ExtractZip(data, base_folder, prefix);
+                    }
+                    else
+                    {
+                        ExtractZip(data, mod_folder);
+                    }
 
                     break;
                 }
@@ -642,15 +649,35 @@ namespace Needlelight.Services
 
         private void ExtractZip(ArraySegment<byte> data, string root)
         {
+            ExtractZip(data, root, stripPrefix: null);
+        }
+
+        private void ExtractZip(ArraySegment<byte> data, string root, string? stripPrefix)
+        {
             using var archive = new ZipArchive(data.AsMemory().AsStream());
 
             string dest_dir_path = CreateDirectoryPath(root);
+            var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
             foreach (ZipArchiveEntry entry in archive.Entries)
             {
-                string file_dest = Path.GetFullPath(Path.Combine(dest_dir_path, entry.FullName));
+                var entryPath = NormalizeZipPath(entry.FullName);
+                if (string.IsNullOrEmpty(entryPath))
+                    continue;
 
-                if (!file_dest.StartsWith(dest_dir_path))
+                if (!string.IsNullOrEmpty(stripPrefix))
+                {
+                    if (!entryPath.StartsWith(stripPrefix, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    entryPath = entryPath.Substring(stripPrefix.Length).TrimStart('/');
+                    if (string.IsNullOrEmpty(entryPath))
+                        continue;
+                }
+
+                string file_dest = Path.GetFullPath(Path.Combine(dest_dir_path, entryPath));
+
+                if (!file_dest.StartsWith(dest_dir_path, comparison))
                     throw new IOException("Extracts outside of directory!");
 
                 // If it's a directory:
@@ -668,6 +695,37 @@ namespace Needlelight.Services
                 }
             }
         }
+
+        private static string NormalizeZipPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return string.Empty;
+
+            var normalized = path.Replace('\\', '/').TrimStart('/');
+            return normalized;
+        }
+
+        private static bool TryGetBepInExPluginsPrefix(ArraySegment<byte> data, out string prefix)
+        {
+            var localPrefix = "BepInEx/plugins/";
+
+            try
+            {
+                using var archive = new ZipArchive(data.AsMemory().AsStream());
+                var hasPrefix = archive.Entries.Any(entry =>
+                    NormalizeZipPath(entry.FullName).StartsWith(localPrefix, StringComparison.OrdinalIgnoreCase));
+                prefix = localPrefix;
+                return hasPrefix;
+            }
+            catch
+            {
+                prefix = string.Empty;
+                return false;
+            }
+        }
+
+        private bool IsSilksong() =>
+            string.Equals(_settings.Game, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase);
 
         private void ExtractToFile(ZipArchiveEntry src, string dest)
         {
