@@ -1,12 +1,4 @@
 name: Build
-
-# Trigger on pushes and pull requests as before. The `release` job below checks
-# for tag pushes and verifies the tag points to master before creating a GitHub
-# Release (so releases only occur for tags like v4.0.0.0 pushed to master).
-# Keep normal push and pull_request builds, and also trigger on semver-style tag pushes.
-# We use branches: ['**'] to preserve push behavior on all branches and add a tags
-# pattern to trigger workflows on tags like v4.0.0.0. The release job further
-# verifies the tag is on master before creating a release.
 on:
   push:
     tags:
