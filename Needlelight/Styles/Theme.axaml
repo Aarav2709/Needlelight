@@ -12,16 +12,16 @@
   <Color x:Key="Color.TextMuted">#8A94AB</Color>
 
   <!-- Accents -->
-  <Color x:Key="Color.Primary">#C1372A</Color>            <!-- Silksong red -->
-  <Color x:Key="Color.PrimaryHover">#D4483B</Color>
+  <Color x:Key="Color.Primary">#330055</Color>            <!-- Hollow Knight purple -->
+  <Color x:Key="Color.PrimaryHover">#4A0077</Color>
   <Color x:Key="Color.Info">#88B6F1</Color>
   <Color x:Key="Color.Danger">#F05B5B</Color>
   <Color x:Key="Color.DangerHover">#DC4B4B</Color>
 
   <!-- Legacy compatibility brushes/keys used across views -->
-  <SolidColorBrush x:Key="HighlightBlue">#C1272D</SolidColorBrush>
+  <SolidColorBrush x:Key="HighlightBlue">#330055</SolidColorBrush>
   <SolidColorBrush x:Key="BackgroundColor">#1A0E0E</SolidColorBrush>
-  <SolidColorBrush x:Key="HighlightRed">#C1272D</SolidColorBrush>
+  <SolidColorBrush x:Key="HighlightRed">#330055</SolidColorBrush>
   <SolidColorBrush x:Key="DefaultButtonColor">#505050</SolidColorBrush>
   <SolidColorBrush x:Key="TextColor">#E6EAF3</SolidColorBrush>
   <SolidColorBrush x:Key="DisabledColor">#8A94AB</SolidColorBrush>

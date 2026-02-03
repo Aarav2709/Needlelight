@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using JetBrains.Annotations;
 using MsBox.Avalonia.Dto;
@@ -78,26 +80,38 @@ namespace Needlelight.ViewModels
       }
     }
 
-    public bool IsSilksong
+    private void ApplyGameTheme(string key)
     {
-      get
+      var accentHex = string.Equals(key, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase)
+          ? "#E92337"
+          : "#330055";
+      var accentHoverHex = string.Equals(key, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase)
+          ? "#FF3A4D"
+          : "#4A0077";
+
+      var accent = Color.Parse(accentHex);
+      var accentHover = Color.Parse(accentHoverHex);
+
+      var resources = Application.Current?.Resources;
+      if (resources == null) return;
+
+      resources["Color.Accent"] = accent;
+      resources["Color.AccentHover"] = accentHover;
+      resources["Color.Primary"] = accent;
+      resources["Color.PrimaryHover"] = accentHover;
+
+      resources["Brush.Accent"] = new SolidColorBrush(accent);
+      resources["Brush.AccentHover"] = new SolidColorBrush(accentHover);
+      resources["HighlightBlue"] = new SolidColorBrush(accent);
+      resources["HighlightRed"] = new SolidColorBrush(accent);
+
+      // Update Fluent theme palette accent if available
+      var fluent = Application.Current?.Styles.OfType<FluentTheme>().FirstOrDefault();
+      if (fluent != null && fluent.Palettes.TryGetValue(ThemeVariant.Dark, out var palette))
       {
-        try
-        {
-          var s = Settings.Load();
-          var key = s?.Game ?? Needlelight.Models.GameProfiles.HollowKnightKey;
-          return string.Equals(key, Needlelight.Models.GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-          return false;
-        }
+        palette.Accent = accent;
       }
     }
-
-    public IBrush GameAccentBrush => IsSilksong
-        ? new SolidColorBrush(Color.Parse("#7B5CFF"))
-        : new SolidColorBrush(Color.Parse("#4BB4FF"));
 
     // Top bar game selector backing properties
     public ObservableCollection<string> TopBarAvailableGames { get; } = new(new[] { GameProfiles.HollowKnight.Name, GameProfiles.Silksong.Name });
@@ -692,6 +706,7 @@ namespace Needlelight.ViewModels
     public MainWindowViewModel()
     {
       Instance = this;
+      ApplyGameTheme(Settings.Load()?.Game ?? GameProfiles.HollowKnightKey);
       _loadingPage = new LoadingViewModel();
       Dispatcher.UIThread.InvokeAsync(async () => await LoadApp());
       Trace.WriteLine("Loaded app");
@@ -792,8 +807,8 @@ namespace Needlelight.ViewModels
         // Notify header bindings right away
         RaisePropertyChanged(nameof(TopBarSelectedGame));
         RaisePropertyChanged(nameof(ActiveProfileName));
-        RaisePropertyChanged(nameof(IsSilksong));
-        RaisePropertyChanged(nameof(GameAccentBrush));
+
+        ApplyGameTheme(key);
 
         // Preserve current selected tab when reloading
   var currentTab = SelectedTabIndex;

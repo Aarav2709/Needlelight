@@ -1,43 +1,5 @@
-# Needlelight Changelog
+<!-- changelog removed -->
 
-Source code adapted from: https://github.com/TheMulhima/Lumafly
-
-[v6.1.0.3](#changes-in-v61103)
-
-## Changes in v6.1.0.3
-
-DATE: 2025-12-04
-
-- Allows Silksong-only installs to register without detecting Hollow Knight first by accepting Linux/MacSteam/flatpak paths and macOS `.app` bundles during path selection.
-- Launcher metadata now includes Silksong and Linux executable names so launching the correct binary no longer requires a hidden Hollow Knight install.
-- Vanilla assembly discovery validates each manifest URL, skips 404 responses, and falls through to other sources so InstallVanilla succeeds even when upstream feeds misbehave.
-- API toggles detect manual/BepInEx-heavy installs and keep the toggle responsive, ensuring Silksong/Hollow Knight auto-updates no longer crash when metadata is missing.
-
-## Changes in v6.1.0.2
-
-DATE: 2025-11-01
-
-- Aligns ModLinks, API manifests, and vanilla assembly endpoints per game profile with resilient fallbacks for Silksong.
-- Fixes Silksong macOS launch detection by targeting the `.app/Contents/MacOS` executable path.
-- Adds defensive API toggle behaviour and nullability cleanups to keep Hollow Knight compatibility intact.
-
-## Changes in v5.1.0.2
-
-DATE: 2025-09-18
-
-## Changes in v5.1.0.1
-
-DATE: 2025-09-09
-
-- ## Changes in v5.1.0.0
-- DATE: 2025-09-09
-- - Upgrade runtime to .NET 9.0 for better performance and longevity.
-- - Rename application binary to Needlelight (AssemblyName change); resources updated accordingly.
-- DATE: 2025-09-07
-- - Silksong-inspired red theme and modernized UI components (surfaces, borders, primary buttons).
-- - Fixed navigation and layout issues; top-bar game switcher and bottom navigation with icons + text.
-- - Robust per-game behavior and path detection; profile-aware mods folder and installed-mods isolation.
-- - Empty-state banner and success notification styling; success bar now solid maroon with border.
 - - Upgraded to .NET 7 and modernized build to reduce platform-specific issues.
 - - Compile-time fixes and resource sync to ensure a clean build.
 - - Refactored game launch logic to be profile-aware (Hollow Knight & Silksong support).
@@ -86,7 +48,6 @@ DATE: 2025-09-09
 ## Changes in v2.1.0.0
 
 - Additional Features
-
   - Improve performace by upgrading framework
   - Make it easier to update via the new auto updater in windows. Also shows change log before asking to update.
   - Add mod actions panel, a set of buttons in the mod's expander that allow you to
@@ -104,7 +65,6 @@ DATE: 2025-09-09
   - Add url scheme to remove global settings.
 
 - Bug Fixes
-
   - Fix the issue where scarab sometimes freezes on load.
   - Prevent occasional random crashes on load.
   - Fix the issue where toggling a mod causes it to appear in both mods folder and disabled folder.
@@ -120,7 +80,6 @@ DATE: 2025-09-09
   - Get correct vanilla assembly for each os on disable API
 
 - QoL Changes
-
   - Improve path selector.
   - New install and update button UI.
   - Ability to register mod as not from modlinks by right clicking it.
@@ -135,7 +94,6 @@ DATE: 2025-09-09
 ## Changes in v2.0.0.0
 
 - Additional Features
-
   - Improved search options (Filter by tags, by authors, search for dependents).
   - An offline mode.
   - Filter for newly released/updated mods.
@@ -149,7 +107,6 @@ DATE: 2025-09-09
   - A settings tab for scarab's settings.
 
 - Bug Fixes
-
   - Fixes the bug where scarab sometimes didn't download a mod or update its dependencies properly.
   - Update on version difference instead of only on lower version.
   - Fixed bug where Scarab showed a modded install as vanilla. Instead now if that happens and scarab can't fix the issue by itself, it prompts to verify integrity.
@@ -160,7 +117,6 @@ DATE: 2025-09-09
   - Fixed Scarab showing blank screen on initial load.
 
 - QoL Changes
-
   - More detailed errors.
   - Mod details are more compact.
   - Better UI for repository link.
