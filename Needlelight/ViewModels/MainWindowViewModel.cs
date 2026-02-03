@@ -91,6 +91,8 @@ namespace Needlelight.ViewModels
       var surfaceHex = isSilksong ? "#2A0E12" : "#1E0028";
       var surfaceElevatedHex = isSilksong ? "#3A141A" : "#2A003A";
       var borderHex = isSilksong ? "#4A1B22" : "#3A004F";
+      var regionHex = isSilksong ? "#14070A" : "#0E0014";
+      var defaultButtonHex = isSilksong ? "#3A141A" : "#2A003A";
 
       var accent = Color.Parse(accentHex);
       var accentHover = Color.Parse(accentHoverHex);
@@ -98,6 +100,8 @@ namespace Needlelight.ViewModels
       var surface = Color.Parse(surfaceHex);
       var surfaceElevated = Color.Parse(surfaceElevatedHex);
       var border = Color.Parse(borderHex);
+      var region = Color.Parse(regionHex);
+      var defaultButton = Color.Parse(defaultButtonHex);
 
       var resources = Application.Current?.Resources;
       if (resources == null) return;
@@ -123,12 +127,15 @@ namespace Needlelight.ViewModels
       resources["HighlightBlue"] = new SolidColorBrush(accent);
       resources["HighlightRed"] = new SolidColorBrush(accent);
       resources["BackgroundColor"] = new SolidColorBrush(background);
+      resources["RegionColor"] = new SolidColorBrush(region);
+      resources["DefaultButtonColor"] = new SolidColorBrush(defaultButton);
 
       // Update Fluent theme palette accent if available
       var fluent = Application.Current?.Styles.OfType<FluentTheme>().FirstOrDefault();
       if (fluent != null && fluent.Palettes.TryGetValue(ThemeVariant.Dark, out var palette))
       {
         palette.Accent = accent;
+        palette.RegionColor = region;
       }
     }
 
