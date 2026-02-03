@@ -82,28 +82,47 @@ namespace Needlelight.ViewModels
 
     private void ApplyGameTheme(string key)
     {
-      var accentHex = string.Equals(key, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase)
-          ? "#E92337"
-          : "#330055";
-      var accentHoverHex = string.Equals(key, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase)
-          ? "#FF3A4D"
-          : "#4A0077";
+      var isSilksong = string.Equals(key, GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase);
+
+      var accentHex = isSilksong ? "#E92337" : "#330055";
+      var accentHoverHex = isSilksong ? "#FF3A4D" : "#4A0077";
+
+      var backgroundHex = isSilksong ? "#1A0A0C" : "#120018";
+      var surfaceHex = isSilksong ? "#2A0E12" : "#1E0028";
+      var surfaceElevatedHex = isSilksong ? "#3A141A" : "#2A003A";
+      var borderHex = isSilksong ? "#4A1B22" : "#3A004F";
 
       var accent = Color.Parse(accentHex);
       var accentHover = Color.Parse(accentHoverHex);
+      var background = Color.Parse(backgroundHex);
+      var surface = Color.Parse(surfaceHex);
+      var surfaceElevated = Color.Parse(surfaceElevatedHex);
+      var border = Color.Parse(borderHex);
 
       var resources = Application.Current?.Resources;
       if (resources == null) return;
+
+      resources["Color.Background"] = background;
+      resources["Color.Surface"] = surface;
+      resources["Color.SurfaceElevated"] = surfaceElevated;
+      resources["Color.Border"] = border;
 
       resources["Color.Accent"] = accent;
       resources["Color.AccentHover"] = accentHover;
       resources["Color.Primary"] = accent;
       resources["Color.PrimaryHover"] = accentHover;
 
+      resources["Brush.Background"] = new SolidColorBrush(background);
+      resources["Brush.Surface"] = new SolidColorBrush(surface);
+      resources["Brush.SurfaceElevated"] = new SolidColorBrush(surfaceElevated);
+      resources["Brush.Border"] = new SolidColorBrush(border);
+      resources["Brush.BorderSubtle"] = new SolidColorBrush(border);
+
       resources["Brush.Accent"] = new SolidColorBrush(accent);
       resources["Brush.AccentHover"] = new SolidColorBrush(accentHover);
       resources["HighlightBlue"] = new SolidColorBrush(accent);
       resources["HighlightRed"] = new SolidColorBrush(accent);
+      resources["BackgroundColor"] = new SolidColorBrush(background);
 
       // Update Fluent theme palette accent if available
       var fluent = Application.Current?.Styles.OfType<FluentTheme>().FirstOrDefault();
