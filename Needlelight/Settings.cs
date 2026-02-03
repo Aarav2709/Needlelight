@@ -434,6 +434,7 @@ namespace Needlelight
         var loaded = JsonSerializer.Deserialize<Settings>(content);
         if (loaded is not null)
         {
+          loaded.SanitizeManagedFolders();
           var normalizedGame = loaded.NormalizeGameKey(loaded.Game);
           if (string.IsNullOrWhiteSpace(loaded._managedFolder) &&
               loaded.ManagedFolders.TryGetValue(normalizedGame, out var mapped) &&
@@ -488,12 +489,44 @@ namespace Needlelight
       var key = NormalizeGameKey(Game);
       if (string.IsNullOrWhiteSpace(key)) return;
 
+      if (!PathUtil.ManagedFolderMatchesProfile(_managedFolder, CurrentProfile))
+        return;
+
       if (!ManagedFolders.TryGetValue(key, out var existing) || string.IsNullOrWhiteSpace(existing))
         ManagedFolders[key] = _managedFolder;
     }
 
+    private void SanitizeManagedFolders()
+    {
+      var keys = ManagedFolders.Keys.ToList();
+      foreach (var key in keys)
+      {
+        var profile = GameProfiles.GetByKey(key);
+        var path = ManagedFolders[key];
+        if (string.IsNullOrWhiteSpace(path) || !PathUtil.ManagedFolderMatchesProfile(path, profile))
+        {
+          ManagedFolders.Remove(key);
+        }
+      }
+
+      if (!string.IsNullOrWhiteSpace(_managedFolder) && !PathUtil.ManagedFolderMatchesProfile(_managedFolder, CurrentProfile))
+      {
+        var normalized = NormalizeGameKey(Game);
+        if (!string.IsNullOrWhiteSpace(normalized) && ManagedFolders.TryGetValue(normalized, out var mapped) &&
+            PathUtil.ManagedFolderMatchesProfile(mapped, CurrentProfile))
+        {
+          _managedFolder = mapped;
+        }
+        else
+        {
+          _managedFolder = string.Empty;
+        }
+      }
+    }
+
     public void Save()
     {
+      SanitizeManagedFolders();
       EnsureCurrentGameFolderMapping();
 
       string content = JsonSerializer.Serialize(this, new JsonSerializerOptions()

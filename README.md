@@ -50,19 +50,16 @@ Key improvements in Needlelight:
 
 - If you want to suggest a feature or report a bug, report it on the issues page.
 - If you want to contribute, feel free to. You can see what features are currently requested over here.
-  If you want to contribute to localizations, please use Crowdin to add the translations.
 
 ## Credits
 
 - Source code adapted from https://github.com/TheMulhima/Lumafly
 
 - Programming
-
   - [56](https://github.com/fifty-six) - Creator of [Scarab](https://github.com/fifty-six/Scarab), on which Needlelight is based
   - [JacksonFaller](https://github.com/JacksonFaller), [Italy](https://github.com/jngo102), and [Acu1000](https://github.com/Acu1000)
 
 - Translations
-
   - [Clazex](https://github.com/Clazex) - Chinese translations
   - [luiz_eldorado](https://github.com/luizeldorado) - Portuguese translations
   - [Dastan](https://github.com/Dastan21) - French translations
@@ -77,7 +74,6 @@ Key improvements in Needlelight:
 Because the app isn’t code-signed with a paid certificate, Windows SmartScreen may warn on first launch. Free options:
 
 - Unblock the downloaded ZIP before extracting.
-
   - Right‑click the ZIP → Properties → check “Unblock” → OK → then extract.
   - Or in PowerShell (replace the filename if different):
 

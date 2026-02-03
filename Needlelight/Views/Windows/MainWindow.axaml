@@ -171,7 +171,7 @@
         <Border Grid.Row="0"
             Height="3"
             VerticalAlignment="Bottom"
-            Background="{CompiledBinding GameAccentBrush}" />
+            Background="{DynamicResource Brush.Accent}" />
 
         <!-- Content Area with Transitions -->
         <TransitioningContentControl Grid.Row="1"

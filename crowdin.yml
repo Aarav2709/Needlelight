@@ -1,4 +1,1 @@
-files:
-  - source: /Needlelight/Resources.resx
-    translation: /Needlelight/Localizations/Resources.%two_letters_code%.resx
-
+## crowdin config removed

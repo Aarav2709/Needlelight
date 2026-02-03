@@ -4,8 +4,8 @@
   <Color x:Key="Color.Background">#1A0E0E</Color>
   <Color x:Key="Color.Surface">#2A1111</Color> <!-- maroonish dim red for top bar/cards -->
   <Color x:Key="Color.SurfaceElevated">#3B1717</Color>
-  <Color x:Key="Color.Accent">#C1272D</Color>
-  <Color x:Key="Color.AccentHover">#E03A40</Color>
+  <Color x:Key="Color.Accent">#330055</Color>
+  <Color x:Key="Color.AccentHover">#4A0077</Color>
   <Color x:Key="Color.TextPrimary">#E5E5E5</Color>
   <Color x:Key="Color.TextSecondary">#9C9C9C</Color>
   <Color x:Key="Color.Shadow">#00000066</Color>

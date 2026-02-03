@@ -15,7 +15,7 @@
     <Application.Styles>
         <FluentTheme DensityStyle="Compact">
             <FluentTheme.Palettes>
-                <ColorPaletteResources x:Key="Dark" Accent="#C1272D" RegionColor="#0E0E10" />
+                <ColorPaletteResources x:Key="Dark" Accent="#330055" RegionColor="#0E0E10" />
             </FluentTheme.Palettes>
         </FluentTheme>
 
@@ -37,9 +37,9 @@
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Compatibility brushes -->
-            <SolidColorBrush x:Key="HighlightBlue">#C1272D</SolidColorBrush>
+            <SolidColorBrush x:Key="HighlightBlue">#330055</SolidColorBrush>
             <SolidColorBrush x:Key="BackgroundColor">#0E0E10</SolidColorBrush>
-            <SolidColorBrush x:Key="HighlightRed">#C1272D</SolidColorBrush>
+            <SolidColorBrush x:Key="HighlightRed">#330055</SolidColorBrush>
             <SolidColorBrush x:Key="DefaultButtonColor">#2A2A2E</SolidColorBrush>
             <SolidColorBrush x:Key="TextColor">#E5E5E5</SolidColorBrush>
             <SolidColorBrush x:Key="DisabledColor">#9C9C9C</SolidColorBrush>

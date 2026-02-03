@@ -14,103 +14,113 @@
             x:CompileBindings="True"
             x:DataType="viewModels:InfoViewModel">
     <ScrollViewer>
-        <StackPanel>
-            <StackPanel>
-                <TextBox
-                    IsVisible="{Binding !AdditionalInfoVisible}"
-                    BorderThickness="0"
-                    IsReadOnly="True"
-                    Text="{ext:Localize XAML_InfoBody}"
-                    FontSize="16"
-                    TextWrapping="Wrap"
-                    HorizontalAlignment="Center"
-                    Margin="20 0 20 40" />
+        <StackPanel Margin="24" Spacing="20">
+            <Border
+                Background="{DynamicResource Brush.Surface}"
+                BorderBrush="{DynamicResource Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock
+                        Text="Game Launcher"
+                        FontSize="22"
+                        FontWeight="Bold"
+                        Foreground="{DynamicResource Brush.TextPrimary}" />
+                    <TextBlock
+                        Text="Launch your current profile in vanilla or modded mode."
+                        Foreground="{DynamicResource Brush.TextSecondary}"
+                        FontSize="14" />
 
-                <md:MarkdownScrollViewer
-                    IsVisible="{Binding AdditionalInfoVisible}"
-                    Markdown="{Binding AdditionalInfo}"
-                    HorizontalAlignment="Center"
-                    Margin="25 0 20 0">
-                    <md:MarkdownScrollViewer.Styles>
-                        <Style Selector="ctxt|CTextBlock">
-                            <Setter Property="FontSize" Value="16" />
-                        </Style>
-                    </md:MarkdownScrollViewer.Styles>
-                </md:MarkdownScrollViewer>
-            </StackPanel>
-            <Image
-                MaxHeight="360"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Top"
-                Opacity="0.75"
-                Margin="0,0,0,28"
-                Source="../../Assets/banner.png" />
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button
+                            Classes="primary"
+                            MinWidth="160"
+                            Height="44"
+                            IsEnabled="{Binding !IsLaunchingGame}"
+                            Command="{Binding LaunchGame}"
+                            CommandParameter="true">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <PathIcon
+                                    Width="20"
+                                    Height="20"
+                                    Data="{StaticResource play_regular}" />
+                                <TextBlock
+                                    Text="{ext:Localize XAML_LaunchVanilla}"
+                                    Margin="10 0 0 0"
+                                    FontSize="16"
+                                    VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button
+                            Classes="primary"
+                            MinWidth="160"
+                            Height="44"
+                            IsEnabled="{Binding !IsLaunchingGame}"
+                            Command="{Binding LaunchGame}"
+                            CommandParameter="false">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <PathIcon
+                                    Width="20"
+                                    Height="20"
+                                    Data="{StaticResource play_regular}" />
+                                <TextBlock
+                                    Text="{ext:Localize XAML_LaunchModded}"
+                                    Margin="10 0 0 0"
+                                    FontSize="16"
+                                    VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
 
-            <StackPanel
-                VerticalAlignment="Bottom">
-                <Grid
-                    RowDefinitions="Auto"
-                    ColumnDefinitions="* Auto * Auto *">
-                    <Button
-                        Grid.Column="1"
-                        Classes="primary"
-                        MinWidth="160"
-                        Height="44"
-                        IsEnabled="{Binding !IsLaunchingGame}"
-                        Command="{Binding LaunchGame}"
-                        CommandParameter="true">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <PathIcon
-                                Width="20"
-                                Height="20"
-                                Data="{StaticResource play_regular}" />
-                            <TextBlock
-                                Text="{ext:Localize XAML_LaunchVanilla}"
-                                Margin="10 0 0 0"
-                                FontSize="16"
-                                TextAlignment="Left"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <Button
-                        Grid.Column="3"
-                        Classes="primary"
-                        MinWidth="160"
-                        Height="44"
-                        IsEnabled="{Binding !IsLaunchingGame}"
-                        Command="{Binding LaunchGame}"
-                        CommandParameter="false">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <PathIcon
-                                Width="20"
-                                Height="20"
-                                Data="{StaticResource play_regular}" />
-                            <TextBlock
-                                Text="{ext:Localize XAML_LaunchModded}"
-                                Margin="10 0 0 0"
-                                FontSize="16"
-                                TextAlignment="Left"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                </Grid>
-                <progRing:ProgressRing
-                    IsVisible="{Binding IsLaunchingGame}"
-                    Width="20"
-                    Height="20"
-                    IsActive="True"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Foreground="Ivory"
-                    Margin="10,5" />
-                <TextBlock
-                    IsVisible="{Binding IsLaunchingGame}"
-                    Text="{ext:Localize XAML_OpeningGame}"
-                    TextAlignment="Center" />
-            </StackPanel>
+                    <StackPanel Spacing="4" HorizontalAlignment="Center">
+                        <progRing:ProgressRing
+                            IsVisible="{Binding IsLaunchingGame}"
+                            Width="20"
+                            Height="20"
+                            IsActive="True"
+                            Foreground="Ivory"
+                            Margin="10,5" />
+                        <TextBlock
+                            IsVisible="{Binding IsLaunchingGame}"
+                            Text="{ext:Localize XAML_OpeningGame}"
+                            TextAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
-            <!-- Social buttons and header removed for a cleaner main UI; see About page for credits/documentation links. -->
-            <Panel Height="20" /> <!-- Bottom Spacer -->
+            <Border
+                Background="{DynamicResource Brush.Surface}"
+                BorderBrush="{DynamicResource Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="16">
+                <StackPanel>
+                    <TextBox
+                        IsVisible="{Binding !AdditionalInfoVisible}"
+                        BorderThickness="0"
+                        IsReadOnly="True"
+                        Text="{ext:Localize XAML_InfoBody}"
+                        FontSize="16"
+                        TextWrapping="Wrap"
+                        HorizontalAlignment="Center"
+                        Margin="20 0 20 0" />
+
+                    <md:MarkdownScrollViewer
+                        IsVisible="{Binding AdditionalInfoVisible}"
+                        Markdown="{Binding AdditionalInfo}"
+                        HorizontalAlignment="Center"
+                        Margin="25 0 20 0">
+                        <md:MarkdownScrollViewer.Styles>
+                            <Style Selector="ctxt|CTextBlock">
+                                <Setter Property="FontSize" Value="16" />
+                            </Style>
+                        </md:MarkdownScrollViewer.Styles>
+                    </md:MarkdownScrollViewer>
+                </StackPanel>
+            </Border>
+
+            <Panel Height="12" />
         </StackPanel>
     </ScrollViewer>
 </views:View>
