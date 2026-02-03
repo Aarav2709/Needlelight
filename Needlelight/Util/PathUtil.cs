@@ -244,6 +244,34 @@ namespace Needlelight.Util
       if (string.IsNullOrWhiteSpace(dataFolder))
         return false;
 
+      // macOS .app bundles use a generic Data folder; validate against the app bundle name.
+      if (dataFolder.Equals("Data", StringComparison.OrdinalIgnoreCase))
+      {
+        var resources = di.Parent?.Parent;
+        var contents = resources?.Parent;
+        var appRoot = contents?.Parent;
+        if (resources?.Name.Equals("Resources", StringComparison.OrdinalIgnoreCase) == true &&
+            contents?.Name.Equals("Contents", StringComparison.OrdinalIgnoreCase) == true &&
+            appRoot?.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase) == true)
+        {
+          var appName = Path.GetFileNameWithoutExtension(appRoot.Name);
+          var profileName = profile.Name ?? string.Empty;
+
+          if (!string.IsNullOrWhiteSpace(appName) && !string.IsNullOrWhiteSpace(profileName))
+          {
+            if (appName.IndexOf(profileName, StringComparison.OrdinalIgnoreCase) >= 0)
+              return true;
+
+            // Allow a shorter Silksong match when profile name includes "Hollow Knight" prefix
+            if (profileName.IndexOf("Silksong", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                appName.IndexOf("Silksong", StringComparison.OrdinalIgnoreCase) >= 0)
+              return true;
+          }
+
+          return false;
+        }
+      }
+
       var candidates = GameProfiles.GetDataFolderCandidates(profile);
       return candidates.Any(c => dataFolder.Equals(c, StringComparison.OrdinalIgnoreCase));
     }

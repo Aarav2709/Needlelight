@@ -67,8 +67,20 @@ namespace Needlelight.ViewModels
         // Map display name back to internal key
         var key = value == Needlelight.Models.GameProfiles.Silksong.Name ? Needlelight.Models.GameProfiles.SilksongKey : Needlelight.Models.GameProfiles.HollowKnightKey;
         if (_settings.Game == key) return;
-        _settings.Game = key;
-        _settings.Save();
+
+        Dispatcher.UIThread.Post(async () =>
+        {
+          if (MainWindowViewModel.Instance != null)
+          {
+            await MainWindowViewModel.Instance.SwitchGameAsync(key);
+          }
+          else
+          {
+            _settings.Game = key;
+            _settings.Save();
+          }
+        });
+
         // Notify consumers that profile changed
         RaisePropertyChanged(nameof(SelectedGame));
         // Raise a property change for anything binding to profile indirectly

@@ -40,7 +40,7 @@ namespace Needlelight
         if (!string.IsNullOrWhiteSpace(Game) && !string.IsNullOrWhiteSpace(value))
         {
           var key = NormalizeGameKey(Game);
-          if (!string.IsNullOrEmpty(key))
+          if (!string.IsNullOrEmpty(key) && PathUtil.ManagedFolderMatchesProfile(value, CurrentProfile))
             ManagedFolders[key] = value;
         }
       }
@@ -141,6 +141,10 @@ namespace Needlelight
       {
         suffixes.Add($"{root}/{name}");
       }
+
+      // GOG (common for Linux/macOS)
+      suffixes.Add($"GOG Games/{name}");
+      suffixes.Add($"GOG Games/{name}/game");
 
       // macOS (Steam default app bundle under common)
       suffixes.Add($"Library/Application Support/Steam/steamapps/common/{name}");

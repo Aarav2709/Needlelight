@@ -78,6 +78,27 @@ namespace Needlelight.ViewModels
       }
     }
 
+    public bool IsSilksong
+    {
+      get
+      {
+        try
+        {
+          var s = Settings.Load();
+          var key = s?.Game ?? Needlelight.Models.GameProfiles.HollowKnightKey;
+          return string.Equals(key, Needlelight.Models.GameProfiles.SilksongKey, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+          return false;
+        }
+      }
+    }
+
+    public IBrush GameAccentBrush => IsSilksong
+        ? new SolidColorBrush(Color.Parse("#7B5CFF"))
+        : new SolidColorBrush(Color.Parse("#4BB4FF"));
+
     // Top bar game selector backing properties
     public ObservableCollection<string> TopBarAvailableGames { get; } = new(new[] { GameProfiles.HollowKnight.Name, GameProfiles.Silksong.Name });
 
@@ -771,6 +792,8 @@ namespace Needlelight.ViewModels
         // Notify header bindings right away
         RaisePropertyChanged(nameof(TopBarSelectedGame));
         RaisePropertyChanged(nameof(ActiveProfileName));
+        RaisePropertyChanged(nameof(IsSilksong));
+        RaisePropertyChanged(nameof(GameAccentBrush));
 
         // Preserve current selected tab when reloading
   var currentTab = SelectedTabIndex;

@@ -167,6 +167,12 @@
             </Grid>
         </Border>
 
+        <!-- Game accent bar (HK vs Silksong) -->
+        <Border Grid.Row="0"
+            Height="3"
+            VerticalAlignment="Bottom"
+            Background="{CompiledBinding GameAccentBrush}" />
+
         <!-- Content Area with Transitions -->
         <TransitioningContentControl Grid.Row="1"
                                      Content="{Binding Content}"
