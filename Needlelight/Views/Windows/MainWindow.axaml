@@ -12,60 +12,14 @@
         WindowState="Maximized"
         x:DataType="vm:MainWindowViewModel"
         CanResize="True"
-        SystemDecorations="None"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="46"
-        TransparencyLevelHint="AcrylicBlur,Blur,Transparent"
+        SystemDecorations="Full"
         TransparencyBackgroundFallback="{DynamicResource Brush.Background}"
-        Background="Transparent">
+        Background="{DynamicResource Brush.Background}">
     <Window.Resources>
         <ResourceDictionary>
-            <StreamGeometry x:Key="Icon.Minimize">M3,9 L13,9</StreamGeometry>
-            <StreamGeometry x:Key="Icon.Maximize">M3,3 L13,3 L13,13 L3,13 Z</StreamGeometry>
-            <StreamGeometry x:Key="Icon.Restore">M5,5 L13,5 L13,13 L5,13 Z M3,3 L11,3 L11,11 L3,11 Z</StreamGeometry>
             <util:GameNameShortenerConverter x:Key="GameNameShortener"/>
         </ResourceDictionary>
     </Window.Resources>
-
-    <Window.Styles>
-        <Style Selector="Button.window-control">
-            <Setter Property="Width" Value="46"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="ToolTip.Placement" Value="Top"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.12"/>
-                    <BrushTransition Property="Foreground" Duration="0:0:0.12"/>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.1"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button.window-control:not(.close):pointerover">
-            <Setter Property="Background" Value="{DynamicResource Brush.SurfaceElevated}"/>
-        </Style>
-        <Style Selector="Button.window-control:pressed">
-            <Setter Property="Background" Value="{DynamicResource Brush.Accent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource Brush.TextInverted}"/>
-        </Style>
-        <Style Selector="Button.window-control.close:pointerover">
-            <Setter Property="Background" Value="{DynamicResource Brush.Accent}"/>
-            <Setter Property="Foreground" Value="{DynamicResource Brush.TextInverted}"/>
-        </Style>
-        <Style Selector="Button.window-control.close:pressed">
-            <Setter Property="Background" Value="{DynamicResource Brush.AccentHover}"/>
-            <Setter Property="Foreground" Value="{DynamicResource Brush.TextInverted}"/>
-        </Style>
-    </Window.Styles>
 
     <!-- Main Layout: Flat Top Bar | Content | Smaller Bottom Nav -->
     <Grid RowDefinitions="Auto,*,Auto"
@@ -77,9 +31,7 @@
                 Background="{DynamicResource Brush.Surface}"
                 BorderBrush="{DynamicResource Brush.Border}"
                 BorderThickness="0,0,0,1"
-        Padding="20,10"
-        PointerPressed="TopBar_OnPointerPressed"
-        DoubleTapped="TopBar_OnDoubleTapped">
+    Padding="20,10">
             <Grid ColumnDefinitions="*,Auto,Auto">
                 <!-- Left: Branding and Version -->
                 <StackPanel Grid.Column="0"
@@ -125,45 +77,7 @@
                     </ComboBox>
                 </StackPanel>
 
-                <!-- Right: Custom window controls -->
-                <StackPanel Grid.Column="2"
-                            Orientation="Horizontal"
-                            Spacing="6"
-                            Margin="16,0,0,0"
-                            VerticalAlignment="Center">
-                    <Button Classes="window-control minimize"
-                            Click="MinimizeButton_OnClick"
-                            ToolTip.Tip="Minimize">
-                        <Viewbox Width="14" Height="14">
-                            <Path Data="{StaticResource Icon.Minimize}"
-                                  StrokeThickness="1.6"
-                                  StrokeLineCap="Round"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                        </Viewbox>
-                    </Button>
-                    <Button x:Name="MaximizeButton"
-                            Classes="window-control maximize"
-                            Click="MaximizeRestoreButton_OnClick"
-                            ToolTip.Tip="Maximize">
-                        <Viewbox Width="14" Height="14">
-                            <Path x:Name="MaximizeIconPath"
-                                  Data="{StaticResource Icon.Maximize}"
-                                  StrokeThickness="1.4"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                  Fill="Transparent"/>
-                        </Viewbox>
-                    </Button>
-                    <Button Classes="window-control close"
-                            Click="CloseButton_OnClick"
-                            ToolTip.Tip="Close">
-                        <Viewbox Width="14" Height="14">
-                            <Path Data="M3,3 L13,13 M13,3 L3,13"
-                                  StrokeThickness="1.6"
-                                  StrokeLineCap="Round"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                        </Viewbox>
-                    </Button>
-                </StackPanel>
+                <StackPanel Grid.Column="2" />
             </Grid>
         </Border>
 
