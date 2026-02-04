@@ -79,7 +79,7 @@ namespace Needlelight.Models
         public string   Description      { get; }
         public string   Repository       { get; }
         public string   Issues           { get; }
-        
+
         public string[] Tags             { get; }
         public string[] Integrations     { get; }
         public string[] Authors          { get; }
@@ -115,7 +115,7 @@ namespace Needlelight.Models
             NotInstalledState => Resources.MI_InstallText_NotInstalled,
             _ => throw new InvalidOperationException("Unreachable")
         };
-        
+
         public StreamGeometry? InstallIcon => State switch
         {
             ExistsModState => Application.Current?.Resources["delete_regular"] as StreamGeometry,
@@ -131,7 +131,12 @@ namespace Needlelight.Models
         public bool HasAuthors => Authors.Length > 0;
         public bool HasRepo => !string.IsNullOrEmpty(Repository);
 
-        public bool UpdateAvailable => State is InstalledState { Updated: false } or NotInModLinksState { ModlinksMod:true };
+        public bool UpdateAvailable => State switch
+        {
+            InstalledState st => !st.Updated && st.Version != Version && st.Version != new Version(0, 0),
+            NotInModLinksState { ModlinksMod: true, Installed: true } => true,
+            _ => false
+        };
 
         public string UpdateText => $"\u279E {Version}";
 
@@ -169,9 +174,9 @@ namespace Needlelight.Models
 
                 // guaranteed to be ExistsModState
                 var enabled = State is ExistsModState { Enabled: true };
-                
+
                 State = (ExistsModState) State with { Updating = true };
-                
+
                 setProgress(new ModProgressArgs());
 
                 await inst.Install(this, setProgress, enabled, true);
@@ -256,7 +261,7 @@ namespace Needlelight.Models
             else if (Repository.Contains("github.com"))
                 Process.Start(new ProcessStartInfo($"{Repository}/issues/new/choose") { UseShellExecute = true });
         }
-        
+
         public void OpenRepository()
         {
             if (HasRepo)
