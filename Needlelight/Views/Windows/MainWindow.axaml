@@ -35,19 +35,6 @@
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
-        <Style Selector="Button.window-control:pointerover">
-            <Setter Property="Background" Value="{DynamicResource Brush.SurfaceElevated}" />
-        </Style>
-        <Style Selector="Button.window-control:pressed">
-            <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
-        </Style>
-        <Style Selector="Button.window-control.close:pointerover">
-            <Setter Property="Background" Value="#D32F2F" />
-            <Setter Property="BorderBrush" Value="#B71C1C" />
-        </Style>
-        <Style Selector="Button.window-control.close:pointerover TextBlock">
-            <Setter Property="Foreground" Value="White" />
-        </Style>
     </Window.Styles>
 
     <!-- Main Layout: Flat Top Bar | Content | Smaller Bottom Nav -->

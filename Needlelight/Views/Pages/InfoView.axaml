@@ -22,16 +22,6 @@
         <Style Selector="Border.tile-frame">
             <Setter Property="CornerRadius" Value="14" />
             <Setter Property="ClipToBounds" Value="True" />
-            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
-            <Setter Property="RenderTransform" Value="scale(1)" />
-            <Setter Property="Transitions">
-                <Transitions>
-                    <anim:TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" />
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button.game-tile:pointerover Border.tile-frame">
-            <Setter Property="RenderTransform" Value="scale(1.05)" />
         </Style>
     </UserControl.Styles>
 
