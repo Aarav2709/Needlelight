@@ -155,13 +155,7 @@ namespace Needlelight.Models
 
         public bool HasSettings => State is ExistsModState && !string.IsNullOrEmpty(_settingsFile);
 
-        public string VersionText => State switch
-        {
-            InstalledState st => st.Version.ToString(),
-            NotInstalledState => Version.ToString(),
-            NotInModLinksState => Version.ToString(),
-            _ => throw new ArgumentOutOfRangeException(nameof(_state))
-        };
+        public string VersionText => Version.ToString();
 
         public async Task OnUpdate(IInstaller inst, Action<ModProgressArgs> setProgress)
         {

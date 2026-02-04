@@ -30,17 +30,7 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
-        <Style Selector="Button:pointerover">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-        </Style>
-        <Style Selector="ToggleSwitch:pointerover">
-            <Setter Property="Background" Value="{DynamicResource Brush.Surface}"/>
-        </Style>
-        <Style Selector="Expander:pointerover">
-            <Setter Property="Background" Value="{DynamicResource Brush.Surface}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}"/>
-        </Style>
+        <!-- Hover overrides removed to avoid duplicated hover visuals in mod list -->
     </UserControl.Styles>
     <SplitView
         DisplayMode="CompactOverlay"
@@ -183,7 +173,6 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="400" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" MinWidth="75" />
                     </Grid.ColumnDefinitions>
 
                     <TextBox
@@ -225,19 +214,6 @@
                             Width="15" Height="15" />
                     </Button>
 
-                    <customControls:TextButtonFlyout
-                        FlyoutPlacement="BottomEdgeAlignedRight"
-                        FlyoutShowMode="Transient"
-                        Padding="6 0 0 0"
-                        Margin="0 0 5 0"
-                        Header="{ext:Localize XAML_Search_Options}"
-                        Background="{DynamicResource RegionColor}"
-                        OnHoverColor="{DynamicResource DefaultButtonColor}"
-                        Grid.Column="2">
-
-                        <pages:SearchOptionsMenu />
-
-                    </customControls:TextButtonFlyout>
                 </Grid>
             </StackPanel>
         </DockPanel>
