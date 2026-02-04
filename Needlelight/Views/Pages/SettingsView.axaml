@@ -176,6 +176,52 @@
                 </StackPanel>
             </Border>
 
+            <!-- Maintenance -->
+            <Border Classes="card">
+                <StackPanel Spacing="24">
+                    <TextBlock Text="Maintenance"
+                               FontFamily="{DynamicResource UIFont}"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brush.TextPrimary}"/>
+
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <StackPanel Grid.Column="0" Grid.Row="0" Spacing="4">
+                            <TextBlock Text="Open Config Folder"
+                                       FontFamily="{DynamicResource UIFont}"
+                                       FontWeight="Medium"
+                                       Foreground="{DynamicResource Brush.TextPrimary}"/>
+                            <TextBlock Text="Open the settings and cache directory"
+                                       FontFamily="{DynamicResource UIFont}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Grid.Row="0"
+                                Classes="secondary"
+                                Content="Open"
+                                MinWidth="120"
+                                Command="{Binding OpenConfigFolder}"/>
+
+                        <StackPanel Grid.Column="0" Grid.Row="1" Spacing="4" Margin="0,12,0,0">
+                            <TextBlock Text="Clear Cache"
+                                       FontFamily="{DynamicResource UIFont}"
+                                       FontWeight="Medium"
+                                       Foreground="{DynamicResource Brush.TextPrimary}"/>
+                            <TextBlock Text="Free up disk space used by downloads"
+                                       FontFamily="{DynamicResource UIFont}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Grid.Row="1"
+                                Classes="secondary"
+                                Content="Clear"
+                                MinWidth="120"
+                            Margin="0,12,0,0"
+                                Command="{Binding ClearCache}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
     <!-- Action Buttons -->
     <StackPanel Orientation="Horizontal"
         HorizontalAlignment="Center"
@@ -191,6 +237,7 @@
           FontSize="13"
           HorizontalContentAlignment="Center"
           VerticalContentAlignment="Center"
+          Command="{Binding ResetSettings}"
           ToolTip.Tip="Reset all settings to their default values"/>
       <Button Classes="primary"
           Content="Save Settings"
@@ -201,7 +248,8 @@
           FontWeight="Medium"
           FontSize="13"
           HorizontalContentAlignment="Center"
-          VerticalContentAlignment="Center"/>
+          VerticalContentAlignment="Center"
+          Command="{Binding SaveSettings}"/>
     </StackPanel>
         </StackPanel>
     </ScrollViewer>
