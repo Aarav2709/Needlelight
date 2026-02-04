@@ -23,6 +23,33 @@
         </ResourceDictionary>
     </Window.Resources>
 
+    <Window.Styles>
+        <Style Selector="Button.window-control">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.window-control:pointerover">
+            <Setter Property="Background" Value="{DynamicResource Brush.SurfaceElevated}" />
+        </Style>
+        <Style Selector="Button.window-control:pressed">
+            <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
+        </Style>
+        <Style Selector="Button.window-control.close:pointerover">
+            <Setter Property="Background" Value="#D32F2F" />
+            <Setter Property="BorderBrush" Value="#B71C1C" />
+        </Style>
+        <Style Selector="Button.window-control.close:pointerover TextBlock">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+    </Window.Styles>
+
     <!-- Main Layout: Flat Top Bar | Content | Smaller Bottom Nav -->
     <Grid RowDefinitions="Auto,*,Auto"
           Background="{DynamicResource Brush.Background}">
@@ -59,20 +86,14 @@
                             Spacing="6"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center">
-                    <Button Classes="secondary"
-                            Width="34" Height="28"
-                            Click="OnMinimize">
-                        <TextBlock Text="—" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Button Classes="window-control" Click="OnMinimize">
+                        <TextBlock Text="—" FontSize="16" VerticalAlignment="Center" />
                     </Button>
-                    <Button Classes="secondary"
-                            Width="34" Height="28"
-                            Click="OnToggleMaximize">
-                        <TextBlock Text="□" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Button Classes="window-control" Click="OnToggleMaximize">
+                        <TextBlock Text="□" FontSize="14" VerticalAlignment="Center" />
                     </Button>
-                    <Button Classes="secondary"
-                            Width="34" Height="28"
-                            Click="OnClose">
-                        <TextBlock Text="✕" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Button Classes="window-control close" Click="OnClose">
+                        <TextBlock Text="✕" FontSize="14" VerticalAlignment="Center" />
                     </Button>
                 </StackPanel>
             </Grid>
