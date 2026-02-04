@@ -6,21 +6,32 @@
             xmlns:viewModels="clr-namespace:Needlelight.ViewModels"
             xmlns:ext="clr-namespace:Needlelight.Extensions"
             xmlns:progRing="clr-namespace:AvaloniaProgressRing;assembly=AvaloniaProgressRing"
+            xmlns:anim="clr-namespace:Avalonia.Animation;assembly=Avalonia.Base"
             x:Class="Needlelight.Views.Pages.InfoView"
             x:CompileBindings="True"
             x:DataType="viewModels:InfoViewModel">
     <UserControl.Styles>
         <Style Selector="Button.game-tile">
             <Setter Property="CornerRadius" Value="14" />
-            <Setter Property="Padding" Value="16" />
+            <Setter Property="Padding" Value="0" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Border.tile-frame">
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="ClipToBounds" Value="True" />
         </Style>
         <Style Selector="Border.tile-image">
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
             <Setter Property="RenderTransform">
                 <ScaleTransform ScaleX="1" ScaleY="1" />
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <anim:TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" />
+                </Transitions>
             </Setter>
         </Style>
         <Style Selector="Button.game-tile:pointerover Border.tile-image">
@@ -30,49 +41,60 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,Auto,Auto" Margin="24">
-        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
-            <Button Classes="game-tile" Background="#330055" Width="220" Height="260" Click="OnSelectHollowKnight">
-                <StackPanel Spacing="14" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Border Classes="tile-image" Width="140" Height="140" Background="#3E0A66" CornerRadius="10">
+    <Grid RowDefinitions="2*,Auto,Auto,Auto,*" Margin="24">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
+            <Button Classes="game-tile" Width="240" Height="300" Click="OnSelectHollowKnight">
+                <Border Classes="tile-frame" Background="#330055">
+                    <Grid>
+                        <Border Classes="tile-image" Background="#3E0A66" />
+                        <Border Background="#66000000" Height="44" VerticalAlignment="Bottom">
+                            <TextBlock Text="Hollow Knight"
+                                       FontFamily="{DynamicResource GameFont}"
+                                       FontSize="18"
+                                       Foreground="#F2E9FF"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
                         <TextBlock Text="IMAGE" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#E5D8FF" />
-                    </Border>
-                    <TextBlock Text="Hollow Knight"
-                               FontFamily="{DynamicResource GameFont}"
-                               FontSize="18"
-                               Foreground="#F2E9FF" />
-                </StackPanel>
+                    </Grid>
+                </Border>
             </Button>
 
-            <Button Classes="game-tile" Background="#E92337" Width="220" Height="260" Click="OnSelectSilksong">
-                <StackPanel Spacing="14" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Border Classes="tile-image" Width="140" Height="140" Background="#7A101C" CornerRadius="10">
+            <Button Classes="game-tile" Width="240" Height="300" Click="OnSelectSilksong">
+                <Border Classes="tile-frame" Background="#E92337">
+                    <Grid>
+                        <Border Classes="tile-image" Background="#7A101C" />
+                        <Border Background="#66000000" Height="44" VerticalAlignment="Bottom">
+                            <TextBlock Text="Silksong"
+                                       FontFamily="{DynamicResource GameFont}"
+                                       FontSize="18"
+                                       Foreground="#FFF0F2"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
                         <TextBlock Text="IMAGE" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#FFE3E6" />
-                    </Border>
-                    <TextBlock Text="Silksong"
-                               FontFamily="{DynamicResource GameFont}"
-                               FontSize="18"
-                               Foreground="#FFF0F2" />
-                </StackPanel>
+                    </Grid>
+                </Border>
             </Button>
         </StackPanel>
 
-        <Button Grid.Row="1"
+        <Button Grid.Row="2"
                 Classes="primary"
                 HorizontalAlignment="Center"
                 Margin="0,18,0,8"
-                MinWidth="240"
-                Height="44"
+                MinWidth="260"
+                Height="46"
+                CornerRadius="12"
                 IsEnabled="{Binding !IsLaunchingGame}"
                 Command="{Binding LaunchGame}"
                 CommandParameter="false">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
                 <PathIcon Width="18" Height="18" Data="{StaticResource play_regular}" />
-                <TextBlock Text="Launch Modded Game" FontSize="16" />
+                <TextBlock Text="Launch Modded Game" FontSize="16" FontWeight="SemiBold" />
             </StackPanel>
         </Button>
 
-        <StackPanel Grid.Row="2" Spacing="4" HorizontalAlignment="Center">
+        <StackPanel Grid.Row="3" Spacing="4" HorizontalAlignment="Center">
             <progRing:ProgressRing
                 IsVisible="{Binding IsLaunchingGame}"
                 Width="20"

@@ -12,7 +12,9 @@
         WindowState="Maximized"
         x:DataType="vm:MainWindowViewModel"
         CanResize="True"
-        SystemDecorations="Full"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
         TransparencyBackgroundFallback="{DynamicResource Brush.Background}"
         Background="{DynamicResource Brush.Background}">
     <Window.Resources>
@@ -31,8 +33,9 @@
                 Background="{DynamicResource Brush.Surface}"
                 BorderBrush="{DynamicResource Brush.Border}"
                 BorderThickness="0,0,0,1"
-    Padding="20,10">
-            <Grid ColumnDefinitions="*,Auto,Auto">
+    Padding="20,10"
+                PointerPressed="OnTitleBarPointerPressed">
+            <Grid ColumnDefinitions="*,Auto">
                 <!-- Left: Branding and Version -->
                 <StackPanel Grid.Column="0"
                             Orientation="Horizontal"
@@ -50,34 +53,28 @@
                                Foreground="{DynamicResource Brush.TextSecondary}"/>
                 </StackPanel>
 
-                <!-- Center: Game selector on top bar -->
+                <!-- Right: Window Controls -->
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
-                            Spacing="8"
-                            Margin="12,0"
-                            HorizontalAlignment="Center"
+                            Spacing="6"
+                            HorizontalAlignment="Right"
                             VerticalAlignment="Center">
-                    <TextBlock Text="Game:"
-                               VerticalAlignment="Center"
-                               FontFamily="{DynamicResource UIFont}"
-                               Foreground="{DynamicResource Brush.TextSecondary}"/>
-                    <ComboBox MinWidth="150"
-                              MaxWidth="210"
-                              Width="145"
-                              ItemsSource="{CompiledBinding TopBarAvailableGames}"
-                              SelectedItem="{CompiledBinding TopBarSelectedGame, Mode=TwoWay}"
-                              FontFamily="{DynamicResource UIFont}"
-                              HorizontalContentAlignment="Stretch">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="x:String">
-                                <TextBlock Text="{Binding Converter={StaticResource GameNameShortener}}"
-                                           FontFamily="{DynamicResource UIFont}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <Button Classes="secondary"
+                            Width="34" Height="28"
+                            Click="OnMinimize">
+                        <TextBlock Text="—" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Classes="secondary"
+                            Width="34" Height="28"
+                            Click="OnToggleMaximize">
+                        <TextBlock Text="□" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Classes="secondary"
+                            Width="34" Height="28"
+                            Click="OnClose">
+                        <TextBlock Text="✕" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
                 </StackPanel>
-
-                <StackPanel Grid.Column="2" />
             </Grid>
         </Border>
 
