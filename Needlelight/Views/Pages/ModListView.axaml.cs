@@ -155,10 +155,10 @@ namespace Needlelight.Views.Pages
             {
                 ModFilterState.All => ModFilter_All,
                 ModFilterState.Installed => ModFilter_Installed,
-                ModFilterState.OutOfDate => ModFilter_OutOfDate,
                 ModFilterState.Enabled => ModFilter_Enabled,
-                ModFilterState.WhatsNew => ModFilter_WhatsNew,
-                _ => throw new InvalidOperationException()
+                ModFilterState.OutOfDate => ModFilter_All,
+                ModFilterState.WhatsNew => ModFilter_All,
+                _ => ModFilter_All
             };
 
             foreach (var menuItem in _modFilterItems.Where(x => x.Name != selectedMenuItem.Name))
