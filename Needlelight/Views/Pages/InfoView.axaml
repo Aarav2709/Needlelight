@@ -46,7 +46,9 @@
             <Button Classes="game-tile" Width="240" Height="300" Click="OnSelectHollowKnight">
                 <Border Classes="tile-frame" Background="#330055">
                     <Grid>
-                        <Border Classes="tile-image" Background="#3E0A66" />
+                        <Border Classes="tile-image">
+                            <Image Source="/Assets/hk_banner.png" Stretch="UniformToFill" />
+                        </Border>
                         <Border Background="#66000000" Height="44" VerticalAlignment="Bottom">
                             <TextBlock Text="Hollow Knight"
                                        FontFamily="{DynamicResource GameFont}"
@@ -55,7 +57,6 @@
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Text="IMAGE" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#E5D8FF" />
                     </Grid>
                 </Border>
             </Button>
@@ -63,7 +64,9 @@
             <Button Classes="game-tile" Width="240" Height="300" Click="OnSelectSilksong">
                 <Border Classes="tile-frame" Background="#E92337">
                     <Grid>
-                        <Border Classes="tile-image" Background="#7A101C" />
+                        <Border Classes="tile-image">
+                            <Image Source="/Assets/sk_banner.png" Stretch="UniformToFill" />
+                        </Border>
                         <Border Background="#66000000" Height="44" VerticalAlignment="Bottom">
                             <TextBlock Text="Silksong"
                                        FontFamily="{DynamicResource GameFont}"
@@ -72,7 +75,6 @@
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Text="IMAGE" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#FFE3E6" />
                     </Grid>
                 </Border>
             </Button>
@@ -85,13 +87,12 @@
                 MinWidth="260"
                 Height="46"
                 CornerRadius="12"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
                 IsEnabled="{Binding !IsLaunchingGame}"
                 Command="{Binding LaunchGame}"
                 CommandParameter="false">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                <PathIcon Width="18" Height="18" Data="{StaticResource play_regular}" />
-                <TextBlock Text="Launch Modded Game" FontSize="16" FontWeight="SemiBold" />
-            </StackPanel>
+            <TextBlock Text="Launch Modded Game" FontSize="16" FontWeight="SemiBold" />
         </Button>
 
         <StackPanel Grid.Row="3" Spacing="4" HorizontalAlignment="Center">
