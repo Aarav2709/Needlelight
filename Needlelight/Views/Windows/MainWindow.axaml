@@ -7,7 +7,7 @@
     MinWidth="900"
     MinHeight="650"
         x:Class="Needlelight.Views.Windows.MainWindow"
-        Icon="/Assets/Needlelight.ico"
+        Icon="/Assets/logo.ico"
         Title="Needlelight"
         WindowState="Maximized"
         x:DataType="vm:MainWindowViewModel"
