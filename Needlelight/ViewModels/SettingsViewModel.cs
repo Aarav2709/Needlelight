@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Threading;
@@ -30,6 +31,10 @@ namespace Needlelight.ViewModels
     private string pathOriginalValue;
 
     public ReactiveCommand<Unit, Unit> ChangePath { get; }
+    public ReactiveCommand<Unit, Unit> SaveSettings { get; }
+    public ReactiveCommand<Unit, Unit> ResetSettings { get; }
+    public ReactiveCommand<Unit, Unit> OpenConfigFolder { get; }
+    public ReactiveCommand<Unit, Unit> ClearCache { get; }
 
     public SettingsViewModel(ISettings settings, IModSource mods, IAppUpdater updater)
     {
@@ -39,6 +44,10 @@ namespace Needlelight.ViewModels
       _updater = updater;
 
       ChangePath = ReactiveCommand.CreateFromTask(ChangePathAsync);
+      SaveSettings = ReactiveCommand.Create(SaveSettingsAction);
+      ResetSettings = ReactiveCommand.Create(ResetSettingsAction);
+      OpenConfigFolder = ReactiveCommand.Create(OpenConfigFolderAction);
+      ClearCache = ReactiveCommand.Create(ClearCacheAction);
 
       useCustomModlinksOriginalValue = _settings.UseCustomModlinks;
       useGithubMirrorOriginalValue = _settings.UseGithubMirror;
@@ -223,6 +232,54 @@ namespace Needlelight.ViewModels
       _settings.CustomModlinksUri = CustomModlinksUri;
       _settings.Save();
       Dispatcher.UIThread.InvokeAsync(async () => await MainWindowViewModel.Instance!.LoadApp(3));
+    }
+
+    private void SaveSettingsAction()
+    {
+      _settings.GithubMirrorFormat = GithubMirrorFormat;
+      _settings.CustomModlinksUri = CustomModlinksUri;
+      _settings.Save();
+      useCustomModlinksOriginalValue = _settings.UseCustomModlinks;
+      useGithubMirrorOriginalValue = _settings.UseGithubMirror;
+      cacheDownloadsOriginalValue = _settings.LowStorageMode;
+      pathOriginalValue = _settings.ManagedFolder;
+      RaisePropertyChanged(nameof(AskForReload));
+    }
+
+    private void ResetSettingsAction()
+    {
+      _settings.AutoRemoveUnusedDeps = AutoRemoveUnusedDepsOptions.Never;
+      _settings.WarnBeforeRemovingDependents = true;
+      _settings.UseCustomModlinks = false;
+      _settings.CustomModlinksUri = string.Empty;
+      _settings.UseGithubMirror = false;
+      _settings.GithubMirrorFormat = string.Empty;
+      _settings.LowStorageMode = false;
+      _settings.Save();
+
+      _customModlinksUri = _settings.CustomModlinksUri;
+      _githubMirrorFormat = _settings.GithubMirrorFormat;
+      RaisePropertyChanged(nameof(AutoRemoveDepSelection));
+      RaisePropertyChanged(nameof(WarnBeforeRemovingDependents));
+      RaisePropertyChanged(nameof(UseCustomModlinks));
+      RaisePropertyChanged(nameof(CustomModlinksUri));
+      RaisePropertyChanged(nameof(UseGithubMirror));
+      RaisePropertyChanged(nameof(GithubMirrorFormat));
+      RaisePropertyChanged(nameof(LowStorageMode));
+      RaisePropertyChanged(nameof(AskForReload));
+    }
+
+    private void OpenConfigFolderAction()
+    {
+      Directory.CreateDirectory(Settings.ConfigFolderPath);
+      Process.Start(new ProcessStartInfo(Settings.ConfigFolderPath) { UseShellExecute = true });
+    }
+
+
+    private void ClearCacheAction()
+    {
+      FileUtil.DeleteDirectory(_settings.CacheFolder);
+      RaisePropertyChanged(nameof(ExtraSpaceTaken));
     }
 
     public async Task ChangePathAsync()
