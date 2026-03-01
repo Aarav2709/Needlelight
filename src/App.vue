@@ -28,7 +28,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { saveWindowState, StateFlags } from "@tauri-apps/plugin-window-state";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
 
 import NeedlelightAppLogo from "@/assets/needlelight_logo.svg?component";
@@ -63,6 +63,7 @@ import { useLoading, useTheming } from "@/store/state";
 import { AppNotificationManager } from "./providers/app-notifications";
 
 const themeStore = useTheming();
+const settingsModal = useTemplateRef('settingsModal');
 
 const notificationManager = new AppNotificationManager();
 provideNotificationManager(notificationManager);
@@ -98,25 +99,10 @@ onUnmounted(async () => {
 
 async function launchGame(modded) {
   try {
-    const settings = await invoke("load_settings");
-    const managedFolder = settings?.managed_folder;
-    if (!managedFolder) {
-      handleError("Game folder not configured. Go to Settings > Game to set it up.");
-      return;
-    }
-    // Find the game executable relative to managed folder
-    // Managed folder is e.g. .../Hollow Knight_Data/Managed
-    // Game exe is at .../hollow_knight.exe (Windows) or .../hollow_knight.x86_64 (Linux) or .../Hollow Knight.app (macOS)
-    const os = await getOS();
-    const path = await invoke("plugin:path|resolve_directory", {
-      directory: managedFolder,
-      path: "..",
-    }).catch(() => null);
-
-    // For now, just notify the user — actual game launching requires shell-open plugin
+    const result = await invoke("launch_game", { modded });
     addNotification({
       title: modded ? "Launching Modded" : "Launching Vanilla",
-      text: `Starting ${modded ? "modded" : "vanilla"} game from ${managedFolder}`,
+      text: result,
       type: "success",
     });
   } catch (err) {
@@ -529,7 +515,7 @@ onMounted(() => {
       </Transition>
       <NavButton
         v-tooltip.right="formatMessage(commonMessages.settingsLabel)"
-        :to="() => $refs.settingsModal.show()"
+        :to="() => settingsModal?.show()"
       >
         <SettingsIcon />
       </NavButton>

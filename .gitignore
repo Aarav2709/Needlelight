@@ -1,3 +1,12 @@
 # Ignore build output and dependencies :D
 dist
 node_modules
+
+# Rust build artifacts
+src-tauri/target/
+
+# Copied Modrinth packages (vendored, not our code)
+packages/
+
+# Vite cache
+node_modules/.vite

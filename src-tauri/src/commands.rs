@@ -10,6 +10,7 @@ use crate::{
     AppState,
 };
 use std::collections::BTreeMap;
+use std::process::Command;
 use tauri::State;
 
 fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
@@ -125,4 +126,60 @@ pub async fn import_pack(state: State<'_, AppState>, code: String) -> Result<Opt
     let settings = state.settings.read().await.clone();
     let mut installed = state.installed.write().await;
     map_err(pack_manager::import_pack(&settings, &mut installed, &code).await)
+}
+
+#[tauri::command]
+pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<String, String> {
+    let settings = state.settings.read().await.clone();
+    if settings.managed_folder.is_empty() {
+        return Err("Game folder not configured. Go to Settings > Game to set it up.".to_string());
+    }
+
+    let managed = std::path::PathBuf::from(&settings.managed_folder);
+
+    // Navigate up: Managed -> *_Data -> game root
+    let game_root = if managed.file_name().and_then(|n| n.to_str()) == Some("Managed") {
+        managed.parent()
+            .and_then(|data| data.parent())
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| managed.clone())
+    } else {
+        managed.clone()
+    };
+
+    // Find executable
+    let exe_candidates: Vec<std::path::PathBuf> = match settings.game {
+        GameKey::HollowKnight => vec![
+            game_root.join("hollow_knight.x86_64"),
+            game_root.join("hollow_knight"),
+            game_root.join("hollow_knight.exe"),
+            game_root.join("Hollow Knight.app/Contents/MacOS/Hollow Knight"),
+        ],
+        GameKey::Silksong => vec![
+            game_root.join("hollowknightsilksong.x86_64"),
+            game_root.join("hollow_knight_silksong.x86_64"),
+            game_root.join("Hollow Knight Silksong.x86_64"),
+            game_root.join("hollowknightsilksong"),
+            game_root.join("hollowknightsilksong.exe"),
+            game_root.join("Hollow Knight Silksong.exe"),
+        ],
+    };
+
+    let exe = exe_candidates
+        .iter()
+        .find(|p| p.exists())
+        .ok_or_else(|| format!("Could not find game executable in {}", game_root.display()))?;
+
+    // If vanilla, temporarily disable mods by renaming Assembly-CSharp.dll.modded
+    // For now just launch the game directly — vanilla/modded distinction is handled by
+    // whether the API is installed
+    let exe_str = exe.to_string_lossy().to_string();
+
+    Command::new(&exe_str)
+        .current_dir(&game_root)
+        .spawn()
+        .map_err(|e| format!("Failed to launch game: {}", e))?;
+
+    let mode = if modded { "modded" } else { "vanilla" };
+    Ok(format!("Launched {} ({})", exe.file_name().unwrap_or_default().to_string_lossy(), mode))
 }

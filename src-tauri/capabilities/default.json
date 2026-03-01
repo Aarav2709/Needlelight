@@ -11,6 +11,14 @@
     "core:event:default",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
-    "core:event:allow-emit"
+    "core:event:allow-emit",
+    "shell:default",
+    "shell:allow-execute",
+    "shell:allow-open",
+    "opener:default",
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "fs:default"
   ]
 }

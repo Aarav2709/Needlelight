@@ -2,7 +2,7 @@
 import { DownloadIcon, RefreshCwIcon, ShieldIcon, CheckIcon } from '@modrinth/assets'
 import { ButtonStyled, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { useBreadcrumbs } from '@/store/breadcrumbs'
@@ -19,18 +19,21 @@ const apiInfo = ref(null)
 const apiInstalled = ref(false)
 const apiEnabled = ref(false)
 const error = ref(null)
+const activeGame = ref('hollow_knight')
+
+const gameName = computed(() =>
+  activeGame.value === 'silksong' ? 'Hollow Knight: Silksong' : 'Hollow Knight'
+)
 
 async function fetchApiStatus() {
   loading.value = true
   error.value = null
   try {
+    const settings = await invoke('load_settings')
+    activeGame.value = settings.game || 'hollow_knight'
+
     const catalog = await invoke('refresh_catalog', { fetchOfficial: true })
     apiInfo.value = catalog.api || null
-
-    // Check if API is installed by looking at the installed mods data
-    const items = catalog.items || []
-    // The API state can also be inferred from catalog metadata
-    // For now, check if the managed folder has the API files
     apiInstalled.value = !!catalog.api_installed
     apiEnabled.value = !!catalog.api_enabled
   } catch (err) {
@@ -65,7 +68,7 @@ onMounted(() => fetchApiStatus())
         Modding API
       </h1>
       <p class="text-secondary mt-1 mb-0">
-        The Modding API is required for Hollow Knight mods to load. Install or update it here.
+        The Modding API is required for {{ gameName }} mods to load. Install or update it here.
       </p>
     </div>
 
@@ -88,7 +91,7 @@ onMounted(() => fetchApiStatus())
         <!-- Status + Install -->
         <div class="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h3 class="m-0 text-lg font-bold text-contrast">Hollow Knight Modding API</h3>
+            <h3 class="m-0 text-lg font-bold text-contrast">{{ gameName }} Modding API</h3>
             <p v-if="apiInfo" class="text-secondary text-sm mt-1 mb-0">
               Latest version: <strong class="text-contrast">{{ apiInfo.version }}</strong>
             </p>
