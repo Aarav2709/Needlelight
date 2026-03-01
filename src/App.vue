@@ -36,10 +36,10 @@ import InstanceCreationModal from "@/components/ui/InstanceCreationModal.vue";
 import AppSettingsModal from "@/components/ui/modal/AppSettingsModal.vue";
 import NavButton from "@/components/ui/NavButton.vue";
 import RunningAppBar from "@/components/ui/RunningAppBar.vue";
-import UpdateAvailableToast from "@/components/ui/UpdateAvailableToast.vue";
 import UpdateToast from "@/components/ui/UpdateToast.vue";
 import { useCheckDisableMouseover } from "@/composables/macCssFix.js";
 import { command_listener, warning_listener } from "@/helpers/events.js";
+import { applyGameTheme } from "@/helpers/game-theme";
 import { get as getSettings } from "@/helpers/settings.ts";
 import { initialize_state } from "@/helpers/state";
 import {
@@ -172,6 +172,14 @@ async function setupApp() {
   themeStore.devMode = developer_mode;
   themeStore.featureFlags = feature_flags;
   stateInitialized.value = true;
+
+  // Apply game-based accent color
+  try {
+    const backendSettings = await invoke('load_settings');
+    applyGameTheme(backendSettings?.game || 'hollow_knight');
+  } catch {
+    applyGameTheme('hollow_knight');
+  }
 
   isMaximized.value = await getCurrentWindow().isMaximized();
 
@@ -417,9 +425,6 @@ onMounted(() => {
           @close="updateToastDismissed = true"
           @restart="installUpdate"
           @download="downloadAvailableUpdate"
-        />
-        <UpdateAvailableToast
-          v-else-if="!updatesEnabled && os === 'Linux' && !isDevEnvironment"
         />
       </Transition>
     </Suspense>

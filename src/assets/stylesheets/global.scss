@@ -32,6 +32,54 @@
 	--brand-gradient-fade-out-color: linear-gradient(180deg, #00000000 0%, var(--color-raised-bg) 90%);
 }
 
+/* Game-based accent color theming */
+html.game-hollow-knight {
+	--color-brand: #a855f7;
+	--color-brand-highlight: rgba(168, 85, 247, 0.25);
+	--color-brand-shadow: rgba(168, 85, 247, 0.7);
+	--brand-gradient-border: rgba(168, 85, 247, 0.25);
+	--brand-gradient-button: rgba(168, 85, 247, 0.12);
+	--brand-gradient-bg: linear-gradient(180deg, rgba(168, 85, 247, 0.12) 0%, transparent 100%);
+	--color-button-bg-selected: #a855f7;
+	--loading-bar-gradient: linear-gradient(to right, #a855f7 0%, #c084fc 100%);
+}
+
+html.game-silksong {
+	--color-brand: #e92337;
+	--color-brand-highlight: rgba(233, 35, 55, 0.25);
+	--color-brand-shadow: rgba(233, 35, 55, 0.7);
+	--brand-gradient-border: rgba(233, 35, 55, 0.25);
+	--brand-gradient-button: rgba(233, 35, 55, 0.12);
+	--brand-gradient-bg: linear-gradient(180deg, rgba(233, 35, 55, 0.12) 0%, transparent 100%);
+}
+
+/* Smooth color transition for game switching */
+/* Register brand properties as <color> so they can be interpolated */
+@property --color-brand {
+	syntax: '<color>';
+	inherits: true;
+	initial-value: #e92337;
+}
+
+@property --color-brand-highlight {
+	syntax: '<color>';
+	inherits: true;
+	initial-value: rgba(233, 35, 55, 0.25);
+}
+
+@property --color-brand-shadow {
+	syntax: '<color>';
+	inherits: true;
+	initial-value: rgba(233, 35, 55, 0.7);
+}
+
+html {
+	transition:
+		--color-brand 0.4s ease,
+		--color-brand-highlight 0.4s ease,
+		--color-brand-shadow 0.4s ease;
+}
+
 body {
 	position: fixed;
 	width: 100%;

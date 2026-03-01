@@ -12,6 +12,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { applyGameTheme } from '@/helpers/game-theme'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
 
 const { handleError } = injectNotificationManager()
@@ -44,8 +45,10 @@ async function loadGame() {
   try {
     const settings = await invoke('load_settings')
     activeGame.value = settings.game || 'hollow_knight'
+    applyGameTheme(activeGame.value)
   } catch {
     activeGame.value = 'hollow_knight'
+    applyGameTheme('hollow_knight')
   }
 }
 
@@ -57,6 +60,7 @@ async function switchGame(game) {
     settings.game = game
     await invoke('save_settings', { settings })
     activeGame.value = game
+    applyGameTheme(game)
     await fetchCatalog()
   } catch (err) {
     handleError(err)

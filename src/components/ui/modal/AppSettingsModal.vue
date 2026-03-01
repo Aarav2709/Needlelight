@@ -1,34 +1,25 @@
 <script setup lang="ts">
 import {
   GameIcon,
-  GaugeIcon,
-  LanguagesIcon,
   PaintbrushIcon,
   ReportIcon,
   SettingsIcon,
   ShieldIcon,
+  XIcon,
 } from "@modrinth/assets";
 import {
-  commonMessages,
   defineMessage,
   defineMessages,
   ProgressBar,
   TabbedModal,
   useVIntl,
 } from "@modrinth/ui";
-import { getVersion } from "@tauri-apps/api/app";
-import {
-  platform as getOsPlatform,
-  version as getOsVersion,
-} from "@tauri-apps/plugin-os";
-import { computed, onMounted, ref, watch } from "vue";
+import { onMounted, computed, ref, watch } from "vue";
 
 import ModalWrapper from "@/components/ui/modal/ModalWrapper.vue";
 import AppearanceSettings from "@/components/ui/settings/AppearanceSettings.vue";
 import FeatureFlagSettings from "@/components/ui/settings/FeatureFlagSettings.vue";
 import GameSettings from "@/components/ui/settings/GameSettings.vue";
-import LanguageSettings from "@/components/ui/settings/LanguageSettings.vue";
-import ResourceManagementSettings from "@/components/ui/settings/ResourceManagementSettings.vue";
 import { get, set } from "@/helpers/settings.ts";
 import { injectAppUpdateDownloadProgress } from "@/providers/download-progress.ts";
 import { useTheming } from "@/store/state";
@@ -63,23 +54,6 @@ const tabs = [
   },
   {
     name: defineMessage({
-      id: "app.settings.tabs.language",
-      defaultMessage: "Language",
-    }),
-    icon: LanguagesIcon,
-    content: LanguageSettings,
-    badge: commonMessages.beta,
-  },
-  {
-    name: defineMessage({
-      id: "app.settings.tabs.resource-management",
-      defaultMessage: "Resource management",
-    }),
-    icon: GaugeIcon,
-    content: ResourceManagementSettings,
-  },
-  {
-    name: defineMessage({
       id: "app.settings.tabs.feature-flags",
       defaultMessage: "Feature flags",
     }),
@@ -102,20 +76,10 @@ defineExpose({ show, isOpen });
 const { progress, version: downloadingVersion } =
   injectAppUpdateDownloadProgress();
 
-const version = ref("0.0.0");
-const osPlatform = ref("unknown");
-const osVersion = ref("");
 const settings = ref<Record<string, any> | null>(null);
 const ready = ref(false);
 
 onMounted(async () => {
-  try {
-    version.value = await getVersion().catch(() => "0.0.0");
-  } catch { /* ignore */ }
-  try {
-    osPlatform.value = getOsPlatform();
-    osVersion.value = getOsVersion();
-  } catch { /* ignore */ }
   try {
     settings.value = await get();
   } catch { /* ignore */ }
@@ -151,14 +115,21 @@ const messages = defineMessages({
 });
 </script>
 <template>
-  <ModalWrapper ref="modal">
-    <template #title>
+  <ModalWrapper ref="modal" hide-header>
+    <div class="relative p-6 pb-4">
       <span
         class="flex items-center gap-2 text-lg font-extrabold text-contrast"
       >
         <SettingsIcon /> Settings
       </span>
-    </template>
+      <button
+        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-button-bg border-none cursor-pointer text-secondary hover:text-contrast hover:brightness-125 transition-all active:scale-90"
+        aria-label="Close"
+        @click="modal?.hide()"
+      >
+        <XIcon class="w-4 h-4" />
+      </button>
+    </div>
 
     <TabbedModal
       v-if="ready"
@@ -196,12 +167,7 @@ const messages = defineMessages({
               <ShieldIcon class="w-6 h-6" />
             </button>
             <div>
-              <p class="m-0">Needlelight {{ version }}</p>
-              <p class="m-0">
-                <span v-if="osPlatform === 'macos'">macOS</span>
-                <span v-else class="capitalize">{{ osPlatform }}</span>
-                {{ osVersion }}
-              </p>
+              <p class="m-0 font-semibold">Needlelight v8.0.0.0</p>
             </div>
           </div>
         </div>

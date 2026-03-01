@@ -5,6 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { onMounted, ref, computed } from "vue";
 
+import { applyGameTheme } from "@/helpers/game-theme";
+
 const backendSettings = ref(null);
 const loading = ref(true);
 const saving = ref(false);
@@ -105,6 +107,7 @@ function setGame(game) {
   backendSettings.value.game = game;
   error.value = null;
   success.value = null;
+  applyGameTheme(game);
   saveBackendSettings();
 }
 

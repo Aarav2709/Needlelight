@@ -1,15 +1,22 @@
-# Ignore build output and dependencies :D
-dist
-node_modules
+node_modules/
+dist/
+node_modules/.vite/
+.vite/
 
-# Rust build artifacts
-src-tauri/target/
+/target/
+/src-tauri/target/
 
-# Copied Modrinth packages (vendored, not our code)
 packages/
 
-# Vite cache
-node_modules/.vite
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
 
-# Extra reference files.
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Extras
 app-frontend
