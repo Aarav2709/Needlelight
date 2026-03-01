@@ -3,7 +3,7 @@ import { FolderSearchIcon } from "@modrinth/assets";
 import { ButtonStyled, Toggle } from "@modrinth/ui";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { ref, watch } from "vue";
+import { onMounted, ref } from "vue";
 
 const backendSettings = ref(null);
 const loading = ref(true);
@@ -78,7 +78,7 @@ function debouncedSave() {
   saveTimeout = setTimeout(() => saveBackendSettings(), 500);
 }
 
-await loadBackendSettings();
+onMounted(() => loadBackendSettings());
 </script>
 
 <template>

@@ -33,18 +33,6 @@ export default new createRouter({
 			meta: {
 				breadcrumb: [{ name: 'Library' }],
 			},
-			children: [
-				{
-					path: '',
-					name: 'Overview',
-					component: Library.Overview,
-				},
-				{
-					path: 'custom',
-					name: 'Custom',
-					component: Library.Custom,
-				},
-			],
 		},
 		{
 			path: '/instance/:id',

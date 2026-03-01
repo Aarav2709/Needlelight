@@ -30,6 +30,14 @@ export default defineConfig({
 				replacement: 'fuse.js/dist/fuse.basic.esm.js',
 			},
 			{
+				find: '@modrinth/assets',
+				replacement: resolve(projectRootDir, 'packages/assets'),
+			},
+			{
+				find: '@modrinth/utils',
+				replacement: resolve(projectRootDir, 'packages/utils'),
+			},
+			{
 				find: '@',
 				replacement: resolve(projectRootDir, 'src'),
 			},
@@ -91,10 +99,16 @@ export default defineConfig({
 		},
 	},
 	optimizeDeps: {
-		esbuildOptions: {
-			loader: {
-				'.gltf': 'file',
-			},
-		},
+		entries: ['index.html'],
+		exclude: ['@modrinth/assets', '@modrinth/utils'],
+		include: [
+			'dayjs',
+			'dayjs/plugin/duration',
+			'dayjs/plugin/isToday',
+			'dayjs/plugin/isYesterday',
+			'dayjs/plugin/relativeTime',
+			'highlight.js/lib/core',
+			'highlightjs-mcfunction',
+		],
 	},
 })

@@ -1,0 +1,1629 @@
+{
+  "affiliate.create.button": {
+    "defaultMessage": "Lumikha ng affiliate link"
+  },
+  "affiliate.create.header": {
+    "defaultMessage": "Naglilikha ng affiliate code"
+  },
+  "affiliate.create.title.description": {
+    "defaultMessage": "Bigyan mo ng pangalan ang iyong affiliate link upang malaman mo lung saan nanggagaling ang mga tao!"
+  },
+  "affiliate.create.title.label": {
+    "defaultMessage": "Pamagat ng affilite link"
+  },
+  "affiliate.create.title.placeholder": {
+    "defaultMessage": "hal. YouTube"
+  },
+  "affiliate.create.user.description": {
+    "defaultMessage": "Ang username ng tagagamit na lilikhaan ng affiliate code"
+  },
+  "affiliate.create.user.placeholder": {
+    "defaultMessage": "Ilagay ang username..."
+  },
+  "affiliate.createdBy": {
+    "defaultMessage": "Linikha ni/ng {user}"
+  },
+  "affiliate.creating.button": {
+    "defaultMessage": "Lumilikha ng affiliate link..."
+  },
+  "affiliate.revoke": {
+    "defaultMessage": "Bawiin ang affiliate link"
+  },
+  "affiliate.viewAnalytics": {
+    "defaultMessage": "Tingnan ang analitika"
+  },
+  "badge.beta": {
+    "defaultMessage": "Beta"
+  },
+  "badge.beta-release": {
+    "defaultMessage": "Beta Release"
+  },
+  "badge.new": {
+    "defaultMessage": "Bago"
+  },
+  "button.accept": {
+    "defaultMessage": "Tanggapin"
+  },
+  "button.affiliate-links": {
+    "defaultMessage": "Mga affiliate link"
+  },
+  "button.analytics": {
+    "defaultMessage": "Analitika"
+  },
+  "button.back": {
+    "defaultMessage": "Bumalik"
+  },
+  "button.cancel": {
+    "defaultMessage": "Kanselahin"
+  },
+  "button.clear": {
+    "defaultMessage": "Linisin"
+  },
+  "button.close": {
+    "defaultMessage": "Isara"
+  },
+  "button.continue": {
+    "defaultMessage": "Magpatuloy"
+  },
+  "button.copy-id": {
+    "defaultMessage": "Kopyahin ang ID"
+  },
+  "button.copy-permalink": {
+    "defaultMessage": "Kopyahin ang permanenteng link"
+  },
+  "button.create-a-project": {
+    "defaultMessage": "Lumikha ng proyekto"
+  },
+  "button.decline": {
+    "defaultMessage": "Tanggihan"
+  },
+  "button.download": {
+    "defaultMessage": "I-download"
+  },
+  "button.downloading": {
+    "defaultMessage": "Nagda-download"
+  },
+  "button.edit": {
+    "defaultMessage": "Baguhin"
+  },
+  "button.follow": {
+    "defaultMessage": "Sundan"
+  },
+  "button.max": {
+    "defaultMessage": "Max"
+  },
+  "button.more-options": {
+    "defaultMessage": "Ibang mga opsiyon"
+  },
+  "button.next": {
+    "defaultMessage": "Susunod"
+  },
+  "button.open-folder": {
+    "defaultMessage": "Buksan ang folder"
+  },
+  "button.play": {
+    "defaultMessage": "Maglaro"
+  },
+  "button.refresh": {
+    "defaultMessage": "I-refresh"
+  },
+  "button.remove": {
+    "defaultMessage": "Tanggalin"
+  },
+  "button.remove-image": {
+    "defaultMessage": "Tanggalin ang imahe"
+  },
+  "button.report": {
+    "defaultMessage": "Isumbong"
+  },
+  "button.reset": {
+    "defaultMessage": "I-reset"
+  },
+  "button.retry": {
+    "defaultMessage": "Subukan muli"
+  },
+  "button.save": {
+    "defaultMessage": "I-save"
+  },
+  "button.save-changes": {
+    "defaultMessage": "I-save ang mga pagbabago"
+  },
+  "button.saving": {
+    "defaultMessage": "Sine-save"
+  },
+  "button.sign-in": {
+    "defaultMessage": "Mag-sign in"
+  },
+  "button.sign-out": {
+    "defaultMessage": "Mag-sign out"
+  },
+  "button.sign-up": {
+    "defaultMessage": "Mag-sign up"
+  },
+  "button.stop": {
+    "defaultMessage": "Maghinto"
+  },
+  "button.unfollow": {
+    "defaultMessage": "Mag-unfollow"
+  },
+  "button.update": {
+    "defaultMessage": "Mag-update"
+  },
+  "button.upload-image": {
+    "defaultMessage": "I-upload ang imahe"
+  },
+  "changelog.justNow": {
+    "defaultMessage": "Ngayon lang"
+  },
+  "changelog.product.api": {
+    "defaultMessage": "API"
+  },
+  "changelog.product.app": {
+    "defaultMessage": "App"
+  },
+  "changelog.product.hosting": {
+    "defaultMessage": "Hosting"
+  },
+  "changelog.product.web": {
+    "defaultMessage": "Website"
+  },
+  "collections.label.private": {
+    "defaultMessage": "Pribado"
+  },
+  "form.label.address-line": {
+    "defaultMessage": "Address line"
+  },
+  "form.label.address-line-2": {
+    "defaultMessage": "Address line 2 (di-sapilitan)"
+  },
+  "form.label.amount": {
+    "defaultMessage": "Halaga"
+  },
+  "form.label.bank-name": {
+    "defaultMessage": "Pangalan ng banko"
+  },
+  "form.label.business-name": {
+    "defaultMessage": "Pangalan ng negosyo"
+  },
+  "form.label.city": {
+    "defaultMessage": "Siyudad"
+  },
+  "form.label.country": {
+    "defaultMessage": "Bansa"
+  },
+  "form.label.date-of-birth": {
+    "defaultMessage": "Petsa ng kapanganakan"
+  },
+  "form.label.email": {
+    "defaultMessage": "Email"
+  },
+  "form.label.first-name": {
+    "defaultMessage": "Unang pangalan"
+  },
+  "form.label.last-name": {
+    "defaultMessage": "Apelyido"
+  },
+  "form.label.postal-code": {
+    "defaultMessage": "Postal code/ZIP code"
+  },
+  "form.label.state-province": {
+    "defaultMessage": "Eatado/probinsiya"
+  },
+  "form.placeholder.address": {
+    "defaultMessage": "Ilagay ang address"
+  },
+  "form.placeholder.address-2": {
+    "defaultMessage": "Apartment, suite, etc."
+  },
+  "form.placeholder.amount": {
+    "defaultMessage": "Ilagay ang halaga"
+  },
+  "form.placeholder.bank-name": {
+    "defaultMessage": "Ilagay ang pangalan ng banko"
+  },
+  "form.placeholder.bank-name-dropdown": {
+    "defaultMessage": "Piliin ang pangalan ng banko"
+  },
+  "form.placeholder.business-name": {
+    "defaultMessage": "Ilagay ang pangalan ng negosyo"
+  },
+  "form.placeholder.city": {
+    "defaultMessage": "Ilagay ang lungsod"
+  },
+  "form.placeholder.country": {
+    "defaultMessage": "Piliin ang bansa"
+  },
+  "form.placeholder.email": {
+    "defaultMessage": "Ilagay ang email address"
+  },
+  "form.placeholder.first-name": {
+    "defaultMessage": "Ilagay ang unang pangalan"
+  },
+  "form.placeholder.last-name": {
+    "defaultMessage": "Ilagay ang apelyido"
+  },
+  "form.placeholder.postal-code": {
+    "defaultMessage": "Ilagay ang postal code"
+  },
+  "form.placeholder.state": {
+    "defaultMessage": "Ilagay ang estado/probinsiya"
+  },
+  "header.category.category": {
+    "defaultMessage": "Kategorya"
+  },
+  "header.category.feature": {
+    "defaultMessage": "Tampok"
+  },
+  "header.category.performance-impact": {
+    "defaultMessage": "Epekto sa performance"
+  },
+  "header.category.resolutions": {
+    "defaultMessage": "Resolusyon"
+  },
+  "hosting.specs.burst": {
+    "defaultMessage": "Mag-burst ng hanggang sa {cpus} CPU"
+  },
+  "hosting.specs.burst.tooltip": {
+    "defaultMessage": "Ang CPU bursting ay nagbibigay daan sa iyong server na madaliang madagdagan ng thread upang malabanan ang TPS spike. Pindutin upang matuto pa."
+  },
+  "hosting.specs.gb-ram": {
+    "defaultMessage": "{ram} GB RAM"
+  },
+  "hosting.specs.gb-storage": {
+    "defaultMessage": "{storage} GB Storage"
+  },
+  "hosting.specs.shared-cpus": {
+    "defaultMessage": "{cpus} Shared CPUs"
+  },
+  "icon-select.edit": {
+    "defaultMessage": "Baguhin ang ikono"
+  },
+  "icon-select.remove": {
+    "defaultMessage": "Tanggalin ang ikono"
+  },
+  "icon-select.replace": {
+    "defaultMessage": "Palitan ang ikono"
+  },
+  "icon-select.select": {
+    "defaultMessage": "Pumili ng ikono"
+  },
+  "input.search.placeholder": {
+    "defaultMessage": "Maghanap..."
+  },
+  "input.view.gallery": {
+    "defaultMessage": "Tanawing gallery"
+  },
+  "input.view.grid": {
+    "defaultMessage": "Tanawing grid"
+  },
+  "input.view.list": {
+    "defaultMessage": "Tanawing row"
+  },
+  "instance.worlds.game_mode.adventure": {
+    "defaultMessage": "Modong panglakbayan"
+  },
+  "instance.worlds.game_mode.creative": {
+    "defaultMessage": "Modong kalikhaan"
+  },
+  "instance.worlds.game_mode.spectator": {
+    "defaultMessage": "Modong taganood"
+  },
+  "instance.worlds.game_mode.survival": {
+    "defaultMessage": "Modong kaligtasan"
+  },
+  "instance.worlds.game_mode.unknown": {
+    "defaultMessage": "Hindi kilalang modo ng laro"
+  },
+  "instances.modpack-card.unlink": {
+    "defaultMessage": "I-unlink ang modpack"
+  },
+  "instances.updater-modal.badge.current": {
+    "defaultMessage": "Kasalukuyan"
+  },
+  "instances.updater-modal.badge.incompatible": {
+    "defaultMessage": "Hindi magkatugma"
+  },
+  "instances.updater-modal.downgrade-to": {
+    "defaultMessage": "Ibaba sa v{version}"
+  },
+  "instances.updater-modal.header": {
+    "defaultMessage": "I-update ang bersiyon"
+  },
+  "instances.updater-modal.hide-incompatible": {
+    "defaultMessage": "Hindi magkatugma"
+  },
+  "instances.updater-modal.no-changelog": {
+    "defaultMessage": "Walang changelog para bersiyong ito."
+  },
+  "instances.updater-modal.no-versions": {
+    "defaultMessage": "Walang mahanap na bersiyon"
+  },
+  "instances.updater-modal.search-placeholder": {
+    "defaultMessage": "Maghanap ng bersiyon..."
+  },
+  "instances.updater-modal.select-version": {
+    "defaultMessage": "Pumili ng bersiyon upang matingnan ang changelog"
+  },
+  "instances.updater-modal.show-incompatible": {
+    "defaultMessage": "Ipakita ang hindi magkatugma"
+  },
+  "instances.updater-modal.update-to": {
+    "defaultMessage": "I-update sa v{version}"
+  },
+  "instances.updater-modal.warning.app": {
+    "defaultMessage": "Hindi namin matantiya na ligtas ang update para sa iyong instansiya. Siyasatin ang changelog para sa lahat ng pumagitnang bersiyon at isaalang-alang na mag-backup."
+  },
+  "instances.updater-modal.warning.web": {
+    "defaultMessage": "Hindi namin matantiya na ligtas ang update para sa iyong mundo. Siyasatin ang changelog para sa lahat ng pumagitnang bersiyon at isaalang-alang na mag-backup."
+  },
+  "label.actions": {
+    "defaultMessage": "Mga Aksiyon"
+  },
+  "label.available": {
+    "defaultMessage": "{amount} na magagamit."
+  },
+  "label.changelog": {
+    "defaultMessage": "Changelog"
+  },
+  "label.changes-saved": {
+    "defaultMessage": "Na-save ang mga pagbabago"
+  },
+  "label.collections": {
+    "defaultMessage": "Mga koleksiyon"
+  },
+  "label.confirm-password": {
+    "defaultMessage": "Patunayan ang password"
+  },
+  "label.content": {
+    "defaultMessage": "Kontento"
+  },
+  "label.created-ago": {
+    "defaultMessage": "Linikha {ago}"
+  },
+  "label.dashboard": {
+    "defaultMessage": "Dashboard"
+  },
+  "label.delete": {
+    "defaultMessage": "Tanggalin"
+  },
+  "label.description": {
+    "defaultMessage": "Paglalarawan"
+  },
+  "label.details": {
+    "defaultMessage": "Detalye"
+  },
+  "label.email": {
+    "defaultMessage": "Email"
+  },
+  "label.email-username": {
+    "defaultMessage": "Email o username"
+  },
+  "label.error": {
+    "defaultMessage": "Error"
+  },
+  "label.filter-by": {
+    "defaultMessage": "Salain ayon sa"
+  },
+  "label.followed-projects": {
+    "defaultMessage": "Mga sinusundang proyekto"
+  },
+  "label.loading": {
+    "defaultMessage": "Naglo-load..."
+  },
+  "label.moderation": {
+    "defaultMessage": "Moderasyon"
+  },
+  "label.no": {
+    "defaultMessage": "Hindi"
+  },
+  "label.no-items": {
+    "defaultMessage": "Walang bagay"
+  },
+  "label.notifications": {
+    "defaultMessage": "Mga notipikasyon"
+  },
+  "label.or": {
+    "defaultMessage": "o"
+  },
+  "label.password": {
+    "defaultMessage": "Password"
+  },
+  "label.played": {
+    "defaultMessage": "Naglaro {time}"
+  },
+  "label.project": {
+    "defaultMessage": "Proyekto"
+  },
+  "label.public": {
+    "defaultMessage": "Publiko"
+  },
+  "label.rejected": {
+    "defaultMessage": "Tinanggihan"
+  },
+  "label.rewards-program-terms-agreement": {
+    "defaultMessage": "Sumasang-ayon ako sa <terms-link>Mga Tuntunin sa Programa ng Gantimpala</terms-link>"
+  },
+  "label.saved": {
+    "defaultMessage": "Na-save"
+  },
+  "label.scopes": {
+    "defaultMessage": "Mga Sakop"
+  },
+  "label.search": {
+    "defaultMessage": "Maghanap"
+  },
+  "label.server": {
+    "defaultMessage": "Server"
+  },
+  "label.servers": {
+    "defaultMessage": "Mga server"
+  },
+  "label.settings": {
+    "defaultMessage": "Mga setting"
+  },
+  "label.singleplayer": {
+    "defaultMessage": "Pang-isahang laro"
+  },
+  "label.sort-by": {
+    "defaultMessage": "I-sort ayon sa"
+  },
+  "label.success": {
+    "defaultMessage": "Tagumpay"
+  },
+  "label.title": {
+    "defaultMessage": "Titulo"
+  },
+  "label.unlisted": {
+    "defaultMessage": "Unlisted"
+  },
+  "label.update-available": {
+    "defaultMessage": "May bagong update"
+  },
+  "label.username": {
+    "defaultMessage": "Username"
+  },
+  "label.version": {
+    "defaultMessage": "Bersiyon"
+  },
+  "label.visibility": {
+    "defaultMessage": "Bisibilidad"
+  },
+  "label.visit-your-profile": {
+    "defaultMessage": "Bisitahin ang iyong profile"
+  },
+  "label.yes": {
+    "defaultMessage": "Oo"
+  },
+  "modal.add-payment-method.action": {
+    "defaultMessage": "Magdagdag ng paraan ng pagbabayad"
+  },
+  "modal.add-payment-method.title": {
+    "defaultMessage": "Nagdaragdag ng praan ng pagbabayad"
+  },
+  "notification.error.title": {
+    "defaultMessage": "Isang kamaliang naganap"
+  },
+  "omorphia.component.badge.label.accepted": {
+    "defaultMessage": "Tinanggap"
+  },
+  "omorphia.component.badge.label.approved": {
+    "defaultMessage": "Pinayagan"
+  },
+  "omorphia.component.badge.label.archived": {
+    "defaultMessage": "Inarkibo"
+  },
+  "omorphia.component.badge.label.closed": {
+    "defaultMessage": "Sarado"
+  },
+  "omorphia.component.badge.label.creator": {
+    "defaultMessage": "Tagagawa"
+  },
+  "omorphia.component.badge.label.draft": {
+    "defaultMessage": "Burador"
+  },
+  "omorphia.component.badge.label.failed": {
+    "defaultMessage": "Nabigo"
+  },
+  "omorphia.component.badge.label.listed": {
+    "defaultMessage": "Listed"
+  },
+  "omorphia.component.badge.label.moderator": {
+    "defaultMessage": "Moderator"
+  },
+  "omorphia.component.badge.label.modrinth-team": {
+    "defaultMessage": "Koponan ng Modrinth"
+  },
+  "omorphia.component.badge.label.pending": {
+    "defaultMessage": "Nakabinbin"
+  },
+  "omorphia.component.badge.label.private": {
+    "defaultMessage": "Pribado"
+  },
+  "omorphia.component.badge.label.processed": {
+    "defaultMessage": "Naproseso"
+  },
+  "omorphia.component.badge.label.rejected": {
+    "defaultMessage": "Tinanggihan"
+  },
+  "omorphia.component.badge.label.returned": {
+    "defaultMessage": "Ibinalik"
+  },
+  "omorphia.component.badge.label.safe": {
+    "defaultMessage": "Pumasa"
+  },
+  "omorphia.component.badge.label.scheduled": {
+    "defaultMessage": "Nakaiskedyul"
+  },
+  "omorphia.component.badge.label.under-review": {
+    "defaultMessage": "Sinusuri"
+  },
+  "omorphia.component.badge.label.unlisted": {
+    "defaultMessage": "Unlisted"
+  },
+  "omorphia.component.badge.label.unsafe": {
+    "defaultMessage": "Bumigo"
+  },
+  "omorphia.component.badge.label.withheld": {
+    "defaultMessage": "Ipinagkait"
+  },
+  "omorphia.component.copy.action.copy": {
+    "defaultMessage": "Kopyahin ang code sa clipboard"
+  },
+  "omorphia.component.environment-indicator.label.client": {
+    "defaultMessage": "Client"
+  },
+  "omorphia.component.environment-indicator.label.client-and-server": {
+    "defaultMessage": "Client and server"
+  },
+  "omorphia.component.environment-indicator.label.client-or-server": {
+    "defaultMessage": "Client o server"
+  },
+  "omorphia.component.environment-indicator.label.server": {
+    "defaultMessage": "Server"
+  },
+  "omorphia.component.environment-indicator.label.type": {
+    "defaultMessage": "Isang {type}"
+  },
+  "omorphia.component.environment-indicator.label.unsupported": {
+    "defaultMessage": "Hindi sinusuportahan"
+  },
+  "payment-method.amazon_pay": {
+    "defaultMessage": "Amazon Pay"
+  },
+  "payment-method.amex": {
+    "defaultMessage": "American Express"
+  },
+  "payment-method.card_display": {
+    "defaultMessage": "{card_brand} na nagtatapos sa {last_four}"
+  },
+  "payment-method.cashapp": {
+    "defaultMessage": "Cash App"
+  },
+  "payment-method.charity": {
+    "defaultMessage": "Charity"
+  },
+  "payment-method.charity-plural": {
+    "defaultMessage": "Charities"
+  },
+  "payment-method.diners": {
+    "defaultMessage": "Diners Club"
+  },
+  "payment-method.discover": {
+    "defaultMessage": "Discover"
+  },
+  "payment-method.eftpos": {
+    "defaultMessage": "EFTPOS"
+  },
+  "payment-method.gift-card": {
+    "defaultMessage": "Gift card"
+  },
+  "payment-method.gift-card-plural": {
+    "defaultMessage": "Gift cards"
+  },
+  "payment-method.jcb": {
+    "defaultMessage": "JCB"
+  },
+  "payment-method.mastercard": {
+    "defaultMessage": "MasterCard"
+  },
+  "payment-method.paypal": {
+    "defaultMessage": "PayPal"
+  },
+  "payment-method.paypal_international": {
+    "defaultMessage": "PayPal International"
+  },
+  "payment-method.unionpay": {
+    "defaultMessage": "UnionPay"
+  },
+  "payment-method.unknown": {
+    "defaultMessage": "Hindi kilalang paraan ng pagbabayad"
+  },
+  "payment-method.venmo": {
+    "defaultMessage": "Venmo"
+  },
+  "payment-method.virtual-visa": {
+    "defaultMessage": "Virtual Visa"
+  },
+  "payment-method.virtual-visa-plural": {
+    "defaultMessage": "Virtual Visas"
+  },
+  "payment-method.visa": {
+    "defaultMessage": "Visa"
+  },
+  "project-card.environment.client": {
+    "defaultMessage": "Client"
+  },
+  "project-card.environment.client-and-server": {
+    "defaultMessage": "Client at server"
+  },
+  "project-card.environment.client-or-server": {
+    "defaultMessage": "Client o server"
+  },
+  "project-card.environment.server": {
+    "defaultMessage": "Server"
+  },
+  "project-type.all": {
+    "defaultMessage": "Lahat"
+  },
+  "project-type.datapack.capital": {
+    "defaultMessage": "{count, plural, one {Data Pack} other {na Data Pack}}"
+  },
+  "project-type.datapack.category": {
+    "defaultMessage": "Mga Data Pack"
+  },
+  "project-type.datapack.lowercase": {
+    "defaultMessage": "{count, plural, one {data pack} other {na data pack}}"
+  },
+  "project-type.mod.capital": {
+    "defaultMessage": "{count, plural, one {Mod} other {na Mod}}"
+  },
+  "project-type.mod.category": {
+    "defaultMessage": "Mga Mod"
+  },
+  "project-type.mod.lowercase": {
+    "defaultMessage": "{count, plural, one {mod} other {na mod}}"
+  },
+  "project-type.modpack.capital": {
+    "defaultMessage": "{count, plural, one {Modpack} other {na Modpack}}"
+  },
+  "project-type.modpack.category": {
+    "defaultMessage": "Mga Modpack"
+  },
+  "project-type.modpack.lowercase": {
+    "defaultMessage": "{count, plural, one {modpack} other {na modpack}}"
+  },
+  "project-type.plugin.capital": {
+    "defaultMessage": "{count, plural, one {Plugin} other {na Plugin}}"
+  },
+  "project-type.plugin.category": {
+    "defaultMessage": "Mga Plugin"
+  },
+  "project-type.plugin.lowercase": {
+    "defaultMessage": "{count, plural, one {plugin} other {na plugin}}"
+  },
+  "project-type.project.capital": {
+    "defaultMessage": "{count, plural, one {Proyekto} other {na Proyekto}}"
+  },
+  "project-type.project.category": {
+    "defaultMessage": "Mga proyekto"
+  },
+  "project-type.project.lowercase": {
+    "defaultMessage": "{count, plural, one {proyekto} other {na proyekto}}"
+  },
+  "project-type.resourcepack.capital": {
+    "defaultMessage": "{count, plural, one {Resource Pack} other {na Resource Pack}}"
+  },
+  "project-type.resourcepack.category": {
+    "defaultMessage": "Mga Resource Pack"
+  },
+  "project-type.resourcepack.lowercase": {
+    "defaultMessage": "{count, plural, one {resource pack} other {na resource pack}}"
+  },
+  "project-type.server.capital": {
+    "defaultMessage": "{count, plural, one {Server} other {na Server}}"
+  },
+  "project-type.server.category": {
+    "defaultMessage": "Servers"
+  },
+  "project-type.server.lowercase": {
+    "defaultMessage": "{count, plural, one {server} other {na server}}"
+  },
+  "project-type.shader.capital": {
+    "defaultMessage": "{count, plural, one {Shader} other {na Shader}}"
+  },
+  "project-type.shader.category": {
+    "defaultMessage": "Mga Shader"
+  },
+  "project-type.shader.lowercase": {
+    "defaultMessage": "{count, plural, one {shader} other {na shader}}"
+  },
+  "project.about.compatibility.environments": {
+    "defaultMessage": "Mga sinusuportahang environment"
+  },
+  "project.about.compatibility.environments.client-and-server": {
+    "defaultMessage": "Client at server"
+  },
+  "project.about.compatibility.environments.client-side": {
+    "defaultMessage": "Panig ng client"
+  },
+  "project.about.compatibility.environments.dedicated-servers-only": {
+    "defaultMessage": "Dedikadong server lamang"
+  },
+  "project.about.compatibility.environments.server-side": {
+    "defaultMessage": "Panig ng server"
+  },
+  "project.about.compatibility.environments.singleplayer": {
+    "defaultMessage": "Pang-isahang laro"
+  },
+  "project.about.compatibility.environments.singleplayer-only": {
+    "defaultMessage": "Pang-isahang laro lamang"
+  },
+  "project.about.compatibility.game.minecraftJava": {
+    "defaultMessage": "Minecraft: Java Edition"
+  },
+  "project.about.compatibility.platforms": {
+    "defaultMessage": "Mga plataporma"
+  },
+  "project.about.compatibility.title": {
+    "defaultMessage": "Kompatibilidad"
+  },
+  "project.about.creators.owner": {
+    "defaultMessage": "May-ari ng proyekto"
+  },
+  "project.about.creators.title": {
+    "defaultMessage": "Mga tagagawa"
+  },
+  "project.about.details.created": {
+    "defaultMessage": "Linikha {date}"
+  },
+  "project.about.details.licensed": {
+    "defaultMessage": "Linisensiya {license}"
+  },
+  "project.about.details.published": {
+    "defaultMessage": "Inilathala {date}"
+  },
+  "project.about.details.submitted": {
+    "defaultMessage": "Sinumite {date}"
+  },
+  "project.about.details.updated": {
+    "defaultMessage": "In-update {date}"
+  },
+  "project.about.links.discord": {
+    "defaultMessage": "Sumali sa Discord server"
+  },
+  "project.about.links.donate.bmac": {
+    "defaultMessage": "Bilhan Ako ng Kape"
+  },
+  "project.about.links.donate.generic": {
+    "defaultMessage": "Mag-donate"
+  },
+  "project.about.links.donate.github": {
+    "defaultMessage": "Sponsorin sa GitHub"
+  },
+  "project.about.links.donate.kofi": {
+    "defaultMessage": "Mag-donate sa Ko-fi"
+  },
+  "project.about.links.donate.patreon": {
+    "defaultMessage": "Mag-donate sa Patreon"
+  },
+  "project.about.links.donate.paypal": {
+    "defaultMessage": "Mag-donate sa PayPal"
+  },
+  "project.about.links.issues": {
+    "defaultMessage": "Masumbong ng isyu"
+  },
+  "project.about.links.source": {
+    "defaultMessage": "Tingnan ang source"
+  },
+  "project.about.links.title": {
+    "defaultMessage": "Mga Link"
+  },
+  "project.about.links.wiki": {
+    "defaultMessage": "Bisitahin ang wiki"
+  },
+  "project.download-count-tooltip": {
+    "defaultMessage": "{count} {count, plural, one {download} other {na download}}"
+  },
+  "project.environment.client-and-server.description": {
+    "defaultMessage": "May mga tungkulin sa client at server, o kaya bahagya lamang."
+  },
+  "project.environment.client-and-server.title": {
+    "defaultMessage": "Client at server, kailangan sa dalawa"
+  },
+  "project.environment.client-only-server-optional.description": {
+    "defaultMessage": "May mga tungkulin sa client at server, o kaya bahagya lamang."
+  },
+  "project.environment.client-only-server-optional.title": {
+    "defaultMessage": "Client at server, di-sapilitan sa server"
+  },
+  "project.environment.client-only.description": {
+    "defaultMessage": "Lahat ng mga tungkulin ay nasa panig ng client at maaaring gumana sa mga vanilla server."
+  },
+  "project.environment.client-only.title": {
+    "defaultMessage": "Panig ng client lamang"
+  },
+  "project.environment.client-or-server-prefers-both.description": {
+    "defaultMessage": "May mga tungkulin sa client at server, o kaya bahagya lamang."
+  },
+  "project.environment.client-or-server-prefers-both.title": {
+    "defaultMessage": "Client at server, pinakamainam kapag na-install sa dalawa"
+  },
+  "project.environment.client-or-server.description": {
+    "defaultMessage": "May mga tungkulin sa client at server, o kaya bahagya lamang."
+  },
+  "project.environment.client-or-server.title": {
+    "defaultMessage": "Client at server, di-sapilitan sa dalawa"
+  },
+  "project.environment.dedicated-server-only.description": {
+    "defaultMessage": "Lahat ng mga tungkulin ay nasa panig ng server at maaaring gumana sa mga vanilla client."
+  },
+  "project.environment.dedicated-server-only.title": {
+    "defaultMessage": "Panig ng server lamang"
+  },
+  "project.environment.server-only-client-optional.description": {
+    "defaultMessage": "May mga tungkulin sa client at server, o kaya bahagya lamang."
+  },
+  "project.environment.server-only-client-optional.title": {
+    "defaultMessage": "Client at server, di-sapilitan sa client"
+  },
+  "project.environment.server-only.description": {
+    "defaultMessage": "Lahat ng mga tungkulin ay nasa panig ng server at maaaring gumana sa mga vanilla client."
+  },
+  "project.environment.server-only.title": {
+    "defaultMessage": "Sa panig ng server lamang, gagana rin sa pang-isahang laro"
+  },
+  "project.environment.singleplayer-only.description": {
+    "defaultMessage": "Gagana lamang sa Pang-isahang laro o kung hindi nakakonekta sa isang Pangmaramihang laro na server."
+  },
+  "project.environment.singleplayer-only.title": {
+    "defaultMessage": "Pang-isahang laro lamang"
+  },
+  "project.environment.tag.not-applicable": {
+    "defaultMessage": "Wala"
+  },
+  "project.environment.tag.unknown": {
+    "defaultMessage": "Hindi kilala"
+  },
+  "project.environment.unknown.description": {
+    "defaultMessage": "Ang environment ng bersiyon na ito ay hindi matukoy."
+  },
+  "project.environment.unknown.title": {
+    "defaultMessage": "Hindi kilalang environment"
+  },
+  "project.follower-count-tooltip": {
+    "defaultMessage": "{count} {count, plural, one {follower} other {na follower}}"
+  },
+  "project.settings.analytics.title": {
+    "defaultMessage": "Analitika"
+  },
+  "project.settings.description.title": {
+    "defaultMessage": "Paglalarawan"
+  },
+  "project.settings.environment.client_and_server.description": {
+    "defaultMessage": "May mga tungkulin sa client at server, o kaya bahagya lamang."
+  },
+  "project.settings.environment.client_and_server.optional_both.title": {
+    "defaultMessage": "Di-sapilitan sa magkalawa, magkatulad na tatakbo sa kahit anog panig man na-install"
+  },
+  "project.settings.environment.client_and_server.optional_both_prefers_both.title": {
+    "defaultMessage": "Di-sapilitan sa magkalawa, mas mahusay kapag na-install sa dalawang panig"
+  },
+  "project.settings.environment.client_and_server.optional_client.title": {
+    "defaultMessage": "Di-sapilitan sa client"
+  },
+  "project.settings.environment.client_and_server.optional_server.title": {
+    "defaultMessage": "Di-sapilitan sa server"
+  },
+  "project.settings.environment.client_and_server.required_both.title": {
+    "defaultMessage": "Kinakailangan ng dalawa"
+  },
+  "project.settings.environment.client_and_server.title": {
+    "defaultMessage": "Client at server"
+  },
+  "project.settings.environment.client_only.description": {
+    "defaultMessage": "Lahat ng mga tungkulin ay nasa panig ng client at maaaring gumana sa mga vanilla server."
+  },
+  "project.settings.environment.client_only.title": {
+    "defaultMessage": "Panig ng client lamang"
+  },
+  "project.settings.environment.notice.missing-env.description": {
+    "defaultMessage": "Wala pang metadata sa environment ang iyong proyekto, pakipili ng wasto sa ibaba."
+  },
+  "project.settings.environment.notice.missing-env.title": {
+    "defaultMessage": "Pakipili sa environment ng inyong proyekto"
+  },
+  "project.settings.environment.notice.multiple-environments.description": {
+    "defaultMessage": "May ilang sa iyong mga bersiyon ng iyong proyekto na may di-magkatulad na environment na napili, kaya hindi mo mababago ito para sa lahat sa kasalukuyan."
+  },
+  "project.settings.environment.notice.multiple-environments.title": {
+    "defaultMessage": "Nasa magkakaibang environment ang proyekto mo"
+  },
+  "project.settings.environment.notice.review-options.description": {
+    "defaultMessage": "Kakaunlad lang ng aming sistema sa Mga Environment sa Modrinth at magagamit na ngayon ang mga bagong pagpipilian. Mangyaring suriin na tama ang napili sa ibaba at pindutin ang 'Patunayan' kapag tapos ka na!"
+  },
+  "project.settings.environment.notice.review-options.title": {
+    "defaultMessage": "Mangyaring suriin ang iyong mga opsiyon sa ibaba"
+  },
+  "project.settings.environment.notice.wrong-project-type.description": {
+    "defaultMessage": "Ang mga proyekto ng mod at modpack lamang ang maaaring magka-metadata sa environment."
+  },
+  "project.settings.environment.notice.wrong-project-type.title": {
+    "defaultMessage": "Ang uri ng proyekto ng ito ay hindi sumusporta sa metadata sa environment"
+  },
+  "project.settings.environment.server_only.dedicated_only.title": {
+    "defaultMessage": "Dedicated server lamang"
+  },
+  "project.settings.environment.server_only.description": {
+    "defaultMessage": "Lahat ng mga tungkulin ay nasa panig ng server at maaaring gumana sa mga vanilla client."
+  },
+  "project.settings.environment.server_only.supports_singleplayer.title": {
+    "defaultMessage": "Gagana rin sa pang-isahang laro"
+  },
+  "project.settings.environment.server_only.title": {
+    "defaultMessage": "Panig ng server lamang"
+  },
+  "project.settings.environment.singleplayer.description": {
+    "defaultMessage": "Gagana lamang sa Pang-isahang laro o kung hindi nakakonekta sa isang Pangmaramihang laro na server."
+  },
+  "project.settings.environment.singleplayer.title": {
+    "defaultMessage": "Pang-isahang laro lamang"
+  },
+  "project.settings.environment.suboption.accessibility-option-label": {
+    "defaultMessage": "{title}: {description}"
+  },
+  "project.settings.environment.suboption.accessibility-suboption-group-label": {
+    "defaultMessage": "Mga suboption ng {option}"
+  },
+  "project.settings.environment.title": {
+    "defaultMessage": "Environment"
+  },
+  "project.settings.environment.verification.verify-button": {
+    "defaultMessage": "Patunayan"
+  },
+  "project.settings.environment.verification.verify-text": {
+    "defaultMessage": "Patinayang wasto ang nakatakdang environment ng proyekto."
+  },
+  "project.settings.gallery.title": {
+    "defaultMessage": "Gallery"
+  },
+  "project.settings.general.title": {
+    "defaultMessage": "General"
+  },
+  "project.settings.license.title": {
+    "defaultMessage": "Lisensiya"
+  },
+  "project.settings.links.title": {
+    "defaultMessage": "Mga Link"
+  },
+  "project.settings.members.title": {
+    "defaultMessage": "Mga miyembro"
+  },
+  "project.settings.notice.no-permission.description": {
+    "defaultMessage": "Wala kang pahintulot na magbago rito."
+  },
+  "project.settings.notice.no-permission.title": {
+    "defaultMessage": "Walang pahintulot"
+  },
+  "project.settings.tags.title": {
+    "defaultMessage": "Mga Tag"
+  },
+  "project.settings.upload.title": {
+    "defaultMessage": "Upload"
+  },
+  "project.settings.versions.title": {
+    "defaultMessage": "Mga bersiyon"
+  },
+  "project.settings.view.title": {
+    "defaultMessage": "Tingnan"
+  },
+  "project.versions.channel.alpha.symbol": {
+    "defaultMessage": "A"
+  },
+  "project.versions.channel.beta.symbol": {
+    "defaultMessage": "B"
+  },
+  "project.versions.channel.release.symbol": {
+    "defaultMessage": "R"
+  },
+  "project.visibility.archived": {
+    "defaultMessage": "Inarkibo"
+  },
+  "project.visibility.draft": {
+    "defaultMessage": "Burador"
+  },
+  "project.visibility.private": {
+    "defaultMessage": "Pribado"
+  },
+  "project.visibility.public": {
+    "defaultMessage": "Publiko"
+  },
+  "project.visibility.rejected": {
+    "defaultMessage": "Tinanggihan"
+  },
+  "project.visibility.scheduled": {
+    "defaultMessage": "Nakaiskedyul"
+  },
+  "project.visibility.under-review": {
+    "defaultMessage": "Sinusuri"
+  },
+  "project.visibility.unknown": {
+    "defaultMessage": "Hindi kilala"
+  },
+  "project.visibility.unlisted": {
+    "defaultMessage": "Unlisted"
+  },
+  "project.visibility.unlisted-by-staff": {
+    "defaultMessage": "Pina-unlisted ng staff"
+  },
+  "search.filter.locked.default": {
+    "defaultMessage": "Kinandadong pansala"
+  },
+  "search.filter.locked.default.description": {
+    "defaultMessage": "Maaari kang maka-install ng kontentong incompatible kapag binuksan mo ang pansala na ito."
+  },
+  "search.filter.locked.default.sync": {
+    "defaultMessage": "I-sync ang pansala"
+  },
+  "search.filter.locked.default.title": {
+    "defaultMessage": "{type} ay kinandado"
+  },
+  "search.filter.locked.default.unlock": {
+    "defaultMessage": "Buksan ang pansala"
+  },
+  "search.filter.option.exclusion.add.tooltip": {
+    "defaultMessage": "Bukurin"
+  },
+  "search.filter.option.search.clear.aria_label": {
+    "defaultMessage": "Burahin ang paghanap"
+  },
+  "search.filter.option.search.placeholder": {
+    "defaultMessage": "Maghanap..."
+  },
+  "search.filter.option.show_fewer": {
+    "defaultMessage": "Magpakita nang mas kaunti"
+  },
+  "search.filter.option.show_more": {
+    "defaultMessage": "Magpakita nang mas humigit"
+  },
+  "search.filter_type.environment": {
+    "defaultMessage": "Environment"
+  },
+  "search.filter_type.environment.client": {
+    "defaultMessage": "Client"
+  },
+  "search.filter_type.environment.server": {
+    "defaultMessage": "Server"
+  },
+  "search.filter_type.game_version": {
+    "defaultMessage": "Berisyon ng laro"
+  },
+  "search.filter_type.game_version.all_versions": {
+    "defaultMessage": "Ipakita ang lahat ng bersiyon"
+  },
+  "search.filter_type.license": {
+    "defaultMessage": "Lisensiya"
+  },
+  "search.filter_type.license.open_source": {
+    "defaultMessage": "Open source"
+  },
+  "search.filter_type.mod_loader": {
+    "defaultMessage": "Loader"
+  },
+  "search.filter_type.modpack_loader": {
+    "defaultMessage": "Loader"
+  },
+  "search.filter_type.plugin_loader": {
+    "defaultMessage": "Loader"
+  },
+  "search.filter_type.plugin_platform": {
+    "defaultMessage": "Plataporma"
+  },
+  "search.filter_type.project_id": {
+    "defaultMessage": "ID ng proyekto"
+  },
+  "search.filter_type.shader_loader": {
+    "defaultMessage": "Loader"
+  },
+  "servers.backups.item.auto": {
+    "defaultMessage": "Auto"
+  },
+  "servers.backups.item.backup-schedule": {
+    "defaultMessage": "Backup schedule"
+  },
+  "servers.backups.item.creating-backup": {
+    "defaultMessage": "Naglilikha ng backup..."
+  },
+  "servers.backups.item.failed-to-create-backup": {
+    "defaultMessage": "Bigong makalikha ng backup"
+  },
+  "servers.backups.item.failed-to-restore-backup": {
+    "defaultMessage": "Bigong ma-restore galing sa backup"
+  },
+  "servers.backups.item.manual-backup": {
+    "defaultMessage": "Manual backup"
+  },
+  "servers.backups.item.queued-for-backup": {
+    "defaultMessage": "Backup queued"
+  },
+  "servers.backups.item.queued-for-restore": {
+    "defaultMessage": "Restore queued"
+  },
+  "servers.backups.item.rename": {
+    "defaultMessage": "I-rename"
+  },
+  "servers.backups.item.restore": {
+    "defaultMessage": "I-restore"
+  },
+  "servers.backups.item.restoring-backup": {
+    "defaultMessage": "Nag-restore galing sa backup..."
+  },
+  "servers.notice.dismiss": {
+    "defaultMessage": "Alisin"
+  },
+  "servers.notice.dismissable": {
+    "defaultMessage": "Maaaring maalis"
+  },
+  "servers.notice.heading.attention": {
+    "defaultMessage": "Makinig"
+  },
+  "servers.notice.heading.info": {
+    "defaultMessage": "Impormasyon"
+  },
+  "servers.notice.level.critical.name": {
+    "defaultMessage": "Kritikal"
+  },
+  "servers.notice.level.info.name": {
+    "defaultMessage": "Impormasyon"
+  },
+  "servers.notice.level.survey.name": {
+    "defaultMessage": "Survey"
+  },
+  "servers.notice.level.warn.name": {
+    "defaultMessage": "Babala"
+  },
+  "servers.notice.undismissable": {
+    "defaultMessage": "Hindi maaring maalis"
+  },
+  "servers.purchase.step.payment.description": {
+    "defaultMessage": "Hindi pa ikaw sisingilin."
+  },
+  "servers.purchase.step.payment.prompt": {
+    "defaultMessage": "Pumili ng paraan ng pagbabayad"
+  },
+  "servers.purchase.step.payment.title": {
+    "defaultMessage": "Paraan ng pagbabayad"
+  },
+  "servers.purchase.step.plan.billed": {
+    "defaultMessage": "billed {interval}"
+  },
+  "servers.purchase.step.plan.custom.desc": {
+    "defaultMessage": "Pumili ng pinasadyang plan sa specs na kailangan mo."
+  },
+  "servers.purchase.step.plan.get-started": {
+    "defaultMessage": "Magsimula"
+  },
+  "servers.purchase.step.plan.large.desc": {
+    "defaultMessage": "Nakaaangkop sa 15–25 manlalaro, modpack, o mabibigat na modding."
+  },
+  "servers.purchase.step.plan.medium.desc": {
+    "defaultMessage": "Nakaaangkop sa 6–15 manlalaro at may karamihang mod."
+  },
+  "servers.purchase.step.plan.most-popular": {
+    "defaultMessage": "Pinakasikat"
+  },
+  "servers.purchase.step.plan.prompt": {
+    "defaultMessage": "Pumili ng plan"
+  },
+  "servers.purchase.step.plan.select": {
+    "defaultMessage": "Pumili ng plan"
+  },
+  "servers.purchase.step.plan.small.desc": {
+    "defaultMessage": "Nakaaangkop sa 1–5 manlalaro na may iilang mod."
+  },
+  "servers.purchase.step.plan.subtitle": {
+    "defaultMessage": "Piliin ang halaga ng RAM at specs na tutumpak sa kailangan mo."
+  },
+  "servers.purchase.step.plan.title": {
+    "defaultMessage": "Plan"
+  },
+  "servers.purchase.step.region.title": {
+    "defaultMessage": "Rehiyon"
+  },
+  "servers.purchase.step.review.title": {
+    "defaultMessage": "Suriin"
+  },
+  "servers.region.central-europe": {
+    "defaultMessage": "Sentrong Yuropa"
+  },
+  "servers.region.custom.prompt": {
+    "defaultMessage": "Ilang RAM ba ang nais mong magamit ng sever mo?"
+  },
+  "servers.region.north-america": {
+    "defaultMessage": "Hilagang Amerika"
+  },
+  "servers.region.prompt": {
+    "defaultMessage": "Saan mo nais malagay ang server mo?"
+  },
+  "servers.region.region-unsupported": {
+    "defaultMessage": "Hindi nakalista na rehiyon? <link>Ipaalam sa amin kung saan mo pa nais sunod makita ang Modrinth Hosting!</link>"
+  },
+  "servers.region.southeast-asia": {
+    "defaultMessage": "Timog-silangang Asya"
+  },
+  "servers.region.western-europe": {
+    "defaultMessage": "Kanlurang Yuropa"
+  },
+  "settings.account.title": {
+    "defaultMessage": "Account at seguridad"
+  },
+  "settings.appearance.title": {
+    "defaultMessage": "Itsura"
+  },
+  "settings.applications.title": {
+    "defaultMessage": "Iyong mga aplikasyon"
+  },
+  "settings.authorized-apps.title": {
+    "defaultMessage": "Mga pinahintulotang app"
+  },
+  "settings.billing.title": {
+    "defaultMessage": "Billing at mga subscription"
+  },
+  "settings.display.theme.dark": {
+    "defaultMessage": "madilim"
+  },
+  "settings.display.theme.description": {
+    "defaultMessage": "Pumili ng iyong gugustohing paksang kulay para sa Modrinth ng nitong device."
+  },
+  "settings.display.theme.light": {
+    "defaultMessage": "Liwanag"
+  },
+  "settings.display.theme.oled": {
+    "defaultMessage": "OLED"
+  },
+  "settings.display.theme.preferred-dark-theme": {
+    "defaultMessage": "Ninais na dark theme"
+  },
+  "settings.display.theme.preferred-light-theme": {
+    "defaultMessage": "Ninais na light theme"
+  },
+  "settings.display.theme.retro": {
+    "defaultMessage": "Retro"
+  },
+  "settings.display.theme.system": {
+    "defaultMessage": "I-sync sa sistema"
+  },
+  "settings.display.theme.title": {
+    "defaultMessage": "Paksang kulay"
+  },
+  "settings.language.categories.default": {
+    "defaultMessage": "Mga karaniwang wika"
+  },
+  "settings.language.categories.search-result": {
+    "defaultMessage": "Mga resulta ng paghanap"
+  },
+  "settings.language.description": {
+    "defaultMessage": "Piliin ang iyong ninanais na wiki para sa {platform}. Ambag ng mga boluntaryo <crowdin-link>galing sa Crowdin</crowdin-link> ang mga pagsasalin."
+  },
+  "settings.language.languages.search-field.placeholder": {
+    "defaultMessage": "Maghanap ng wiki..."
+  },
+  "settings.language.languages.search-results-announcement": {
+    "defaultMessage": "{matches, plural, =0 {Walang tumugmang wika} one {# wikang tumugma} other {# na wikang tumugma}} sa iyong paghanap."
+  },
+  "settings.language.languages.search.no-results": {
+    "defaultMessage": "Walang wikang tumugma sa iyong paghanap."
+  },
+  "settings.language.platform.app": {
+    "defaultMessage": "app"
+  },
+  "settings.language.platform.site": {
+    "defaultMessage": "site"
+  },
+  "settings.language.title": {
+    "defaultMessage": "Wika"
+  },
+  "settings.language.warning": {
+    "defaultMessage": "Sa pagpapalit ng wikang {platform} ay maaaring magdudulot sa iilang kontentong mapalilitaw sa Ingles kapag wala pang patumbas ang pagsasalin. Hindi pa buong nasalin ang {platform}, kaya ang iilang kontento ay mananatili sa Ingles para sa mga iilang mga wika."
+  },
+  "settings.pats.title": {
+    "defaultMessage": "Mga personal na access token"
+  },
+  "settings.profile.title": {
+    "defaultMessage": "Pampublikong profile"
+  },
+  "settings.sessions.title": {
+    "defaultMessage": "Mga sesyon"
+  },
+  "tag.category.128x": {
+    "defaultMessage": "128x"
+  },
+  "tag.category.16x": {
+    "defaultMessage": "16x"
+  },
+  "tag.category.256x": {
+    "defaultMessage": "256x"
+  },
+  "tag.category.32x": {
+    "defaultMessage": "32x"
+  },
+  "tag.category.48x": {
+    "defaultMessage": "48x"
+  },
+  "tag.category.512x+": {
+    "defaultMessage": "512x o higit pa"
+  },
+  "tag.category.64x": {
+    "defaultMessage": "64x"
+  },
+  "tag.category.8x-": {
+    "defaultMessage": "8x o bababa pa"
+  },
+  "tag.category.adventure": {
+    "defaultMessage": "Pakikipagsapalaran"
+  },
+  "tag.category.atmosphere": {
+    "defaultMessage": "Kahanginan"
+  },
+  "tag.category.audio": {
+    "defaultMessage": "Audio"
+  },
+  "tag.category.blocks": {
+    "defaultMessage": "Bloke"
+  },
+  "tag.category.bloom": {
+    "defaultMessage": "Bloom"
+  },
+  "tag.category.cartoon": {
+    "defaultMessage": "Cartoon"
+  },
+  "tag.category.challenging": {
+    "defaultMessage": "Mapanghamon"
+  },
+  "tag.category.colored-lighting": {
+    "defaultMessage": "Makulay na Pag-iilaw"
+  },
+  "tag.category.combat": {
+    "defaultMessage": "Labanan"
+  },
+  "tag.category.core-shaders": {
+    "defaultMessage": "Core Shaders"
+  },
+  "tag.category.cursed": {
+    "defaultMessage": "Nakababagabag"
+  },
+  "tag.category.decoration": {
+    "defaultMessage": "Palamuti"
+  },
+  "tag.category.economy": {
+    "defaultMessage": "Ekonomiya"
+  },
+  "tag.category.entities": {
+    "defaultMessage": "Nilalang"
+  },
+  "tag.category.environment": {
+    "defaultMessage": "Kapaligiran"
+  },
+  "tag.category.equipment": {
+    "defaultMessage": "Kagamitan"
+  },
+  "tag.category.fantasy": {
+    "defaultMessage": "Pantasya"
+  },
+  "tag.category.foliage": {
+    "defaultMessage": "Yabong"
+  },
+  "tag.category.fonts": {
+    "defaultMessage": "Fonts"
+  },
+  "tag.category.food": {
+    "defaultMessage": "Pagkain"
+  },
+  "tag.category.game-mechanics": {
+    "defaultMessage": "Mekaniks ng Laro"
+  },
+  "tag.category.gui": {
+    "defaultMessage": "GUI"
+  },
+  "tag.category.high": {
+    "defaultMessage": "Mataas"
+  },
+  "tag.category.items": {
+    "defaultMessage": "Bagay"
+  },
+  "tag.category.kitchen-sink": {
+    "defaultMessage": "Kitchen Sink"
+  },
+  "tag.category.library": {
+    "defaultMessage": "Librarya"
+  },
+  "tag.category.lightweight": {
+    "defaultMessage": "Magaan"
+  },
+  "tag.category.locale": {
+    "defaultMessage": "Locale"
+  },
+  "tag.category.low": {
+    "defaultMessage": "Mababa"
+  },
+  "tag.category.magic": {
+    "defaultMessage": "Salamangka"
+  },
+  "tag.category.management": {
+    "defaultMessage": "Pamamahala"
+  },
+  "tag.category.medium": {
+    "defaultMessage": "Katamtaman"
+  },
+  "tag.category.minigame": {
+    "defaultMessage": "Minigame"
+  },
+  "tag.category.mobs": {
+    "defaultMessage": "Mobs"
+  },
+  "tag.category.modded": {
+    "defaultMessage": "Modded"
+  },
+  "tag.category.models": {
+    "defaultMessage": "Modelo"
+  },
+  "tag.category.multiplayer": {
+    "defaultMessage": "Pangmaramihang-laro"
+  },
+  "tag.category.optimization": {
+    "defaultMessage": "Optimisasyon"
+  },
+  "tag.category.path-tracing": {
+    "defaultMessage": "Path Tracing"
+  },
+  "tag.category.pbr": {
+    "defaultMessage": "PBR"
+  },
+  "tag.category.potato": {
+    "defaultMessage": "Kamote"
+  },
+  "tag.category.quests": {
+    "defaultMessage": "Quests"
+  },
+  "tag.category.realistic": {
+    "defaultMessage": "Makatotohanan"
+  },
+  "tag.category.reflections": {
+    "defaultMessage": "Repleksiyon"
+  },
+  "tag.category.screenshot": {
+    "defaultMessage": "Screenshot"
+  },
+  "tag.category.semi-realistic": {
+    "defaultMessage": "Malakatotohanan"
+  },
+  "tag.category.shadows": {
+    "defaultMessage": "Anino"
+  },
+  "tag.category.simplistic": {
+    "defaultMessage": "Simplistiko"
+  },
+  "tag.category.social": {
+    "defaultMessage": "Sosyal"
+  },
+  "tag.category.storage": {
+    "defaultMessage": "Storage"
+  },
+  "tag.category.technology": {
+    "defaultMessage": "Teknolohiya"
+  },
+  "tag.category.themed": {
+    "defaultMessage": "May tema"
+  },
+  "tag.category.transportation": {
+    "defaultMessage": "Transportasyon"
+  },
+  "tag.category.tweaks": {
+    "defaultMessage": "Tweaks"
+  },
+  "tag.category.utility": {
+    "defaultMessage": "Utilidad"
+  },
+  "tag.category.vanilla-like": {
+    "defaultMessage": "Mala-Vanilla"
+  },
+  "tag.category.worldgen": {
+    "defaultMessage": "Pag-generate ng Mundo"
+  },
+  "tag.loader.babric": {
+    "defaultMessage": "Babric"
+  },
+  "tag.loader.bta-babric": {
+    "defaultMessage": "BTA (Babric)"
+  },
+  "tag.loader.bukkit": {
+    "defaultMessage": "Bukkit"
+  },
+  "tag.loader.bungeecord": {
+    "defaultMessage": "BungeeCord"
+  },
+  "tag.loader.canvas": {
+    "defaultMessage": "Canvas"
+  },
+  "tag.loader.datapack": {
+    "defaultMessage": "Data Pack"
+  },
+  "tag.loader.fabric": {
+    "defaultMessage": "Fabric"
+  },
+  "tag.loader.folia": {
+    "defaultMessage": "Folia"
+  },
+  "tag.loader.forge": {
+    "defaultMessage": "Forge"
+  },
+  "tag.loader.geyser": {
+    "defaultMessage": "Geyser Extension"
+  },
+  "tag.loader.iris": {
+    "defaultMessage": "Iris"
+  },
+  "tag.loader.java-agent": {
+    "defaultMessage": "Java Agent"
+  },
+  "tag.loader.legacy-fabric": {
+    "defaultMessage": "Legacy Fabric"
+  },
+  "tag.loader.liteloader": {
+    "defaultMessage": "LiteLoader"
+  },
+  "tag.loader.minecraft": {
+    "defaultMessage": "Resource Pack"
+  },
+  "tag.loader.modloader": {
+    "defaultMessage": "Risugami's ModLoader"
+  },
+  "tag.loader.mrpack": {
+    "defaultMessage": "Modpack"
+  },
+  "tag.loader.neoforge": {
+    "defaultMessage": "NeoForge"
+  },
+  "tag.loader.nilloader": {
+    "defaultMessage": "NilLoader"
+  },
+  "tag.loader.optifine": {
+    "defaultMessage": "OptiFine"
+  },
+  "tag.loader.ornithe": {
+    "defaultMessage": "Ornithe"
+  },
+  "tag.loader.paper": {
+    "defaultMessage": "Paper"
+  },
+  "tag.loader.purpur": {
+    "defaultMessage": "Purpur"
+  },
+  "tag.loader.quilt": {
+    "defaultMessage": "Quilt"
+  },
+  "tag.loader.rift": {
+    "defaultMessage": "Rift"
+  },
+  "tag.loader.spigot": {
+    "defaultMessage": "Spigot"
+  },
+  "tag.loader.sponge": {
+    "defaultMessage": "Sponge"
+  },
+  "tag.loader.vanilla": {
+    "defaultMessage": "Vanilla Shader"
+  },
+  "tag.loader.velocity": {
+    "defaultMessage": "Velocity"
+  },
+  "tag.loader.waterfall": {
+    "defaultMessage": "Waterfall"
+  },
+  "tooltip.date-at-time": {
+    "defaultMessage": "{date, date, long} sa {time, time, short}"
+  },
+  "ui.component.unsaved-changes-popup.body": {
+    "defaultMessage": "Mayroon kang hindi na-save na pagbabago."
+  }
+}
+

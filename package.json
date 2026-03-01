@@ -14,10 +14,10 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@modrinth/api-client": "file:code-main/packages/api-client",
-    "@modrinth/assets": "file:code-main/packages/assets",
-    "@modrinth/ui": "file:code-main/packages/ui",
-    "@modrinth/utils": "file:code-main/packages/utils",
+    "@modrinth/api-client": "file:packages/api-client",
+    "@modrinth/assets": "file:packages/assets",
+    "@modrinth/ui": "file:packages/ui",
+    "@modrinth/utils": "file:packages/utils",
     "@sentry/vue": "^8.27.0",
     "@sfirew/minecraft-motd-parser": "^1.1.6",
     "@tanstack/vue-query": "^5.90.7",

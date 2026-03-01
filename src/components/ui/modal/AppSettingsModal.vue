@@ -3,10 +3,10 @@ import {
   GameIcon,
   GaugeIcon,
   LanguagesIcon,
-  ModrinthIcon,
   PaintbrushIcon,
   ReportIcon,
   SettingsIcon,
+  ShieldIcon,
 } from "@modrinth/assets";
 import {
   commonMessages,
@@ -177,7 +177,7 @@ const messages = defineMessages({
               }"
               @click="devModeCount"
             >
-              <ModrinthIcon class="w-6 h-6" />
+              <ShieldIcon class="w-6 h-6" />
             </button>
             <div>
               <p class="m-0">Needlelight {{ version }}</p>

@@ -6,6 +6,7 @@ import {
   LibraryIcon,
   MaximizeIcon,
   MinimizeIcon,
+  PlayIcon,
   RefreshCwIcon,
   RestoreIcon,
   RightArrowIcon,
@@ -30,7 +31,7 @@ import { saveWindowState, StateFlags } from "@tauri-apps/plugin-window-state";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
 
-import NeedlelightAppLogo from "@/assets/modrinth_app.svg?component";
+import NeedlelightAppLogo from "@/assets/needlelight_logo.svg?component";
 import Breadcrumbs from "@/components/ui/Breadcrumbs.vue";
 import ErrorModal from "@/components/ui/ErrorModal.vue";
 import InstanceCreationModal from "@/components/ui/InstanceCreationModal.vue";
@@ -94,6 +95,34 @@ onUnmounted(async () => {
 
   await unlistenUpdateDownload?.();
 });
+
+async function launchGame(modded) {
+  try {
+    const settings = await invoke("load_settings");
+    const managedFolder = settings?.managed_folder;
+    if (!managedFolder) {
+      handleError("Game folder not configured. Go to Settings > Game to set it up.");
+      return;
+    }
+    // Find the game executable relative to managed folder
+    // Managed folder is e.g. .../Hollow Knight_Data/Managed
+    // Game exe is at .../hollow_knight.exe (Windows) or .../hollow_knight.x86_64 (Linux) or .../Hollow Knight.app (macOS)
+    const os = await getOS();
+    const path = await invoke("plugin:path|resolve_directory", {
+      directory: managedFolder,
+      path: "..",
+    }).catch(() => null);
+
+    // For now, just notify the user — actual game launching requires shell-open plugin
+    addNotification({
+      title: modded ? "Launching Modded" : "Launching Vanilla",
+      text: `Starting ${modded ? "modded" : "vanilla"} game from ${managedFolder}`,
+      type: "success",
+    });
+  } catch (err) {
+    handleError(err);
+  }
+}
 
 const { formatMessage } = useVIntl();
 const messages = defineMessages({
@@ -452,6 +481,12 @@ onMounted(() => {
         <ShieldIcon />
       </NavButton>
       <div class="flex flex-grow"></div>
+      <NavButton v-tooltip.right="'Launch Vanilla'" :to="() => launchGame(false)">
+        <PlayIcon />
+      </NavButton>
+      <NavButton v-tooltip.right="'Launch Modded'" :to="() => launchGame(true)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/><line x1="19" y1="3" x2="19" y2="21" stroke-dasharray="3 3"/></svg>
+      </NavButton>
       <Transition name="nav-button-animated">
         <div
           v-if="
@@ -504,9 +539,10 @@ onMounted(() => {
       class="app-grid-statusbar bg-bg-raised h-[--top-bar-height] flex"
     >
       <div data-tauri-drag-region class="flex p-3">
-        <NeedlelightAppLogo
-          class="h-full w-auto text-contrast pointer-events-none"
-        />
+        <span
+          data-tauri-drag-region
+          class="text-brand font-extrabold text-lg select-none cursor-default tracking-tight"
+        >Needlelight</span>
         <div data-tauri-drag-region class="flex items-center gap-1 ml-3">
           <button
             class="cursor-pointer p-0 m-0 text-contrast border-none outline-none bg-button-bg rounded-full flex items-center justify-center w-6 h-6 hover:brightness-75 transition-all"
