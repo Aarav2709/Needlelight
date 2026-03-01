@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import * as Pages from '@/pages'
 import * as Instance from '@/pages/instance'
 import * as Library from '@/pages/library'
 
@@ -12,19 +11,7 @@ export default new createRouter({
 	routes: [
 		{
 			path: '/',
-			name: 'Home',
-			component: Pages.Index,
-			meta: {
-				breadcrumb: [{ name: 'Home' }],
-			},
-		},
-		{
-			path: '/modding-api',
-			name: 'ModdingApi',
-			component: Pages.ModdingApi,
-			meta: {
-				breadcrumb: [{ name: 'Modding API' }],
-			},
+			redirect: '/library',
 		},
 		{
 			path: '/library',

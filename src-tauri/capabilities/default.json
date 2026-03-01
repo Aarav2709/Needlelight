@@ -7,7 +7,13 @@
     "core:default",
     "core:app:default",
     "core:app:allow-version",
+    "core:window:default",
     "core:window:allow-set-decorations",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-close",
     "core:event:default",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
@@ -19,6 +25,11 @@
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
-    "fs:default"
+    "fs:default",
+    "os:default",
+    "os:allow-platform",
+    "os:allow-version",
+    "os:allow-os-type",
+    "window-state:default"
   ]
 }

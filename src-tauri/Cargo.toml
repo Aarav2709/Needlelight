@@ -33,6 +33,8 @@ roxmltree = "0.20"
 urlencoding = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-os = "2"
+tauri-plugin-window-state = "2"
 
 [features]
 default = ["custom-protocol"]

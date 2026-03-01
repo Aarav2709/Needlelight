@@ -4,6 +4,7 @@ import {
   DownloadIcon,
   RefreshCwIcon,
   SearchIcon,
+  ShieldIcon,
   XIcon,
 } from '@modrinth/assets'
 import { ButtonStyled, injectNotificationManager } from '@modrinth/ui'
@@ -27,6 +28,13 @@ const activeFilter = ref('all')
 const busyMods = ref(new Set())
 const activeGame = ref('hollow_knight')
 const switchingGame = ref(false)
+const installingApi = ref(false)
+
+const apiInstalled = computed(() => {
+  if (!catalog.value) return false
+  const api = catalog.value.api
+  return api && api.url && api.url.length > 0
+})
 
 async function loadGame() {
   try {
@@ -149,6 +157,18 @@ async function toggleMod(modName, enable) {
   }
 }
 
+async function installApi() {
+  installingApi.value = true
+  try {
+    await invoke('install_api')
+    await fetchCatalog()
+  } catch (err) {
+    handleError(err)
+  } finally {
+    installingApi.value = false
+  }
+}
+
 onMounted(async () => {
   await loadGame()
   await fetchCatalog()
@@ -239,6 +259,42 @@ onMounted(async () => {
           <template v-else-if="f.key === 'available'">({{ availableMods.length }})</template>
         </button>
       </div>
+    </div>
+
+    <!-- Modding API Card -->
+    <div
+      class="rounded-xl bg-bg-raised border border-solid border-surface-5 p-4 flex items-center justify-between gap-4 flex-wrap"
+    >
+      <div class="flex items-center gap-3">
+        <div
+          class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+          :class="apiInstalled ? 'bg-green-500/10 text-green-500' : 'bg-brand/10 text-brand'"
+        >
+          <ShieldIcon class="w-5 h-5" />
+        </div>
+        <div>
+          <h4 class="m-0 text-sm font-semibold text-contrast">Modding API</h4>
+          <p class="text-xs text-secondary m-0 mt-0.5">
+            {{ apiInstalled ? 'The modding API is installed and ready.' : 'Required to load mods. Install it to get started.' }}
+          </p>
+        </div>
+      </div>
+      <button
+        v-if="!apiInstalled"
+        class="px-4 py-2 text-xs rounded-lg border-none bg-brand text-white cursor-pointer hover:brightness-90 transition-all font-medium flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+        :disabled="installingApi || catalogLoading"
+        @click="installApi"
+      >
+        <DownloadIcon class="w-3.5 h-3.5" />
+        {{ installingApi ? 'Installing...' : 'Install API' }}
+      </button>
+      <span
+        v-else
+        class="text-xs font-medium text-green-500 flex items-center gap-1"
+      >
+        <CheckIcon class="w-3.5 h-3.5" />
+        Installed
+      </span>
     </div>
 
     <!-- Loading state -->

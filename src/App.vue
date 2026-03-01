@@ -1,7 +1,6 @@
 <script setup>
 import {
   DownloadIcon,
-  HomeIcon,
   LeftArrowIcon,
   LibraryIcon,
   MaximizeIcon,
@@ -11,7 +10,6 @@ import {
   RestoreIcon,
   RightArrowIcon,
   SettingsIcon,
-  ShieldIcon,
   XIcon,
 } from "@modrinth/assets";
 import {
@@ -151,10 +149,6 @@ async function setupApp() {
   // Initialize locale from saved settings
   if (locale) {
     i18n.global.locale.value = locale;
-  }
-
-  if (default_page === "Library") {
-    await router.push("/library");
   }
 
   os.value = await getOS();
@@ -453,18 +447,12 @@ onMounted(() => {
     <div
       class="app-grid-navbar bg-bg-raised flex flex-col p-[0.5rem] pt-0 gap-[0.5rem] w-[--left-bar-width]"
     >
-      <NavButton v-tooltip.right="'Home'" to="/">
-        <HomeIcon />
-      </NavButton>
       <NavButton
         v-tooltip.right="'Library'"
         to="/library"
         :is-subpage="() => route.path.startsWith('/instance')"
       >
         <LibraryIcon />
-      </NavButton>
-      <NavButton v-tooltip.right="'Modding API'" to="/modding-api">
-        <ShieldIcon />
       </NavButton>
       <div class="flex flex-grow"></div>
       <NavButton v-tooltip.right="'Launch Vanilla'" :to="() => launchGame(false)">
@@ -817,7 +805,8 @@ onMounted(() => {
   }
 }
 
-.windows {
+.windows,
+:root:not(.mac) {
   .fake-appbar {
     height: 2.5rem !important;
   }

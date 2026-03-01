@@ -39,7 +39,7 @@ impl CatalogCache {
             .timeout(Duration::from_secs(30))
             .build()?;
 
-        let modlinks_xml = fetch_modlinks_xml(&client, settings, fetch_official).await?;
+        let modlinks_xml = fetch_modlinks_xml(&client, settings, fetch_official).await;
         let api_xml = fetch_apilinks_xml(&client, settings).await;
 
         let api = api_xml
@@ -51,7 +51,14 @@ impl CatalogCache {
                 sha256: String::new(),
             });
 
-        let mut items = parse_mod_items(&modlinks_xml, installed)?;
+        let mut items = match modlinks_xml {
+            Ok(xml) => parse_mod_items(&xml, installed)?,
+            Err(e) => {
+                // Silksong modlinks don't exist yet — return empty catalog gracefully
+                eprintln!("Could not fetch modlinks: {e}");
+                Vec::new()
+            }
+        };
 
         for (name, state) in &installed.db.not_in_modlinks_mods {
             if items.iter().any(|x| x.name == *name) {
