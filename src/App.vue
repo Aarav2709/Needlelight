@@ -438,9 +438,7 @@ onMounted(() => {
         </span>
       </div>
     </Transition>
-    <Suspense>
-      <AppSettingsModal ref="settingsModal" />
-    </Suspense>
+    <AppSettingsModal ref="settingsModal" />
     <Suspense>
       <InstanceCreationModal ref="installationModal" />
     </Suspense>

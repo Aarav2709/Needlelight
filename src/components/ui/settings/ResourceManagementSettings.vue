@@ -2,17 +2,24 @@
 import { BoxIcon, FolderSearchIcon } from '@modrinth/assets'
 import { Button, injectNotificationManager, Slider, StyledInput } from '@modrinth/ui'
 import { open } from '@tauri-apps/plugin-dialog'
-import { ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 import { get, set } from '@/helpers/settings.ts'
 
 const { handleError } = injectNotificationManager()
-const settings = ref(await get())
+const settings = ref(null)
+const ready = ref(false)
+
+onMounted(async () => {
+  try { settings.value = await get() } catch { /* ignore */ }
+  ready.value = true
+})
 
 watch(
 settings,
-async () => {
-const setSettings = JSON.parse(JSON.stringify(settings.value))
+async (val) => {
+if (!val) return
+const setSettings = JSON.parse(JSON.stringify(val))
 
 if (!setSettings.custom_dir) {
 setSettings.custom_dir = null
@@ -37,6 +44,8 @@ settings.value.custom_dir = newDir
 </script>
 
 <template>
+<div v-if="!ready" class="text-secondary text-sm p-4">Loading resource settings...</div>
+<div v-else-if="settings">
 <h2 class="m-0 text-lg font-extrabold text-contrast">App directory</h2>
 <p class="m-0 mt-1 mb-2 leading-tight text-secondary">
 The directory where Needlelight stores all of its files. Changes will be applied after
@@ -78,4 +87,5 @@ The maximum amount of files the app can write to the disk at once. Set this to a
 value if you are frequently getting I/O errors. (app restart required to take effect)
 </p>
 <Slider id="max-writes" v-model="settings.max_concurrent_writes" :min="1" :max="50" :step="1" />
+</div>
 </template>

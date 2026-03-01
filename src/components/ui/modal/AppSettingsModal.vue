@@ -21,7 +21,7 @@ import {
   platform as getOsPlatform,
   version as getOsVersion,
 } from "@tauri-apps/plugin-os";
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
 import ModalWrapper from "@/components/ui/modal/ModalWrapper.vue";
 import AppearanceSettings from "@/components/ui/settings/AppearanceSettings.vue";
@@ -92,7 +92,7 @@ const tabs = [
 const modal = ref();
 
 function show() {
-  modal.value.show();
+  modal.value?.show();
 }
 
 const isOpen = computed(() => modal.value?.isOpen);
@@ -102,15 +102,30 @@ defineExpose({ show, isOpen });
 const { progress, version: downloadingVersion } =
   injectAppUpdateDownloadProgress();
 
-const version = await getVersion().catch(() => "0.0.0");
-const osPlatform = getOsPlatform();
-const osVersion = getOsVersion();
-const settings = ref(await get());
+const version = ref("0.0.0");
+const osPlatform = ref("unknown");
+const osVersion = ref("");
+const settings = ref<Record<string, any> | null>(null);
+const ready = ref(false);
+
+onMounted(async () => {
+  try {
+    version.value = await getVersion().catch(() => "0.0.0");
+  } catch { /* ignore */ }
+  try {
+    osPlatform.value = getOsPlatform();
+    osVersion.value = getOsVersion();
+  } catch { /* ignore */ }
+  try {
+    settings.value = await get();
+  } catch { /* ignore */ }
+  ready.value = true;
+});
 
 watch(
   settings,
-  async () => {
-    await set(settings.value);
+  async (val) => {
+    if (val) await set(val);
   },
   { deep: true },
 );
@@ -119,11 +134,11 @@ function devModeCount() {
   devModeCounter.value++;
   if (devModeCounter.value > 5) {
     themeStore.devMode = !themeStore.devMode;
-    settings.value.developer_mode = !!themeStore.devMode;
+    if (settings.value) settings.value.developer_mode = !!themeStore.devMode;
     devModeCounter.value = 0;
 
-    if (!themeStore.devMode && tabs[modal.value.selectedTab].developerOnly) {
-      modal.value.setTab(0);
+    if (!themeStore.devMode && tabs[modal.value?.selectedTab]?.developerOnly) {
+      modal.value?.setTab(0);
     }
   }
 }
@@ -146,6 +161,7 @@ const messages = defineMessages({
     </template>
 
     <TabbedModal
+      v-if="ready"
       :tabs="tabs.filter((t) => !t.developerOnly || themeStore.devMode)"
     >
       <template #footer>
@@ -191,5 +207,6 @@ const messages = defineMessages({
         </div>
       </template>
     </TabbedModal>
+    <div v-else class="p-8 text-center text-secondary">Loading settings...</div>
   </ModalWrapper>
 </template>

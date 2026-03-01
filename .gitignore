@@ -12,5 +12,4 @@ packages/
 node_modules/.vite
 
 # Extra reference files.
-Silksong.ModList-main
 app-frontend

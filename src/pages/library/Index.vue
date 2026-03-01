@@ -30,6 +30,10 @@ const activeGame = ref('hollow_knight')
 const switchingGame = ref(false)
 const installingApi = ref(false)
 
+const isSilksong = computed(() => activeGame.value === 'silksong')
+
+const apiLabel = computed(() => isSilksong.value ? 'BepInEx (Mod Loader)' : 'Modding API')
+
 const apiInstalled = computed(() => {
   if (!catalog.value) return false
   const api = catalog.value.api
@@ -273,9 +277,14 @@ onMounted(async () => {
           <ShieldIcon class="w-5 h-5" />
         </div>
         <div>
-          <h4 class="m-0 text-sm font-semibold text-contrast">Modding API</h4>
+          <h4 class="m-0 text-sm font-semibold text-contrast">{{ apiLabel }}</h4>
           <p class="text-xs text-secondary m-0 mt-0.5">
-            {{ apiInstalled ? 'The modding API is installed and ready.' : 'Required to load mods. Install it to get started.' }}
+            <template v-if="isSilksong">
+              {{ apiInstalled ? 'BepInEx mod loader is configured.' : 'Required mod loader for Silksong mods.' }}
+            </template>
+            <template v-else>
+              {{ apiInstalled ? 'The modding API is installed and ready.' : 'Required to load mods. Install it to get started.' }}
+            </template>
           </p>
         </div>
       </div>
@@ -299,7 +308,7 @@ onMounted(async () => {
 
     <!-- Loading state -->
     <div v-if="catalogLoading" class="text-secondary text-sm py-8 text-center">
-      Loading mod catalog from modlinks...
+      {{ isSilksong ? 'Loading mod catalog from Thunderstore...' : 'Loading mod catalog from modlinks...' }}
     </div>
 
     <!-- Error state -->

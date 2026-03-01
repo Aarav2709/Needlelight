@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Combobox, ThemeSelector, Toggle } from '@modrinth/ui'
-import { ref, watch } from 'vue'
+import { ThemeSelector, Toggle } from '@modrinth/ui'
+import { onMounted, ref, watch } from 'vue'
 
 import { get, set } from '@/helpers/settings.ts'
 import { getOS } from '@/helpers/utils'
@@ -9,18 +9,27 @@ import type { ColorTheme } from '@/store/theme.ts'
 
 const themeStore = useTheming()
 
-const os = ref(await getOS())
-const settings = ref(await get())
+const os = ref('')
+const settings = ref<Record<string, any> | null>(null)
+const ready = ref(false)
+
+onMounted(async () => {
+	try { os.value = await getOS() } catch { /* ignore */ }
+	try { settings.value = await get() } catch { /* ignore */ }
+	ready.value = true
+})
 
 watch(
 	settings,
-	async () => {
-		await set(settings.value)
+	async (val) => {
+		if (val) await set(val)
 	},
 	{ deep: true },
 )
 </script>
 <template>
+	<div v-if="!ready" class="text-secondary text-sm p-4">Loading appearance settings...</div>
+	<div v-else-if="settings">
 	<h2 class="m-0 text-lg font-extrabold text-contrast">Color theme</h2>
 	<p class="m-0 mt-1">Select your preferred color theme for Needlelight.</p>
 
@@ -57,14 +66,6 @@ watch(
 		/>
 	</div>
 
-	<div class="mt-4 flex items-center justify-between">
-		<div>
-			<h2 class="m-0 text-lg font-extrabold text-contrast">Hide nametag</h2>
-			<p class="m-0 mt-1">Disables the nametag above your player on the skins page.</p>
-		</div>
-		<Toggle id="hide-nametag-skins-page" v-model="settings.hide_nametag_skins_page" />
-	</div>
-
 	<div v-if="os !== 'MacOS'" class="mt-4 flex items-center justify-between gap-4">
 		<div>
 			<h2 class="m-0 text-lg font-extrabold text-contrast">Native decorations</h2>
@@ -76,41 +77,9 @@ watch(
 	<div class="mt-4 flex items-center justify-between">
 		<div>
 			<h2 class="m-0 text-lg font-extrabold text-contrast">Minimize launcher</h2>
-			<p class="m-0 mt-1">Minimize the launcher when a Minecraft process starts.</p>
+			<p class="m-0 mt-1">Minimize the launcher when the game starts.</p>
 		</div>
 		<Toggle id="minimize-launcher" v-model="settings.hide_on_process_start" />
-	</div>
-
-	<div class="mt-4 flex items-center justify-between">
-		<div>
-			<h2 class="m-0 text-lg font-extrabold text-contrast">Default landing page</h2>
-			<p class="m-0 mt-1">Change the page to which the launcher opens on.</p>
-		</div>
-		<Combobox
-			id="opening-page"
-			v-model="settings.default_page"
-			name="Opening page dropdown"
-			class="w-40"
-			:options="['Home', 'Library'].map((v) => ({ value: v, label: v }))"
-			:display-value="settings.default_page ?? 'Select an option'"
-		/>
-	</div>
-
-	<div class="mt-4 flex items-center justify-between">
-		<div>
-			<h2 class="m-0 text-lg font-extrabold text-contrast">Jump back into worlds</h2>
-			<p class="m-0 mt-1">Includes recent worlds in the "Jump back in" section on the Home page.</p>
-		</div>
-		<Toggle
-			:model-value="themeStore.getFeatureFlag('worlds_in_home')"
-			@update:model-value="
-				() => {
-					const newValue = !themeStore.getFeatureFlag('worlds_in_home')
-					themeStore.featureFlags['worlds_in_home'] = newValue
-					settings.feature_flags['worlds_in_home'] = newValue
-				}
-			"
-		/>
 	</div>
 
 	<div class="mt-4 flex items-center justify-between">
@@ -128,5 +97,6 @@ watch(
 				}
 			"
 		/>
+	</div>
 	</div>
 </template>

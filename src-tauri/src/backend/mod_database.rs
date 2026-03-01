@@ -6,6 +6,7 @@ use super::{
     url_scheme::normalize_custom_modlinks_uri,
 };
 use roxmltree::Document;
+use serde::Deserialize;
 use std::time::Duration;
 
 const HK_MODLINKS: &str = "https://raw.githubusercontent.com/hk-modding/modlinks/main/ModLinks.xml";
@@ -27,6 +28,40 @@ const SS_APILINKS: &[&str] = &[
     "https://cdn.jsdelivr.net/gh/silksong-modding/modlinks@latest/ApiLinks.xml",
 ];
 
+const THUNDERSTORE_SS_URL: &str =
+    "https://thunderstore.io/c/hollow-knight-silksong/api/v1/package/";
+
+// ─── Thunderstore DTOs ──────────────────────────────────────────────────────
+#[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
+struct ThunderstorePackage {
+    pub name: String,
+    pub full_name: String,
+    pub owner: String,
+    #[serde(default)]
+    pub categories: Vec<String>,
+    #[serde(default)]
+    pub rating_score: i32,
+    #[serde(default)]
+    pub is_deprecated: bool,
+    #[serde(default)]
+    pub versions: Vec<ThunderstoreVersion>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
+struct ThunderstoreVersion {
+    pub version_number: String,
+    pub description: String,
+    #[serde(default)]
+    pub icon: String,
+    pub download_url: String,
+    #[serde(default)]
+    pub downloads: i64,
+    #[serde(default)]
+    pub dependencies: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct CatalogCache {
     pub response: CatalogResponse,
@@ -38,6 +73,11 @@ impl CatalogCache {
             .user_agent("Needlelight")
             .timeout(Duration::from_secs(30))
             .build()?;
+
+        // Silksong uses Thunderstore instead of modlinks
+        if settings.game == GameKey::Silksong {
+            return Self::build_thunderstore(&client, installed).await;
+        }
 
         let modlinks_xml = fetch_modlinks_xml(&client, settings, fetch_official).await;
         let api_xml = fetch_apilinks_xml(&client, settings).await;
@@ -54,7 +94,6 @@ impl CatalogCache {
         let mut items = match modlinks_xml {
             Ok(xml) => parse_mod_items(&xml, installed)?,
             Err(e) => {
-                // Silksong modlinks don't exist yet — return empty catalog gracefully
                 eprintln!("Could not fetch modlinks: {e}");
                 Vec::new()
             }
@@ -86,6 +125,83 @@ impl CatalogCache {
         }
 
         items.sort_by(|a, b| a.name.cmp(&b.name));
+
+        Ok(Self {
+            response: CatalogResponse { items, api },
+        })
+    }
+
+    /// Build catalog from Thunderstore API for Silksong
+    async fn build_thunderstore(
+        client: &reqwest::Client,
+        installed: &InstalledModsStore,
+    ) -> AppResult<Self> {
+        let packages: Vec<ThunderstorePackage> = match client
+            .get(THUNDERSTORE_SS_URL)
+            .send()
+            .await
+        {
+            Ok(resp) => match resp.error_for_status() {
+                Ok(ok) => ok.json().await.unwrap_or_default(),
+                Err(e) => {
+                    eprintln!("Thunderstore API error: {e}");
+                    Vec::new()
+                }
+            },
+            Err(e) => {
+                eprintln!("Could not reach Thunderstore: {e}");
+                Vec::new()
+            }
+        };
+
+        let mut items: Vec<ModItem> = packages
+            .into_iter()
+            .filter(|p| !p.is_deprecated && !p.versions.is_empty())
+            .map(|pkg| {
+                let latest = &pkg.versions[0];
+                let name = pkg.name.clone();
+
+                // Strip BepInEx- prefix from dependency full_names to just keep the package name
+                let dependencies: Vec<String> = latest
+                    .dependencies
+                    .iter()
+                    .filter_map(|dep| {
+                        let parts: Vec<&str> = dep.split('-').collect();
+                        if parts.len() >= 2 {
+                            Some(parts[1].to_string())
+                        } else {
+                            Some(dep.clone())
+                        }
+                    })
+                    .collect();
+
+                let state = installed.state_for_manifest(&name, &latest.version_number);
+
+                ModItem {
+                    name,
+                    description: latest.description.clone(),
+                    version: latest.version_number.clone(),
+                    dependencies,
+                    link: latest.download_url.clone(),
+                    sha256: String::new(), // Thunderstore doesn't provide SHA256 in the listing
+                    repository: format!("https://thunderstore.io/c/hollow-knight-silksong/p/{}/{}/", pkg.owner, pkg.full_name.split('-').last().unwrap_or(&pkg.name)),
+                    issues: String::new(),
+                    tags: pkg.categories.clone(),
+                    integrations: vec![],
+                    authors: vec![pkg.owner.clone()],
+                    state,
+                }
+            })
+            .collect();
+
+        items.sort_by(|a, b| a.name.cmp(&b.name));
+
+        // Silksong uses BepInEx — represent it as the "API" (mod loader)
+        let api = ApiInfo {
+            url: "thunderstore:bepinex".to_string(),
+            version: 0,
+            sha256: String::new(),
+        };
 
         Ok(Self {
             response: CatalogResponse { items, api },

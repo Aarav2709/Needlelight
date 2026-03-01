@@ -34,6 +34,10 @@ export default defineConfig({
 				replacement: resolve(projectRootDir, 'packages/assets'),
 			},
 			{
+				find: '@modrinth/ui',
+				replacement: resolve(projectRootDir, 'packages/ui'),
+			},
+			{
 				find: '@modrinth/utils',
 				replacement: resolve(projectRootDir, 'packages/utils'),
 			},
@@ -100,7 +104,7 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		entries: ['index.html'],
-		exclude: ['@modrinth/assets', '@modrinth/utils'],
+		exclude: ['@modrinth/assets', '@modrinth/ui', '@modrinth/utils'],
 		include: [
 			'dayjs',
 			'dayjs/plugin/duration',
