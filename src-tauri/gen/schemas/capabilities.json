@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default capability for main window","local":true,"windows":["main"],"permissions":["core:default","core:app:default","core:app:allow-version","core:window:allow-set-decorations","core:event:default","core:event:allow-listen","core:event:allow-unlisten","core:event:allow-emit"]}}

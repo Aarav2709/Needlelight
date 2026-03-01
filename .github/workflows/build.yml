@@ -1,226 +1,108 @@
-name: Build
+name: Needlelight CI
+
 on:
   push:
-    tags:
-      - "v*.*.*.*"
-  release:
-    types: [published]
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
-    env:
-      NUGET_CERT_REVOCATION_MODE: offline
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup .NET for windows build
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: 10.0.x
-      - name: Build
-        run: |
-          cd Needlelight
-          dotnet publish -r win-x64 -p:PublishSingleFile=true -p:Configuration=Release --self-contained true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded
-          cd ..
-      - name: Upload windows binary
-        # NOTE: upgraded upload-artifact from v3 -> v4 to avoid deprecated action failures
-        uses: actions/upload-artifact@v4
-        with:
-          name: Needlelight-Windows
-          path: Needlelight/bin/Release/net10.0/win-x64/publish/
-
-  build-linux:
+  checks:
+    name: Frontend + Rust checks
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup .NET for linux build
-        uses: actions/setup-dotnet@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          dotnet-version: 10.0.x
-      - name: Build
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
         run: |
-          cd Needlelight
-          dotnet publish -r linux-x64 -p:PublishSingleFile=true -p:Configuration=Release --self-contained true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded
-          cd ..
-          chmod +x Needlelight/bin/Release/net10.0/linux-x64/publish/Needlelight
-          zip -jr linux.zip Needlelight/bin/Release/net10.0/linux-x64/publish/*
-      - name: Upload linux binary
-        # NOTE: upgraded upload-artifact from v3 -> v4 to avoid deprecated action failures
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Check Rust backend
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+  release-build:
+    name: Build desktop bundles
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: Needlelight-Linux
+          - os: windows-latest
+            artifact_name: Needlelight-Windows
+          - os: macos-latest
+            artifact_name: Needlelight-macOS
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri bundles
+        run: pnpm tauri build
+
+      - name: Upload bundles
         uses: actions/upload-artifact@v4
         with:
-          name: Needlelight-Linux
-          path: linux.zip
-
-  build-macos:
-    runs-on: macos-latest
-    env:
-      NUGET_CERT_REVOCATION_MODE: offline
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup .NET for macos build
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: 10.0.x
-      - name: Build
-        run: |
-          cd Needlelight
-          dotnet publish -r osx-x64 -p:PublishSingleFile=true -p:Configuration=Release --self-contained true
-          cd ..
-          cd Scripts
-          # Ensure the published binary is executable before creating the .app bundle
-          chmod +x ../Needlelight/bin/Release/net10.0/osx-x64/publish/Needlelight || true
-          chmod +x ./Needlelight.app/Contents/MacOS/Needlelight || true
-          python3 make_mac_app.py Needlelight.app ../Needlelight/bin/Release/net10.0/osx-x64/publish ../out
-          cd ..
-      - name: Upload macos binary
-        # NOTE: upgraded upload-artifact from v3 -> v4 to avoid deprecated action failures
-        uses: actions/upload-artifact@v4
-        with:
-          name: Needlelight-MacOS
-          path: out/Needlelight-mac.zip
-
-  # needs to run when releasing but before main release action
-  build-auto-updater:
-    # needs windows build for the exe to embed in the updater
-    needs: [build-windows]
-    runs-on: windows-latest
-    env:
-      NUGET_CERT_REVOCATION_MODE: offline
-
-    if: startsWith(github.ref, 'refs/tags')
-
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup .NET for AU build
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: 10.0.x
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./artifacts
-      - name: Restore dependencies
-        run: dotnet restore -r win-x64
-      - name: Build
-        run: |
-          cp ./artifacts/Needlelight-Windows/Needlelight.exe ./Needlelight.AU/Needlelight.exe
-          cd Needlelight.AU
-          dotnet publish -r win-x64 -c Release --self-contained true
-          cd ..
-      - name: Upload windows binary
-        # NOTE: upgraded upload-artifact from v3 -> v4 to avoid deprecated action failures
-        uses: actions/upload-artifact@v4
-        with:
-          name: Needlelight.AU
-          path: Needlelight.AU/bin/Release/net10.0/win-x64/publish/
-
-  release:
-    needs: [build-macos, build-windows, build-linux, build-auto-updater]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags') || github.event_name == 'release'
-
-    steps:
-      - name: Resolve tag
-        id: resolve_tag
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Checkout repository (needed to verify tag ancestry)
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Verify tag points to master
-        id: verify_tag
-        run: |
-          TAG='${{ steps.resolve_tag.outputs.tag }}'
-          echo "Verifying tag: $TAG"
-          TAG_SHA=$(git rev-list -n 1 "refs/tags/${TAG}")
-          echo "Tag sha: $TAG_SHA"
-          git fetch origin master
-          if git merge-base --is-ancestor "$TAG_SHA" origin/master; then
-            echo "on_master=true" >> $GITHUB_OUTPUT
-          else
-            echo "on_master=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Download artifacts
-        if: steps.verify_tag.outputs.on_master == 'true'
-        uses: actions/download-artifact@v4
-        with:
-          path: ./artifacts
-
-      - name: Package and checksum
-        if: steps.verify_tag.outputs.on_master == 'true'
-        run: |
-          set -euo pipefail
-          mkdir -p win_pkg
-          cp -r ./artifacts/Needlelight-Windows/* ./win_pkg/
-          printf '%s\n' \
-            'Windows may show a SmartScreen warning because this app is not code-signed with a paid certificate.' \
-            '' \
-            'Free ways to run safely:' \
-            '1) Unblock this zip before extracting: Right-click > Properties > check "Unblock" > OK, then extract.' \
-            '   Or in PowerShell: Unblock-File -Path .\\Needlelight-Windows.zip' \
-            '2) After extracting, run UNBLOCK_AND_RUN.cmd to automatically unblock files and start Needlelight.' \
-            '3) Verify downloads using the SHA256SUMS.txt on the GitHub Release.' \
-            '' \
-            'This package contains:' \
-            '- UNBLOCK_AND_RUN.cmd (calls PowerShell with ExecutionPolicy Bypass)' \
-            '- unblock-all.ps1 (runs Unblock-File recursively)' \
-            > ./win_pkg/README-Windows-First-Run.txt
-          printf '%s\n' \
-            'Param(' \
-            '  [string]$Root = $PSScriptRoot' \
-            ')' \
-            'Write-Host "Unblocking files under: $Root"' \
-            'Get-ChildItem -LiteralPath $Root -Recurse -Force | Unblock-File -ErrorAction SilentlyContinue' \
-            '$exe = Join-Path $Root '\''Needlelight.exe'\''' \
-            'if (Test-Path $exe) {' \
-            '  Write-Host "Launching: $exe"' \
-            '  Start-Process -FilePath $exe' \
-            '} else {' \
-            '  Write-Host "Needlelight.exe not found in $Root"' \
-            '}' \
-            > ./win_pkg/unblock-all.ps1
-          printf '%s\n' \
-            '@echo off' \
-            'setlocal' \
-            'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0unblock-all.ps1"' \
-            'endlocal' \
-            > ./win_pkg/UNBLOCK_AND_RUN.cmd
-          zip -jr Needlelight-Windows.zip ./win_pkg/*
-          cp ./artifacts/Needlelight-Windows/Needlelight.exe ./Needlelight.exe
-          cp ./artifacts/Needlelight.AU/Needlelight.AU.exe ./Needlelight.AU.exe
-          mv ./artifacts/Needlelight-Linux/linux.zip Needlelight-Linux.zip
-          mv ./artifacts/Needlelight-MacOS/Needlelight-mac.zip Needlelight-MacOS.zip
-          sha256sum \
-            Needlelight.exe \
-            Needlelight.AU.exe \
-            Needlelight-Windows.zip \
-            Needlelight-MacOS.zip \
-            Needlelight-Linux.zip > SHA256SUMS.txt
-
-      - name: Create release
-        if: steps.verify_tag.outputs.on_master == 'true'
-        uses: softprops/action-gh-release@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ steps.resolve_tag.outputs.tag }}
-          files: |
-            ./Needlelight.exe
-            ./Needlelight.AU.exe
-            ./Needlelight-Windows.zip
-            ./Needlelight-MacOS.zip
-            ./Needlelight-Linux.zip
-            ./SHA256SUMS.txt
-
-  # Appcast generation and auto-updater publishing removed — updates are now disabled
+          name: ${{ matrix.artifact_name }}
+          path: src-tauri/target/release/bundle/**

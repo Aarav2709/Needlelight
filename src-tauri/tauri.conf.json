@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Needlelight",
+  "version": "1.0.0",
+  "identifier": "com.needlelight.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm dev:web",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Needlelight",
+        "width": 1380,
+        "height": 900,
+        "resizable": true,
+        "minWidth": 980,
+        "minHeight": 660
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": [
+        "default"
+      ]
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all"
+  }
+}

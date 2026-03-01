@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:app:default",
+    "core:app:allow-version",
+    "core:window:allow-set-decorations",
+    "core:event:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:event:allow-emit"
+  ]
+}

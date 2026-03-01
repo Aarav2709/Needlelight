@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import '@modrinth/ui/src/styles/tailwind-utilities.css';
+
+:root {
+	font-family: var(--font-standard, sans-serif), sans-serif;
+	color-scheme: dark;
+	--view-width: calc(100% - 5rem);
+	--expanded-view-width: calc(100% - 13rem);
+	--color-green-50: #fff0f2;
+	--color-green-100: #ffe2e6;
+	--color-green-200: #ffc8d0;
+	--color-green-300: #ff9eac;
+	--color-green-400: #ff6b81;
+	--color-green-500: #f5445c;
+	--color-green-600: #e92337;
+	--color-green-700: #c81a2d;
+	--color-green-800: #a91829;
+	--color-green-900: #8f1928;
+	--color-green-950: #500912;
+	--color-green: var(--color-green-600);
+	--color-green-highlight: rgba(233, 35, 55, 0.25);
+	--color-green-bg: rgba(233, 35, 55, 0.2);
+	--color-brand: var(--color-green);
+	--color-brand-highlight: var(--color-green-highlight);
+	--color-brand-shadow: rgba(233, 35, 55, 0.7);
+	--brand-gradient-border: rgba(233, 35, 55, 0.25);
+	--brand-gradient-button: rgba(233, 35, 55, 0.12);
+	--brand-gradient-bg: linear-gradient(180deg, rgba(233, 35, 55, 0.12) 0%, transparent 100%);
+	--brand-gradient-fade-out-color: linear-gradient(180deg, #00000000 0%, var(--color-raised-bg) 90%);
+}
+
+body {
+	position: fixed;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+.card-divider {
+	background-color: var(--color-button-bg);
+	border: none;
+	color: var(--color-button-bg);
+	height: 1px;
+	margin: var(--gap-sm) 0;
+}
+
+.no-wrap {
+	white-space: nowrap;
+}
+
+.no-select {
+	-webkit-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+}
+
+a {
+	color: var(--color-link);
+	text-decoration: none;
+
+	&:hover {
+		text-decoration: none;
+	}
+}
+
+.badge {
+	display: flex;
+	border-radius: var(--radius-md);
+	white-space: nowrap;
+	align-items: center;
+	background-color: var(--color-bg);
+	padding-block: var(--gap-sm);
+	padding-inline: var(--gap-lg);
+	width: min-content;
+
+	svg {
+		width: 1.1rem;
+		height: 1.1rem;
+		margin-right: 0.5rem;
+	}
+
+	&.featured {
+		background-color: var(--color-brand-highlight);
+		color: var(--color-contrast);
+	}
+}
+
+* {
+	scrollbar-width: auto;
+	scrollbar-color: var(--color-scrollbar) var(--color-bg);
+}
+
+/* Chrome, Edge, and Safari */
+*::-webkit-scrollbar {
+	width: 16px;
+	border: 3px solid transparent;
+	opacity: 0.5;
+	transition: opacity 0.2s ease-in-out;
+}
+
+*::-webkit-scrollbar:hover {
+	opacity: 1;
+}
+
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+	background-color: var(--color-scrollbar);
+	border-radius: var(--radius-lg);
+	border: 5px solid transparent;
+	background-clip: content-box;
+}
+
+.highlighted {
+	box-shadow: 0 0 1rem var(--color-brand) !important;
+}
+
+.gecko {
+	background-color: var(--color-raised-bg);
+	box-shadow: none !important;
+}
+
+img {
+	user-select: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+}
+
+.card-shadow {
+	box-shadow: var(--shadow-card);
+}
+
+@import '@modrinth/assets/omorphia.scss';

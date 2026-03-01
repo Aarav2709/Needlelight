@@ -1,7 +1,7 @@
 <h1 align="center"> Needlelight</h1>
 
 <p align="center">
-  Needlelight is a refreshed, production-ready evolution of the original Needlelight installer. It focuses on first-class support for Hollow Knight: Silksong, improved     stability when installing mods, and a cleaner, more maintainable codebase with better localization support.
+  Needlelight is a desktop mod manager built on Tauri + Rust with a modern frontend and a native backend.
 </p>
 
 <p align="center">
@@ -17,9 +17,21 @@
 
 Key improvements in Needlelight:
 
-- Reworked game profile system: automatic detection and per-game executable resolution (better Silksong support).
-- Safer installer flow with improved error handling around file access and mod installation.
-- Small UX improvements: clearer messages, improved settings persistence, and fewer edge-case crashes.
+- Ground-up rewrite of backend and frontend around a Rust-first architecture.
+- Reworked game profile system with stronger Silksong path handling and mod catalog fallback.
+- Installer flow with explicit checksums, extraction guards, and typed error paths.
+
+## Project status and attribution
+
+- This repository is **not associated with Lumafly**.
+- The current codebase is a **fresh ground-up rewrite**.
+- No legacy Lumafly implementation is used as runtime code in this project.
+- Thanks to the original owners for inspiring me to make this.
+
+## Credits
+
+- **[Modrinth](https://modrinth.com/)** — The frontend UI of Needlelight is built on top of Modrinth's open-source [Theseus launcher](https://github.com/modrinth/code) (Vue.js frontend, `@modrinth/ui` component library, and `@modrinth/assets` icon set). Modrinth's code is licensed under the [GNU General Public License v3](https://github.com/modrinth/code/blob/main/COPYING.md). Huge thanks to the Modrinth team for making their work open source.
+- **[hk-modding](https://github.com/hk-modding)** — Needlelight fetches mod data from the official [modlinks](https://github.com/hk-modding/modlinks) and installs the [Modding API](https://github.com/hk-modding/api).
 
 ## Usage
 
@@ -28,7 +40,7 @@ Key improvements in Needlelight:
 - Search through and download the mods you like.
 - Mods appear in the top left corner of the game title screen after installation.
 - Enable/Disable mods using the toggle. (Manual update UI was removed in v6.0.0.0 — use the Releases page.)
-- If you are unable to connect to the internet, LumaSong can be launched in offline mode where you can toggle mods/API.
+- If you are unable to connect to the internet, Needlelight can still be launched in offline mode where you can toggle installed mods/API.
 
 ## Features
 
@@ -49,24 +61,6 @@ Key improvements in Needlelight:
 
 - If you want to suggest a feature or report a bug, report it on the issues page.
 - If you want to contribute, feel free to. You can see what features are currently requested over here.
-
-## Credits
-
-- Source code adapted from https://github.com/TheMulhima/Lumafly
-
-- Programming
-  - [56](https://github.com/fifty-six) - Creator of [Scarab](https://github.com/fifty-six/Scarab), on which Needlelight is based
-  - [JacksonFaller](https://github.com/JacksonFaller), [Italy](https://github.com/jngo102), and [Acu1000](https://github.com/Acu1000)
-
-- Translations
-  - [Clazex](https://github.com/Clazex) - Chinese translations
-  - [luiz_eldorado](https://github.com/luizeldorado) - Portuguese translations
-  - [Dastan](https://github.com/Dastan21) - French translations
-  - [Adrin](https://twitter.com/Adrin63_?t=lbzYGgt-3Zybjb_S2xqt2A&s=09) and [Helen](https://ko-fi.com/helensb) - Spanish translations
-  - [Страг](https://discordapp.com/users/274945280775028736) - Russian translations
-  - [Acu1000](https://github.com/Acu1000) - Polish translations
-  - [Sawayoshi](https://twittter.com/sawayoshiyt) - Japanese translations
-  - [Thommie](https://discordapp.com/users/454185487641608193) - Dutch translations
 
 ## Windows SmartScreen (free workaround)
 
@@ -149,3 +143,18 @@ Tip: You can also verify individual executables (e.g., `Needlelight.exe`, `Needl
 
 - Settings → “Use Custom Modlinks”: toggle on and paste a ModLinks.xml URL (e.g., a community list or your own fork). Needlelight will fetch that list first; if it’s invalid, it will fall back to the official modlinks and show an error.
 - To revert to the official catalog, toggle “Use Custom Modlinks” off (or use the corresponding URL command). The current selection is saved per profile and applied on next launch.
+
+## Backend endpoint override (desktop)
+
+- You can point Needlelight to your own backend catalog feeds at runtime (no frontend change required) using comma-separated URL env vars:
+  - `NEEDLELIGHT_HK_MODLINKS_URLS`
+  - `NEEDLELIGHT_HK_APILINKS_URLS`
+  - `NEEDLELIGHT_SS_MODLINKS_URLS`
+  - `NEEDLELIGHT_SS_APILINKS_URLS`
+- Example:
+
+  ```bash
+  NEEDLELIGHT_HK_MODLINKS_URLS="https://your.backend/ModLinks.xml" \
+  NEEDLELIGHT_HK_APILINKS_URLS="https://your.backend/ApiLinks.xml" \
+  pnpm dev:desktop
+  ```
