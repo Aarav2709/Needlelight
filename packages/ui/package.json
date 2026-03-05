@@ -71,7 +71,7 @@
 		"highlight.js": "^11.9.0",
 		"intl-messageformat": "^10.7.7",
 		"jszip": "^3.10.1",
-		"markdown-it": "^13.0.2",
+		"markdown-it": "^14.1.1",
 		"postprocessing": "^6.37.6",
 		"qrcode.vue": "^3.4.1",
 		"three": "^0.172.0",
