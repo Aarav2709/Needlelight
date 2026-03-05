@@ -1,49 +1,58 @@
 ---
 name: Bug Report
-about: Create a report to help us improve Needlelight
+description: Report a bug in Needlelight
 title: "[BUG] "
 labels: ["bug", "needs-triage"]
-assignees: ""
 ---
 
 ## Bug Description
 
-A clear and concise description of what the bug is.
+Describe the bug clearly and concisely.
 
-## To Reproduce
+## Steps to Reproduce
 
-Steps to reproduce the behavior:
-
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+1. Go to …
+2. Click …
+3. Do …
+4. Observe error
 
 ## Expected Behavior
 
-A clear and concise description of what you expected to happen.
+What should have happened?
 
-## Screenshots
+## Actual Behavior
 
-If applicable, add screenshots to help explain your problem.
+What actually happened?
 
-## Environment Information
+## Screenshots / Videos
 
-**Please complete the following information:**
+If applicable, add screenshots or recordings.
 
-- **Needlelight Version**: [e.g. 1.0.0, found at the bottom of the settings page]
-- **Operating System**: [e.g. Windows 11, macOS 15.0]
-- **Architecture**: [e.g. x64, ARM64]
-- **Game Version**: [e.g. Hollow Knight v1.5.78.11833 or Hollow Knight: Silksong v1.0.28954]
-- **BepInEx Version**: [e.g. 5.4.24] (if applicable)
-- **Installed Mods**: [List any mods that might be relevant]
+## Logs
+
+Please attach logs if available.
+
+Typical locations:
+
+Windows: `%APPDATA%/needlelight/logs`
+Linux: `~/.config/needlelight/logs`
+macOS: `~/Library/Application Support/needlelight/logs`
+
+## Environment
+
+- **Needlelight Version:**
+- **Operating System:**
+- **Architecture:** (x64 / ARM64)
+- **Game Version:**
+- **BepInEx Version:**
+- **Installed Mods:**
 
 ## Additional Context
 
-Add any other context about the problem here.
+Anything else that may help diagnose the issue.
 
 ## Checklist
 
-- [ ] I have searched existing issues to avoid duplicates
-- [ ] I have provided all required environment information
-- [ ] I have described the issue clearly and concisely
+- [ ] I searched existing issues
+- [ ] I included logs or screenshots if available
+- [ ] I filled out environment information

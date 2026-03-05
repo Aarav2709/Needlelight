@@ -1,60 +1,44 @@
 ---
 name: Feature Request
-about: Suggest an idea for Needlelight
+description: Suggest an idea or improvement for Needlelight
 title: "[FEATURE] "
 labels: ["enhancement", "needs-triage"]
-assignees: ""
 ---
 
-## Feature Description
+## Problem
 
-A clear and concise description of the feature you'd like to see implemented.
+What problem does this solve?
 
-## Problem Statement
-
-Is your feature request related to a problem? Please describe.
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+Example: "Installing mods manually is confusing."
 
 ## Proposed Solution
 
-Describe the solution you'd like to see implemented.
+Describe the feature you'd like to see implemented.
 
-## Alternative Solutions
+## Alternatives Considered
 
-Describe any alternative solutions or features you've considered.
+Have you considered other approaches?
 
 ## Use Cases
 
-Describe specific use cases for this feature:
+Describe how this feature would be used.
 
-1. **Primary Use Case**: [Description]
-2. **Secondary Use Case**: [Description]
-3. **Edge Cases**: [Any special considerations]
+1. Primary use case
+2. Secondary use case
+3. Edge cases
 
-## Implementation Considerations
+## Impact
 
-- **Platform Support**: [Windows/macOS/Linux - all or specific platforms?]
-- **UI/UX Impact**: [How should this be presented in the interface?]
-- **Backward Compatibility**: [Any compatibility concerns?]
-- **Performance Impact**: [Any performance considerations?]
+- Platforms affected: Windows / macOS / Linux
+- UI changes required?
+- Performance considerations?
 
 ## Additional Context
 
-Add any other context, mockups, or screenshots about the feature request here.
-
-## Priority
-
-How important is this feature to you?
-
-- [ ] Critical - Blocks my workflow
-- [ ] High - Would significantly improve my experience
-- [ ] Medium - Nice to have
-- [ ] Low - Minor improvement
+Add screenshots, mockups, or references if relevant.
 
 ## Checklist
 
-- [ ] I have searched existing issues to avoid duplicates
-- [ ] I have provided a clear problem statement
-- [ ] I have described the proposed solution
-- [ ] I have considered implementation details
-- [ ] I have provided use cases and context
+- [ ] I searched existing issues
+- [ ] I clearly described the problem
+- [ ] I described the proposed solution
