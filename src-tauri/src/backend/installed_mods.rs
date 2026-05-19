@@ -38,13 +38,30 @@ impl InstalledModsStore {
         tokio::fs::create_dir_all(&disabled_folder).await?;
 
         let mut discovered: HashMap<String, bool> = HashMap::new();
-        for (dir, enabled) in [(&mods_folder, true), (&disabled_folder, false)] {
-            if let Ok(mut entries) = tokio::fs::read_dir(dir).await {
+
+        if settings.game.is_silksong() {
+            if let Ok(mut entries) = tokio::fs::read_dir(&mods_folder).await {
                 while let Ok(Some(entry)) = entries.next_entry().await {
-                    if entry.path().is_dir() {
+                    let path = entry.path();
+                    if path.is_dir() {
                         let name = entry.file_name().to_string_lossy().to_string();
-                        if name != "Disabled" {
-                            discovered.insert(name, enabled);
+                        if name == "Disabled" {
+                            continue;
+                        }
+                        let enabled = !contains_old_file(&path);
+                        discovered.insert(name, enabled);
+                    }
+                }
+            }
+        } else {
+            for (dir, enabled) in [(&mods_folder, true), (&disabled_folder, false)] {
+                if let Ok(mut entries) = tokio::fs::read_dir(dir).await {
+                    while let Ok(Some(entry)) = entries.next_entry().await {
+                        if entry.path().is_dir() {
+                            let name = entry.file_name().to_string_lossy().to_string();
+                            if name != "Disabled" {
+                                discovered.insert(name, enabled);
+                            }
                         }
                     }
                 }
@@ -165,6 +182,9 @@ impl InstalledModsStore {
     }
 
     pub async fn move_mod_folder(settings: &AppSettings, name: &str, enable: bool) -> AppResult<()> {
+        if settings.game.is_silksong() {
+            return Ok(());
+        }
         let from = if enable {
             settings.disabled_folder().join(name)
         } else {
@@ -199,4 +219,22 @@ impl InstalledModsStore {
         let root = if enabled { settings.mods_folder() } else { settings.disabled_folder() };
         Path::new(&root).join(name)
     }
+}
+
+fn contains_old_file(dir: &Path) -> bool {
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if contains_old_file(&path) {
+                    return true;
+                }
+            } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.ends_with(".old") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
 }

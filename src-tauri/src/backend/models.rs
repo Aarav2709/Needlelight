@@ -44,7 +44,7 @@ pub struct ModItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiInfo {
     pub url: String,
-    pub version: i32,
+    pub version: String,
     pub sha256: String,
 }
 
@@ -52,6 +52,10 @@ pub struct ApiInfo {
 pub struct CatalogResponse {
     pub items: Vec<ModItem>,
     pub api: ApiInfo,
+    #[serde(default)]
+    pub api_installed: bool,
+    #[serde(default)]
+    pub api_enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

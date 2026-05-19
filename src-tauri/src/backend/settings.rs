@@ -1,6 +1,6 @@
 use super::errors::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{collections::HashMap, path::{Path, PathBuf}};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -15,10 +15,25 @@ impl Default for GameKey {
     }
 }
 
+impl GameKey {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            GameKey::HollowKnight => "hollow_knight",
+            GameKey::Silksong => "silksong",
+        }
+    }
+
+    pub fn is_silksong(&self) -> bool {
+        matches!(self, GameKey::Silksong)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub managed_folder: String,
     pub game: GameKey,
+    #[serde(default)]
+    pub managed_folders: HashMap<String, String>,
     #[serde(default)]
     pub use_custom_modlinks: bool,
     #[serde(default)]
@@ -36,6 +51,7 @@ impl Default for AppSettings {
         Self {
             managed_folder: String::new(),
             game: GameKey::HollowKnight,
+            managed_folders: HashMap::new(),
             use_custom_modlinks: false,
             custom_modlinks_uri: String::new(),
             use_github_mirror: false,
@@ -53,7 +69,7 @@ impl AppSettings {
         }
     }
 
-    fn normalize_managed_folder(raw: &str, game: &GameKey) -> String {
+    pub fn normalize_managed_folder(raw: &str, game: &GameKey) -> String {
         let path = PathBuf::from(raw.trim());
         if raw.trim().is_empty() {
             return String::new();
@@ -78,7 +94,7 @@ impl AppSettings {
         path.to_string_lossy().to_string()
     }
 
-    fn game_root_path(&self) -> PathBuf {
+    pub fn game_root_path(&self) -> PathBuf {
         let managed = PathBuf::from(&self.managed_folder);
 
         if managed.file_name().and_then(|n| n.to_str()) == Some("Managed") {
@@ -119,6 +135,28 @@ impl AppSettings {
         let mut copy = self.clone();
         copy.managed_folder = Self::normalize_managed_folder(&self.managed_folder, &self.game);
         copy
+    }
+
+    pub fn managed_folder_for(&self, game: &GameKey) -> String {
+        self.managed_folders
+            .get(game.as_str())
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub fn set_managed_folder_for(&mut self, game: &GameKey, path: String) {
+        self.managed_folders.insert(game.as_str().to_string(), path);
+    }
+
+    pub fn sync_managed_folder(&mut self) {
+        if self.managed_folders.is_empty() && !self.managed_folder.is_empty() {
+            self.set_managed_folder_for(&self.game, self.managed_folder.clone());
+        }
+
+        let stored = self.managed_folder_for(&self.game);
+        if !stored.is_empty() {
+            self.managed_folder = stored;
+        }
     }
 
     pub fn config_dir() -> AppResult<PathBuf> {
@@ -189,24 +227,81 @@ impl AppSettings {
     }
 
     pub async fn auto_detect(game: &GameKey) -> AppResult<Option<String>> {
-        let home = std::env::var("HOME").unwrap_or_default();
-        let candidates = match game {
-            GameKey::HollowKnight => vec![
-                ".local/share/Steam/steamapps/common/Hollow Knight/Hollow Knight_Data/Managed",
-                ".steam/steam/steamapps/common/Hollow Knight/Hollow Knight_Data/Managed",
-                ".steam/root/steamapps/common/Hollow Knight/Hollow Knight_Data/Managed",
-                ".var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Hollow Knight/Hollow Knight_Data/Managed",
-            ],
-            GameKey::Silksong => vec![
-                ".local/share/Steam/steamapps/common/Hollow Knight Silksong/Hollow Knight Silksong_Data/Managed",
-                ".steam/steam/steamapps/common/Hollow Knight Silksong/Hollow Knight Silksong_Data/Managed",
-                ".steam/root/steamapps/common/Hollow Knight Silksong/Hollow Knight Silksong_Data/Managed",
-                ".var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Hollow Knight Silksong/Hollow Knight Silksong_Data/Managed",
-            ],
+        let data_dir = Self::game_data_dir_name(game);
+
+        let candidates: Vec<PathBuf> = if cfg!(target_os = "windows") {
+            let mut roots = Vec::new();
+            for drive in b'A'..=b'Z' {
+                roots.push(PathBuf::from(format!("{}:\\", drive as char)));
+            }
+
+            let mut paths = Vec::new();
+            let windows_paths = match game {
+                GameKey::HollowKnight => vec![
+                    "Program Files/Steam/steamapps/common/Hollow Knight",
+                    "Program Files (x86)/Steam/steamapps/common/Hollow Knight",
+                    "Program Files/GOG Galaxy/Games/Hollow Knight",
+                    "Program Files (x86)/GOG Galaxy/Games/Hollow Knight",
+                    "XboxGames/Hollow Knight/Content",
+                    "Steam/steamapps/common/Hollow Knight",
+                    "GOG Galaxy/Games/Hollow Knight",
+                ],
+                GameKey::Silksong => vec![
+                    "Program Files/Steam/steamapps/common/Hollow Knight Silksong",
+                    "Program Files (x86)/Steam/steamapps/common/Hollow Knight Silksong",
+                    "Program Files/GOG Galaxy/Games/Hollow Knight Silksong",
+                    "Program Files (x86)/GOG Galaxy/Games/Hollow Knight Silksong",
+                    "XboxGames/Hollow Knight Silksong/Content",
+                    "XboxGames/Hollow Knight- Silksong/Content",
+                    "Steam/steamapps/common/Hollow Knight Silksong",
+                    "GOG Galaxy/Games/Hollow Knight Silksong",
+                ],
+            };
+
+            for root in roots {
+                for relative in &windows_paths {
+                    paths.push(root.join(relative).join(data_dir).join("Managed"));
+                }
+            }
+            paths
+        } else if cfg!(target_os = "macos") {
+            let home = std::env::var("HOME").unwrap_or_default();
+            let base = Path::new(&home).join("Library/Application Support/Steam/steamapps/common");
+            let app_name = match game {
+                GameKey::HollowKnight => "Hollow Knight.app",
+                GameKey::Silksong => "Hollow Knight Silksong.app",
+            };
+            vec![
+                base.join(match game {
+                    GameKey::HollowKnight => "Hollow Knight",
+                    GameKey::Silksong => "Hollow Knight Silksong",
+                })
+                .join(app_name)
+                .join("Contents/Resources/Data/Managed"),
+            ]
+        } else {
+            let home = std::env::var("HOME").unwrap_or_default();
+            let candidates = match game {
+                GameKey::HollowKnight => vec![
+                    ".local/share/Steam/steamapps/common/Hollow Knight",
+                    ".steam/steam/steamapps/common/Hollow Knight",
+                    ".steam/root/steamapps/common/Hollow Knight",
+                    ".var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Hollow Knight",
+                ],
+                GameKey::Silksong => vec![
+                    ".local/share/Steam/steamapps/common/Hollow Knight Silksong",
+                    ".steam/steam/steamapps/common/Hollow Knight Silksong",
+                    ".steam/root/steamapps/common/Hollow Knight Silksong",
+                    ".var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Hollow Knight Silksong",
+                ],
+            };
+            candidates
+                .into_iter()
+                .map(|relative| Path::new(&home).join(relative).join(data_dir).join("Managed"))
+                .collect()
         };
 
-        for relative in candidates {
-            let path = Path::new(&home).join(relative);
+        for path in candidates {
             if path.exists() {
                 return Ok(Some(path.to_string_lossy().to_string()));
             }

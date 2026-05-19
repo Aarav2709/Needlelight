@@ -1,5 +1,9 @@
 pub mod backend;
 pub mod commands;
+mod logs_plugin;
+mod process_plugin;
+mod profile_create_plugin;
+mod profile_plugin;
 
 use backend::{installed_mods::InstalledModsStore, settings::AppSettings};
 use std::sync::Arc;
@@ -12,7 +16,8 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new() -> Self {
-        let settings = AppSettings::load().await.unwrap_or_default();
+        let mut settings = AppSettings::load().await.unwrap_or_default();
+        settings.sync_managed_folder();
         let installed = InstalledModsStore::load(&settings).await.unwrap_or_default();
         Self {
             settings: Arc::new(RwLock::new(settings)),
@@ -33,6 +38,11 @@ pub fn run() {
             .plugin(tauri_plugin_opener::init())
             .plugin(tauri_plugin_os::init())
             .plugin(tauri_plugin_window_state::Builder::new().build())
+            .plugin(profile_plugin::init())
+            .plugin(profile_create_plugin::init())
+            .plugin(process_plugin::init())
+            .plugin(logs_plugin::init())
+            .manage(process_plugin::ProcessStore::default())
             .manage(state)
             .invoke_handler(tauri::generate_handler![
                 commands::load_settings,

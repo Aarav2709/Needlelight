@@ -17,19 +17,48 @@ fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
     result.map_err(|e| e.to_string())
 }
 
+fn sync_managed_folder(mut settings: AppSettings) -> AppSettings {
+    if settings.managed_folders.is_empty() && !settings.managed_folder.is_empty() {
+        settings.set_managed_folder_for(&settings.game, settings.managed_folder.clone());
+    }
+
+    let stored = settings.managed_folder_for(&settings.game);
+    if !stored.is_empty() {
+        settings.managed_folder = stored;
+    }
+
+    settings
+}
+
 #[tauri::command]
 pub async fn load_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
-    Ok(state.settings.read().await.clone())
+    Ok(sync_managed_folder(state.settings.read().await.clone()))
 }
 
 #[tauri::command]
 pub async fn save_settings(state: State<'_, AppState>, settings: AppSettings) -> Result<(), String> {
-    let settings = settings.normalized();
-    map_err(settings.save().await)?;
+    let mut incoming = settings.normalized();
+    let previous = state.settings.read().await.clone();
+    let previous = sync_managed_folder(previous);
+
+    if incoming.managed_folders.is_empty() {
+        incoming.managed_folders = previous.managed_folders.clone();
+    }
+
+    let prev_path = previous.managed_folder;
+    if incoming.game != previous.game && incoming.managed_folder == prev_path {
+        // Switching games without updating the path: restore saved path for new game.
+        incoming.managed_folder = incoming.managed_folder_for(&incoming.game);
+    }
+
+    incoming.managed_folder = AppSettings::normalize_managed_folder(&incoming.managed_folder, &incoming.game);
+    incoming.set_managed_folder_for(&incoming.game, incoming.managed_folder.clone());
+
+    map_err(incoming.save().await)?;
 
     {
         let mut shared = state.settings.write().await;
-        *shared = settings.clone();
+        *shared = incoming.clone();
     }
 
     let reloaded = map_err(crate::backend::installed_mods::InstalledModsStore::load(&settings).await)?;
@@ -54,7 +83,14 @@ pub async fn refresh_catalog(
     let settings = state.settings.read().await.clone();
     let installed = state.installed.read().await.clone();
 
-    let cache = map_err(CatalogCache::build(&settings, &installed, fetch_official).await)?;
+    let mut cache = map_err(CatalogCache::build(&settings, &installed, fetch_official).await)?;
+    let api_installed = installer::is_api_installed(&settings, &installed);
+    cache.response.api_installed = api_installed;
+    cache.response.api_enabled = api_installed;
+    if !api_installed {
+        cache.response.api.url = String::new();
+    }
+
     Ok(cache.response)
 }
 
@@ -135,17 +171,7 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
         return Err("Game folder not configured. Go to Settings > Game to set it up.".to_string());
     }
 
-    let managed = std::path::PathBuf::from(&settings.managed_folder);
-
-    // Navigate up: Managed -> *_Data -> game root
-    let game_root = if managed.file_name().and_then(|n| n.to_str()) == Some("Managed") {
-        managed.parent()
-            .and_then(|data| data.parent())
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| managed.clone())
-    } else {
-        managed.clone()
-    };
+    let game_root = settings.game_root_path();
 
     // Find executable
     let exe_candidates: Vec<std::path::PathBuf> = match settings.game {

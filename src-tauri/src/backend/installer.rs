@@ -5,7 +5,8 @@ use super::{
     settings::AppSettings,
 };
 use sha2::{Digest, Sha256};
-use std::{fs::File, io::Read, path::Path};
+use std::{collections::HashSet, fs::File, io::Read, path::{Path, PathBuf}};
+use walkdir::WalkDir;
 use zip::ZipArchive;
 
 pub async fn install_mod(
@@ -14,46 +15,8 @@ pub async fn install_mod(
     catalog: &CatalogResponse,
     mod_name: &str,
 ) -> AppResult<()> {
-    let item = catalog
-        .items
-        .iter()
-        .find(|x| x.name == mod_name)
-        .ok_or_else(|| AppError::NotFound(format!("mod '{mod_name}' not found")))?
-        .clone();
-
-    if item.link.trim().is_empty() {
-        return Err(AppError::InvalidInput("mod has no download link".to_string()));
-    }
-
-    let client = reqwest::Client::builder().user_agent("Needlelight").build()?;
-    let bytes = client
-        .get(&item.link)
-        .send()
-        .await?
-        .error_for_status()?
-        .bytes()
-        .await?;
-
-    if !item.sha256.trim().is_empty() {
-        let mut hasher = Sha256::new();
-        hasher.update(&bytes);
-        let actual = hex::encode_upper(hasher.finalize());
-        if actual != item.sha256.to_uppercase() {
-            return Err(AppError::HashMismatch);
-        }
-    }
-
-    let folder = InstalledModsStore::mod_folder(settings, &item.name, true);
-    if folder.exists() {
-        tokio::fs::remove_dir_all(&folder).await?;
-    }
-    tokio::fs::create_dir_all(&folder).await?;
-
-    extract_zip_guarded(bytes.as_ref(), &folder)?;
-
-    installed.mark_installed(&item.name, &item.version, true);
-    installed.save(settings).await?;
-    Ok(())
+    let mut visited = HashSet::new();
+    install_mod_with_deps(settings, installed, catalog, mod_name, &mut visited).await
 }
 
 pub async fn uninstall_mod(
@@ -61,6 +24,13 @@ pub async fn uninstall_mod(
     installed: &mut InstalledModsStore,
     mod_name: &str,
 ) -> AppResult<()> {
+    if settings.game.is_silksong() {
+        remove_silksong_mod(settings, mod_name).await?;
+        installed.mark_uninstalled(mod_name);
+        installed.save(settings).await?;
+        return Ok(());
+    }
+
     let enabled_folder = InstalledModsStore::mod_folder(settings, mod_name, true);
     let disabled_folder = InstalledModsStore::mod_folder(settings, mod_name, false);
 
@@ -82,6 +52,13 @@ pub async fn toggle_mod(
     mod_name: &str,
     enable: bool,
 ) -> AppResult<()> {
+    if settings.game.is_silksong() {
+        set_silksong_mod_enabled(settings, mod_name, enable)?;
+        installed.set_enabled(mod_name, enable);
+        installed.save(settings).await?;
+        return Ok(());
+    }
+
     InstalledModsStore::move_mod_folder(settings, mod_name, enable).await?;
     installed.set_enabled(mod_name, enable);
     installed.save(settings).await?;
@@ -116,13 +93,18 @@ pub async fn install_api(
         }
     }
 
-    let managed = Path::new(&settings.managed_folder);
-    tokio::fs::create_dir_all(managed).await?;
-    extract_zip_guarded(bytes.as_ref(), managed)?;
+    let target = if settings.game.is_silksong() {
+        settings.game_root_path()
+    } else {
+        PathBuf::from(&settings.managed_folder)
+    };
+
+    tokio::fs::create_dir_all(&target).await?;
+    extract_zip_guarded(bytes.as_ref(), &target)?;
 
     installed.db.api_install = Some(super::models::PersistedModState {
         enabled: true,
-        version: api.version.to_string(),
+        version: api.version.clone(),
         pinned: false,
     });
     installed.save(settings).await?;
@@ -195,4 +177,241 @@ pub fn map_state_after_install(current: &ModState, version: &str) -> ModState {
             updated: true,
         },
     }
+}
+
+pub fn is_api_installed(settings: &AppSettings, installed: &InstalledModsStore) -> bool {
+    if settings.game.is_silksong() {
+        let bepinex = settings.game_root_path().join("BepInEx/core/BepInEx.dll");
+        return bepinex.exists();
+    }
+
+    installed.db.api_install.is_some()
+}
+
+async fn install_mod_with_deps(
+    settings: &AppSettings,
+    installed: &mut InstalledModsStore,
+    catalog: &CatalogResponse,
+    mod_name: &str,
+    visited: &mut HashSet<String>,
+) -> AppResult<()> {
+    if visited.contains(mod_name) {
+        return Ok(());
+    }
+    visited.insert(mod_name.to_string());
+
+    let item = catalog
+        .items
+        .iter()
+        .find(|x| x.name == mod_name)
+        .ok_or_else(|| AppError::NotFound(format!("mod '{mod_name}' not found")))?
+        .clone();
+
+    if let Some(state) = installed.db.mods.get(&item.name) {
+        if state.version == item.version {
+            return Ok(());
+        }
+    }
+
+    for dep in &item.dependencies {
+        if dep.contains("BepInExPack") || dep.trim().is_empty() {
+            continue;
+        }
+        install_mod_with_deps(settings, installed, catalog, dep, visited).await?;
+    }
+
+    if item.link.trim().is_empty() {
+        return Err(AppError::InvalidInput("mod has no download link".to_string()));
+    }
+
+    if settings.game.is_silksong() {
+        ensure_silksong_bepinex(settings).await?;
+    }
+
+    let bytes = download_mod_bytes(&item.link, &item.sha256).await?;
+
+    if settings.game.is_silksong() {
+        install_silksong_mod_archive(settings, &item.name, bytes.as_ref()).await?;
+    } else {
+        let folder = InstalledModsStore::mod_folder(settings, &item.name, true);
+        if folder.exists() {
+            tokio::fs::remove_dir_all(&folder).await?;
+        }
+        tokio::fs::create_dir_all(&folder).await?;
+        extract_zip_guarded(bytes.as_ref(), &folder)?;
+    }
+
+    installed.mark_installed(&item.name, &item.version, true);
+    installed.save(settings).await?;
+    Ok(())
+}
+
+async fn download_mod_bytes(url: &str, sha256: &str) -> AppResult<Vec<u8>> {
+    let client = reqwest::Client::builder().user_agent("Needlelight").build()?;
+    let bytes = client.get(url).send().await?.error_for_status()?.bytes().await?;
+
+    if !sha256.trim().is_empty() {
+        let mut hasher = Sha256::new();
+        hasher.update(&bytes);
+        let actual = hex::encode_upper(hasher.finalize());
+        if actual != sha256.to_uppercase() {
+            return Err(AppError::HashMismatch);
+        }
+    }
+
+    Ok(bytes.to_vec())
+}
+
+async fn ensure_silksong_bepinex(settings: &AppSettings) -> AppResult<()> {
+    let bepinex = settings.game_root_path().join("BepInEx/core/BepInEx.dll");
+    if bepinex.exists() {
+        return Ok(());
+    }
+
+    // Reuse the Thunderstore BepInEx pack from the catalog if available
+    let api = super::mod_database::CatalogCache::build(settings, &InstalledModsStore::default(), true)
+        .await
+        .map(|cache| cache.response.api)
+        .unwrap_or_else(|_| super::models::ApiInfo {
+            url: String::new(),
+            version: String::new(),
+            sha256: String::new(),
+        });
+
+    if api.url.trim().is_empty() {
+        return Err(AppError::InvalidInput("BepInEx pack not available".to_string()));
+    }
+
+    let bytes = download_mod_bytes(&api.url, &api.sha256).await?;
+    let target = settings.game_root_path();
+    tokio::fs::create_dir_all(&target).await?;
+    extract_zip_guarded(bytes.as_ref(), &target)?;
+    Ok(())
+}
+
+async fn install_silksong_mod_archive(
+    settings: &AppSettings,
+    mod_name: &str,
+    data: &[u8],
+) -> AppResult<()> {
+    let bepinex_root = settings.game_root_path().join("BepInEx");
+    tokio::fs::create_dir_all(&bepinex_root).await?;
+
+    for folder in silksong_mod_paths(settings, mod_name) {
+        if folder.exists() {
+            std::fs::remove_dir_all(&folder)?;
+        }
+    }
+
+    let reader = std::io::Cursor::new(data);
+    let mut archive = ZipArchive::new(reader)?;
+
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i)?;
+        let mut path = entry
+            .enclosed_name()
+            .ok_or_else(|| AppError::InvalidInput("zip entry path traversal blocked".to_string()))?
+            .to_path_buf();
+
+        if path.components().count() == 0 {
+            continue;
+        }
+
+        // Strip leading BepInEx folder if present
+        if let Some(first) = path.components().next().and_then(|c| c.as_os_str().to_str()) {
+            if first.eq_ignore_ascii_case("BepInEx") && path.components().count() > 1 {
+                path = path.components().skip(1).collect();
+            }
+        }
+
+        if path.components().count() == 0 {
+            continue;
+        }
+
+        let root = path.components().next().and_then(|c| c.as_os_str().to_str()).unwrap_or("");
+        let (target_base, relative) = match root {
+            "plugins" | "patchers" | "core" | "monomod" => {
+                let rel = path.components().skip(1).collect::<PathBuf>();
+                if rel.components().count() == 0 {
+                    continue;
+                }
+                (bepinex_root.join(root).join(mod_name), rel)
+            }
+            _ => (bepinex_root.join("plugins").join(mod_name), path),
+        };
+
+        let output = target_base.join(relative).to_path_buf();
+        if !output.starts_with(&target_base) {
+            return Err(AppError::InvalidInput("zip entry path traversal blocked".to_string()));
+        }
+
+        if entry.name().ends_with('/') {
+            std::fs::create_dir_all(&output)?;
+            continue;
+        }
+
+        if let Some(parent) = output.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let mut file = File::create(&output)?;
+        std::io::copy(&mut entry, &mut file)?;
+    }
+
+    Ok(())
+}
+
+fn set_silksong_mod_enabled(settings: &AppSettings, mod_name: &str, enabled: bool) -> AppResult<()> {
+    let paths = silksong_mod_paths(settings, mod_name);
+    for folder in paths {
+        if !folder.exists() {
+            continue;
+        }
+        for entry in WalkDir::new(&folder).into_iter().filter_map(Result::ok) {
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name == "manifest.json" {
+                continue;
+            }
+            let path = entry.path();
+            if enabled {
+                if name.ends_with(".old") {
+                    let target = path.with_file_name(name.trim_end_matches(".old"));
+                    if target.exists() {
+                        std::fs::remove_file(&target)?;
+                    }
+                    std::fs::rename(path, target)?;
+                }
+            } else if !name.ends_with(".old") {
+                let target = path.with_file_name(format!("{name}.old"));
+                if target.exists() {
+                    std::fs::remove_file(&target)?;
+                }
+                std::fs::rename(path, target)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn remove_silksong_mod(settings: &AppSettings, mod_name: &str) -> AppResult<()> {
+    for folder in silksong_mod_paths(settings, mod_name) {
+        if folder.exists() {
+            tokio::fs::remove_dir_all(folder).await?;
+        }
+    }
+    Ok(())
+}
+
+fn silksong_mod_paths(settings: &AppSettings, mod_name: &str) -> Vec<PathBuf> {
+    let bepinex = settings.game_root_path().join("BepInEx");
+    vec![
+        bepinex.join("plugins").join(mod_name),
+        bepinex.join("patchers").join(mod_name),
+        bepinex.join("core").join(mod_name),
+        bepinex.join("monomod").join(mod_name),
+    ]
 }

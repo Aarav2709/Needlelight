@@ -87,7 +87,7 @@ impl CatalogCache {
             .and_then(|xml| parse_api_info(&xml).ok())
             .unwrap_or_else(|| ApiInfo {
                 url: String::new(),
-                version: 0,
+                version: String::new(),
                 sha256: String::new(),
             });
 
@@ -127,7 +127,12 @@ impl CatalogCache {
         items.sort_by(|a, b| a.name.cmp(&b.name));
 
         Ok(Self {
-            response: CatalogResponse { items, api },
+            response: CatalogResponse {
+                items,
+                api,
+                api_installed: false,
+                api_enabled: false,
+            },
         })
     }
 
@@ -154,57 +159,80 @@ impl CatalogCache {
             }
         };
 
-        let mut items: Vec<ModItem> = packages
-            .into_iter()
-            .filter(|p| !p.is_deprecated && !p.versions.is_empty())
-            .map(|pkg| {
-                let latest = &pkg.versions[0];
-                let name = pkg.name.clone();
+        let excluded = [
+            "BepInEx-BepInExPack_Silksong",
+            "ebkr-r2modman",
+            "Kesomannen-GaleModManager",
+        ];
 
-                // Strip BepInEx- prefix from dependency full_names to just keep the package name
-                let dependencies: Vec<String> = latest
-                    .dependencies
-                    .iter()
-                    .filter_map(|dep| {
-                        let parts: Vec<&str> = dep.split('-').collect();
-                        if parts.len() >= 2 {
-                            Some(parts[1].to_string())
-                        } else {
-                            Some(dep.clone())
-                        }
-                    })
-                    .collect();
-
-                let state = installed.state_for_manifest(&name, &latest.version_number);
-
-                ModItem {
-                    name,
-                    description: latest.description.clone(),
-                    version: latest.version_number.clone(),
-                    dependencies,
-                    link: latest.download_url.clone(),
-                    sha256: String::new(), // Thunderstore doesn't provide SHA256 in the listing
-                    repository: format!("https://thunderstore.io/c/hollow-knight-silksong/p/{}/{}/", pkg.owner, pkg.full_name.split('-').last().unwrap_or(&pkg.name)),
-                    issues: String::new(),
-                    tags: pkg.categories.clone(),
-                    integrations: vec![],
-                    authors: vec![pkg.owner.clone()],
-                    state,
-                }
-            })
-            .collect();
-
-        items.sort_by(|a, b| a.name.cmp(&b.name));
-
-        // Silksong uses BepInEx — represent it as the "API" (mod loader)
-        let api = ApiInfo {
-            url: "thunderstore:bepinex".to_string(),
-            version: 0,
+        let mut api = ApiInfo {
+            url: String::new(),
+            version: String::new(),
             sha256: String::new(),
         };
 
+        let mut items: Vec<ModItem> = Vec::new();
+        for pkg in packages.into_iter().filter(|p| !p.is_deprecated && !p.versions.is_empty()) {
+            if excluded.contains(&pkg.full_name.as_str()) {
+                if pkg.full_name == "BepInEx-BepInExPack_Silksong" {
+                    if let Some(latest) = pkg.versions.first() {
+                        api = ApiInfo {
+                            url: latest.download_url.clone(),
+                            version: latest.version_number.clone(),
+                            sha256: String::new(),
+                        };
+                    }
+                }
+                continue;
+            }
+
+            let latest = &pkg.versions[0];
+            let name = pkg.full_name.clone();
+
+            // Keep dependency identifiers as owner-mod pairs (full_name without version)
+            let dependencies: Vec<String> = latest
+                .dependencies
+                .iter()
+                .filter_map(|dep| {
+                    let parts: Vec<&str> = dep.split('-').collect();
+                    if parts.len() >= 2 {
+                        Some(format!("{}-{}", parts[0], parts[1]))
+                    } else {
+                        Some(dep.clone())
+                    }
+                })
+                .collect();
+
+            let state = installed.state_for_manifest(&name, &latest.version_number);
+
+            items.push(ModItem {
+                name,
+                description: latest.description.clone(),
+                version: latest.version_number.clone(),
+                dependencies,
+                link: latest.download_url.clone(),
+                sha256: String::new(), // Thunderstore doesn't provide SHA256 in the listing
+                repository: format!(
+                    "https://thunderstore.io/c/hollow-knight-silksong/p/{}/{}/",
+                    pkg.owner, pkg.name
+                ),
+                issues: String::new(),
+                tags: pkg.categories.clone(),
+                integrations: vec![],
+                authors: vec![pkg.owner.clone()],
+                state,
+            });
+        }
+
+        items.sort_by(|a, b| a.name.cmp(&b.name));
+
         Ok(Self {
-            response: CatalogResponse { items, api },
+            response: CatalogResponse {
+                items,
+                api,
+                api_installed: false,
+                api_enabled: false,
+            },
         })
     }
 }
@@ -303,8 +331,9 @@ fn parse_api_info(xml: &str) -> AppResult<ApiInfo> {
         .children()
         .find(|n| n.has_tag_name("Version"))
         .and_then(|v| v.text())
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
+        .unwrap_or("0")
+        .trim()
+        .to_string();
 
     let links = manifest
         .children()
