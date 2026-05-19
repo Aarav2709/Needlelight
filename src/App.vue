@@ -364,15 +364,28 @@ function handleClick(e) {
   let target = e.target;
   while (target != null) {
     if (target.matches("a")) {
+      let isAllowedProtocol = false;
+      let isInternalHost = false;
+
+      if (target.href) {
+        try {
+          const parsedUrl = new URL(target.href);
+          isAllowedProtocol = ["http:", "https:", "mailto:", "tel:"].includes(
+            parsedUrl.protocol,
+          );
+          isInternalHost =
+            (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") &&
+            ["localhost", "tauri.localhost"].includes(parsedUrl.hostname);
+        } catch {
+          isAllowedProtocol = false;
+          isInternalHost = false;
+        }
+      }
       if (
         target.href &&
-        ["http://", "https://", "mailto:", "tel:"].some((v) =>
-          target.href.startsWith(v),
-        ) &&
+        isAllowedProtocol &&
         !target.classList.contains("router-link-active") &&
-        !target.href.startsWith("http://localhost") &&
-        !target.href.startsWith("https://tauri.localhost") &&
-        !target.href.startsWith("http://tauri.localhost")
+        !isInternalHost
       ) {
         e.preventDefault();
       }
