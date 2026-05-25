@@ -195,54 +195,88 @@ async fn install_mod_with_deps(
     mod_name: &str,
     visited: &mut HashSet<String>,
 ) -> AppResult<()> {
-    if visited.contains(mod_name) {
-        return Ok(());
-    }
-    visited.insert(mod_name.to_string());
+    let mut stack: Vec<(String, bool)> = vec![(mod_name.to_string(), false)];
 
-    let item = catalog
-        .items
-        .iter()
-        .find(|x| x.name == mod_name)
-        .ok_or_else(|| AppError::NotFound(format!("mod '{mod_name}' not found")))?
-        .clone();
+    while let Some((current, ready)) = stack.pop() {
+        if ready {
+            let (item_name, item_version, item_link, item_sha256, is_silksong) = {
+                let item = catalog
+                    .items
+                    .iter()
+                    .find(|x| x.name == current)
+                    .ok_or_else(|| AppError::NotFound(format!("mod '{current}' not found")))?;
 
-    if let Some(state) = installed.db.mods.get(&item.name) {
-        if state.version == item.version {
-            return Ok(());
-        }
-    }
+                if let Some(state) = installed.db.mods.get(&item.name) {
+                    if state.version == item.version {
+                        continue;
+                    }
+                }
 
-    for dep in &item.dependencies {
-        if dep.contains("BepInExPack") || dep.trim().is_empty() {
+                (
+                    item.name.clone(),
+                    item.version.clone(),
+                    item.link.clone(),
+                    item.sha256.clone(),
+                    settings.game.is_silksong(),
+                )
+            };
+
+            if item_link.trim().is_empty() {
+                return Err(AppError::InvalidInput("mod has no download link".to_string()));
+            }
+
+            if is_silksong {
+                ensure_silksong_bepinex(settings).await?;
+            }
+
+            let bytes = download_mod_bytes(&item_link, &item_sha256).await?;
+
+            if is_silksong {
+                install_silksong_mod_archive(settings, &item_name, bytes.as_ref()).await?;
+            } else {
+                let folder = InstalledModsStore::mod_folder(settings, &item_name, true);
+                if folder.exists() {
+                    tokio::fs::remove_dir_all(&folder).await?;
+                }
+                tokio::fs::create_dir_all(&folder).await?;
+                extract_zip_guarded(bytes.as_ref(), &folder)?;
+            }
+
+            installed.mark_installed(&item_name, &item_version, true);
+            installed.save(settings).await?;
             continue;
         }
-        install_mod_with_deps(settings, installed, catalog, dep, visited).await?;
-    }
 
-    if item.link.trim().is_empty() {
-        return Err(AppError::InvalidInput("mod has no download link".to_string()));
-    }
-
-    if settings.game.is_silksong() {
-        ensure_silksong_bepinex(settings).await?;
-    }
-
-    let bytes = download_mod_bytes(&item.link, &item.sha256).await?;
-
-    if settings.game.is_silksong() {
-        install_silksong_mod_archive(settings, &item.name, bytes.as_ref()).await?;
-    } else {
-        let folder = InstalledModsStore::mod_folder(settings, &item.name, true);
-        if folder.exists() {
-            tokio::fs::remove_dir_all(&folder).await?;
+        if visited.contains(&current) {
+            continue;
         }
-        tokio::fs::create_dir_all(&folder).await?;
-        extract_zip_guarded(bytes.as_ref(), &folder)?;
+        visited.insert(current.clone());
+
+        let item = catalog
+            .items
+            .iter()
+            .find(|x| x.name == current)
+            .ok_or_else(|| AppError::NotFound(format!("mod '{current}' not found")))?;
+
+        if let Some(state) = installed.db.mods.get(&item.name) {
+            if state.version == item.version {
+                continue;
+            }
+        }
+
+        let dependencies: Vec<String> = item
+            .dependencies
+            .iter()
+            .filter(|dep| !dep.contains("BepInExPack") && !dep.trim().is_empty())
+            .cloned()
+            .collect();
+
+        stack.push((current.clone(), true));
+        for dep in dependencies.into_iter().rev() {
+            stack.push((dep, false));
+        }
     }
 
-    installed.mark_installed(&item.name, &item.version, true);
-    installed.save(settings).await?;
     Ok(())
 }
 

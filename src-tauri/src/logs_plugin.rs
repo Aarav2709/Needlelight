@@ -137,7 +137,7 @@ pub async fn logs_get_latest_log_cursor(
 }
 
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
-    tauri::plugin::Builder::new("logs")
+    tauri::plugin::Builder::<R>::new("logs")
         .invoke_handler(tauri::generate_handler![
             logs_get_logs,
             logs_get_logs_by_filename,

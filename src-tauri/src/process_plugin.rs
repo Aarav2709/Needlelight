@@ -67,7 +67,7 @@ pub async fn process_kill(state: State<'_, ProcessStore>, uuid: String) -> Resul
 }
 
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
-    tauri::plugin::Builder::new("process")
+    tauri::plugin::Builder::<R>::new("process")
         .invoke_handler(tauri::generate_handler![
             process_get_by_profile_path,
             process_get_all,

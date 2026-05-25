@@ -8,7 +8,7 @@ use crate::{
 use chrono::Utc;
 use serde::Serialize;
 use std::{collections::HashMap, io::{self, ErrorKind}, path::{Path, PathBuf}};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 
 #[derive(Debug, Serialize)]
 struct ContentFile {
@@ -50,7 +50,7 @@ fn emit_profile_event(app: &AppHandle, profile_dir: &Path, meta: &ProfileMeta, e
         path: profile_dir.to_string_lossy().to_string(),
         event: event.to_string(),
     };
-    let _ = app.emit_all("profile", payload);
+    let _ = app.emit("profile", payload);
 }
 
 fn mods_dir(profile_dir: &Path, game: &GameKey) -> PathBuf {
@@ -94,7 +94,7 @@ fn silksong_disabled(dir: &Path) -> bool {
     false
 }
 
-fn build_content_file(path: &Path, file_name: String, size: u64) -> ContentFile {
+fn build_content_file(_path: &Path, file_name: String, size: u64) -> ContentFile {
     ContentFile {
         hash: String::new(),
         file_name,
@@ -444,7 +444,7 @@ pub async fn profile_get_projects(
 }
 
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
-    tauri::plugin::Builder::new("profile")
+    tauri::plugin::Builder::<R>::new("profile")
         .invoke_handler(tauri::generate_handler![
             profile_list,
             profile_get,

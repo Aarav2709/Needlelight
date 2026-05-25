@@ -19,7 +19,9 @@ fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
 
 fn sync_managed_folder(mut settings: AppSettings) -> AppSettings {
     if settings.managed_folders.is_empty() && !settings.managed_folder.is_empty() {
-        settings.set_managed_folder_for(&settings.game, settings.managed_folder.clone());
+        let game = settings.game.clone();
+        let folder = settings.managed_folder.clone();
+        settings.set_managed_folder_for(&game, folder);
     }
 
     let stored = settings.managed_folder_for(&settings.game);
@@ -46,13 +48,16 @@ pub async fn save_settings(state: State<'_, AppState>, settings: AppSettings) ->
     }
 
     let prev_path = previous.managed_folder;
+    let incoming_game = incoming.game.clone();
     if incoming.game != previous.game && incoming.managed_folder == prev_path {
         // Switching games without updating the path: restore saved path for new game.
-        incoming.managed_folder = incoming.managed_folder_for(&incoming.game);
+        let stored = incoming.managed_folder_for(&incoming_game);
+        incoming.managed_folder = stored;
     }
 
-    incoming.managed_folder = AppSettings::normalize_managed_folder(&incoming.managed_folder, &incoming.game);
-    incoming.set_managed_folder_for(&incoming.game, incoming.managed_folder.clone());
+    incoming.managed_folder = AppSettings::normalize_managed_folder(&incoming.managed_folder, &incoming_game);
+    let folder = incoming.managed_folder.clone();
+    incoming.set_managed_folder_for(&incoming_game, folder);
 
     map_err(incoming.save().await)?;
 

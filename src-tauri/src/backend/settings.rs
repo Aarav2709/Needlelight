@@ -150,7 +150,9 @@ impl AppSettings {
 
     pub fn sync_managed_folder(&mut self) {
         if self.managed_folders.is_empty() && !self.managed_folder.is_empty() {
-            self.set_managed_folder_for(&self.game, self.managed_folder.clone());
+            let game = self.game.clone();
+            let folder = self.managed_folder.clone();
+            self.set_managed_folder_for(&game, folder);
         }
 
         let stored = self.managed_folder_for(&self.game);

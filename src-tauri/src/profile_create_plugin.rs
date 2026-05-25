@@ -8,7 +8,7 @@ use crate::{
 use chrono::Utc;
 use serde::Serialize;
 use std::{io::{self, ErrorKind}, path::{Path, PathBuf}};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 use zip::ZipArchive;
 
 #[derive(Debug, Serialize)]
@@ -28,7 +28,7 @@ fn emit_profile_event(app: &AppHandle, profile_dir: &Path, meta: &ProfileMeta, e
         path: profile_dir.to_string_lossy().to_string(),
         event: event.to_string(),
     };
-    let _ = app.emit_all("profile", payload);
+    let _ = app.emit("profile", payload);
 }
 
 fn resolve_profile_dir(settings: &crate::backend::settings::AppSettings, raw: &str) -> PathBuf {
@@ -136,7 +136,7 @@ pub async fn profile_duplicate(
 }
 
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
-    tauri::plugin::Builder::new("profile-create")
+    tauri::plugin::Builder::<R>::new("profile-create")
         .invoke_handler(tauri::generate_handler![profile_create, profile_duplicate])
         .build()
 }
