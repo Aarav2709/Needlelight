@@ -11,7 +11,7 @@ use std::{collections::HashMap, io::{self, ErrorKind}, path::{Path, PathBuf}};
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Debug, Serialize)]
-struct ContentFile {
+pub struct ContentFile {
     pub hash: String,
     pub file_name: String,
     pub size: u64,
