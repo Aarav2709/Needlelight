@@ -162,6 +162,26 @@ impl AppSettings {
     }
 
     pub fn config_dir() -> AppResult<PathBuf> {
+        if cfg!(target_os = "windows") {
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                return Ok(PathBuf::from(appdata).join("HKModInstaller"));
+            }
+            if let Ok(local) = std::env::var("LOCALAPPDATA") {
+                return Ok(PathBuf::from(local).join("HKModInstaller"));
+            }
+            return Err(AppError::InvalidInput("cannot resolve config directory".to_string()));
+        }
+
+        if cfg!(target_os = "macos") {
+            if let Ok(home) = std::env::var("HOME") {
+                return Ok(Path::new(&home)
+                    .join("Library")
+                    .join("Application Support")
+                    .join("HKModInstaller"));
+            }
+            return Err(AppError::InvalidInput("cannot resolve config directory".to_string()));
+        }
+
         let base = std::env::var("XDG_CONFIG_HOME")
             .map(PathBuf::from)
             .or_else(|_| {

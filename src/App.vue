@@ -468,7 +468,7 @@ onMounted(() => {
         to="/library"
         :is-subpage="() => route.path.startsWith('/instance')"
       >
-        <LibraryIcon />
+        <LibraryIcon class="text-contrast" />
       </NavButton>
       <div class="flex flex-grow"></div>
       <NavButton v-tooltip.right="'Launch Vanilla'" :to="() => launchGame(false)">

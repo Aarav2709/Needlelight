@@ -4,70 +4,70 @@ import * as Instance from '@/pages/instance'
 import * as Library from '@/pages/library'
 
 /**
- * Configures application routing for Needlelight — Hollow Knight & Silksong Mod Manager.
+ * Configures application routing for Needlelight - Hollow Knight & Silksong Mod Manager.
  */
 export default new createRouter({
-	history: createWebHistory(),
-	routes: [
-		{
-			path: '/',
-			redirect: '/library',
-		},
-		{
-			path: '/library',
-			name: 'Library',
-			component: Library.Index,
-			meta: {
-				breadcrumb: [{ name: 'Library' }],
-			},
-		},
-		{
-			path: '/instance/:id',
-			name: 'Instance',
-			component: Instance.Index,
-			props: true,
-			children: [
-				{
-					path: '',
-					name: 'Mods',
-					component: Instance.Mods,
-					meta: {
-						useRootContext: true,
-						breadcrumb: [{ name: '?Instance', link: '/instance/{id}/' }, { name: 'Content' }],
-					},
-				},
-				{
-					path: 'projects/:type',
-					name: 'ModsFilter',
-					component: Instance.Mods,
-					meta: {
-						useRootContext: true,
-						breadcrumb: [{ name: '?Instance', link: '/instance/{id}/' }, { name: 'Content' }],
-					},
-				},
-				{
-					path: 'logs',
-					name: 'Logs',
-					component: Instance.Logs,
-					meta: {
-						useRootContext: true,
-						breadcrumb: [{ name: '?Instance', link: '/instance/{id}/' }, { name: 'Logs' }],
-					},
-				},
-			],
-		},
-	],
-	linkActiveClass: 'router-link-active',
-	linkExactActiveClass: 'router-link-exact-active',
-	scrollBehavior() {
-		const viewport = document.querySelector('.app-viewport')
-		viewport?.scrollTo(0, 0)
-		if (viewport) {
-			return {
-				el: '.app-viewport',
-				top: 0,
-			}
-		}
-		return { top: 0 }
-	},
+  history: createWebHistory(),
+  routes: [
+    {
+      path: '/',
+      redirect: '/library',
+    },
+    {
+      path: '/library',
+      name: 'Library',
+      component: Library.Index,
+      meta: {
+        breadcrumb: [{ name: 'Library' }],
+      },
+    },
+    {
+      path: '/instance/:id',
+      name: 'Instance',
+      component: Instance.Index,
+      props: true,
+      children: [
+        {
+          path: '',
+          name: 'Mods',
+          component: Instance.Mods,
+          meta: {
+            useRootContext: true,
+            breadcrumb: [{ name: '?Instance', link: '/instance/{id}/' }, { name: 'Content' }],
+          },
+        },
+        {
+          path: 'projects/:type',
+          name: 'ModsFilter',
+          component: Instance.Mods,
+          meta: {
+            useRootContext: true,
+            breadcrumb: [{ name: '?Instance', link: '/instance/{id}/' }, { name: 'Content' }],
+          },
+        },
+        {
+          path: 'logs',
+          name: 'Logs',
+          component: Instance.Logs,
+          meta: {
+            useRootContext: true,
+            breadcrumb: [{ name: '?Instance', link: '/instance/{id}/' }, { name: 'Logs' }],
+          },
+        },
+      ],
+    },
+  ],
+  linkActiveClass: 'router-link-active',
+  linkExactActiveClass: 'router-link-exact-active',
+  scrollBehavior() {
+    const viewport = document.querySelector('.app-viewport')
+    viewport?.scrollTo(0, 0)
+    if (viewport) {
+      return {
+        el: '.app-viewport',
+        top: 0,
+      }
+    }
+    return { top: 0 }
+  },
 })

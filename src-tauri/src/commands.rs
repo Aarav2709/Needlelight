@@ -66,7 +66,7 @@ pub async fn save_settings(state: State<'_, AppState>, settings: AppSettings) ->
         *shared = incoming.clone();
     }
 
-    let reloaded = map_err(crate::backend::installed_mods::InstalledModsStore::load(&settings).await)?;
+    let reloaded = map_err(crate::backend::installed_mods::InstalledModsStore::load(&incoming).await)?;
     {
         let mut installed = state.installed.write().await;
         *installed = reloaded;
@@ -202,7 +202,7 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
         .ok_or_else(|| format!("Could not find game executable in {}", game_root.display()))?;
 
     // If vanilla, temporarily disable mods by renaming Assembly-CSharp.dll.modded
-    // For now just launch the game directly — vanilla/modded distinction is handled by
+    // For now just launch the game directly - vanilla/modded distinction is handled by
     // whether the API is installed
     let exe_str = exe.to_string_lossy().to_string();
 

@@ -158,7 +158,7 @@ onMounted(() => loadBackendSettings());
     <!-- Managed Folder -->
     <div>
       <h3 class="m-0 text-sm font-semibold text-contrast mb-1">
-        {{ gameName }} — Game Folder
+        {{ gameName }}: Game Folder
       </h3>
       <p class="text-secondary text-xs mb-3">
         Path to the game's <code class="text-xs bg-button-bg px-1 py-0.5 rounded">Managed</code> directory
@@ -179,15 +179,15 @@ onMounted(() => loadBackendSettings());
         class="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg text-xs bg-orange-500/10 text-orange-500"
       >
         <XIcon class="w-3.5 h-3.5 shrink-0" />
-        No game folder set — use Auto-detect or Browse to configure
+        No game folder set: use Auto-detect or Browse to configure
       </div>
 
-      <div class="flex gap-2 items-center">
+      <div class="flex gap-2 items-center w-full min-w-0">
         <input
           v-model="backendSettings.managed_folder"
           type="text"
           :placeholder="`/path/to/${gameName}_Data/Managed`"
-          class="flex-1 bg-bg-raised rounded-lg border border-solid border-surface-5 px-3 py-2 text-sm text-contrast outline-none placeholder:text-secondary"
+          class="flex-1 min-w-0 bg-bg-raised rounded-lg border border-solid border-surface-5 px-3 py-2 text-sm text-contrast outline-none placeholder:text-secondary"
           @input="debouncedSave"
         />
         <ButtonStyled size="small">

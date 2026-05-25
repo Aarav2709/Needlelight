@@ -75,7 +75,7 @@ defineExpose({ selectedTab, setTab })
 
 			<div
 				ref="scrollContainer"
-				class="w-[600px] h-[500px] overflow-y-auto px-4"
+				class="w-[min(720px,calc(100vw-6rem))] h-[min(560px,calc(100vh-16rem))] overflow-y-auto overflow-x-hidden px-4"
 				@scroll="checkScrollState"
 			>
 				<component
