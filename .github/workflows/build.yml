@@ -20,6 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure Tauri icon
+        run: node -e "const fs=require('fs');const path=require('path');const iconPath=path.join('src-tauri','icons','icon.png');if(!fs.existsSync(iconPath)){fs.mkdirSync(path.dirname(iconPath),{recursive:true});const b='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';fs.writeFileSync(iconPath,Buffer.from(b,'base64'));}"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -72,6 +75,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Ensure Tauri icon
+        run: node -e "const fs=require('fs');const path=require('path');const iconPath=path.join('src-tauri','icons','icon.png');if(!fs.existsSync(iconPath)){fs.mkdirSync(path.dirname(iconPath),{recursive:true});const b='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';fs.writeFileSync(iconPath,Buffer.from(b,'base64'));}"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
