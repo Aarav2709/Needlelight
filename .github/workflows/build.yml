@@ -100,8 +100,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Tauri bundles
-        run: pnpm tauri build
+      - name: Build Tauri bundles (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm tauri build --bundles appimage
+
+      - name: Build Tauri bundles (Windows)
+        if: matrix.os == 'windows-latest'
+        run: pnpm tauri build --bundles nsis
+
+      - name: Build Tauri bundles (macOS)
+        if: matrix.os == 'macos-latest'
+        run: pnpm tauri build --bundles dmg
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
