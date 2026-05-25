@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{env, fs, path::PathBuf};
 
 const FALLBACK_ICON_PNG: &[u8] = &[
     0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49,
@@ -10,12 +10,21 @@ const FALLBACK_ICON_PNG: &[u8] = &[
 ];
 
 fn ensure_fallback_icon() {
-    let icon_path = Path::new("icons").join("icon.png");
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set"));
+    let icon_path = manifest_dir.join("icons").join("icon.png");
     if icon_path.exists() {
         return;
     }
     if let Some(parent) = icon_path.parent() {
         fs::create_dir_all(parent).expect("failed to create icons directory");
+    }
+    let new_logo = manifest_dir
+        .parent()
+        .unwrap_or(&manifest_dir)
+        .join("newlogo.png");
+    if new_logo.exists() {
+        fs::copy(&new_logo, &icon_path).expect("failed to copy newlogo.png to icons/icon.png");
+        return;
     }
     fs::write(&icon_path, FALLBACK_ICON_PNG).expect("failed to write fallback icon");
 }
