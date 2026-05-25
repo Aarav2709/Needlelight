@@ -22,7 +22,7 @@ struct ContentFile {
     pub project_type: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct ProfileEventPayload {
     pub uuid: String,
     pub name: String,
@@ -42,7 +42,12 @@ fn resolve_profile_dir(settings: &crate::backend::settings::AppSettings, raw: &s
         .join(raw)
 }
 
-fn emit_profile_event(app: &AppHandle, profile_dir: &Path, meta: &ProfileMeta, event: &str) {
+fn emit_profile_event<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    profile_dir: &Path,
+    meta: &ProfileMeta,
+    event: &str,
+) {
     let payload = ProfileEventPayload {
         uuid: profile_dir.to_string_lossy().to_string(),
         name: meta.name.clone(),
@@ -221,8 +226,8 @@ pub async fn profile_add_project_from_version(
 }
 
 #[tauri::command]
-pub async fn profile_add_project_from_path(
-    app: AppHandle,
+pub async fn profile_add_project_from_path<R: tauri::Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     path: String,
     project_path: String,
@@ -253,8 +258,8 @@ pub async fn profile_add_project_from_path(
 }
 
 #[tauri::command]
-pub async fn profile_toggle_disable_project(
-    app: AppHandle,
+pub async fn profile_toggle_disable_project<R: tauri::Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     path: String,
     project_path: String,
@@ -293,8 +298,8 @@ pub async fn profile_toggle_disable_project(
 }
 
 #[tauri::command]
-pub async fn profile_remove_project(
-    app: AppHandle,
+pub async fn profile_remove_project<R: tauri::Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     path: String,
     project_path: String,
@@ -316,8 +321,8 @@ pub async fn profile_remove_project(
 }
 
 #[tauri::command]
-pub async fn profile_edit(
-    app: AppHandle,
+pub async fn profile_edit<R: tauri::Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     path: String,
     edit_profile: serde_json::Value,
@@ -343,8 +348,8 @@ pub async fn profile_edit(
 }
 
 #[tauri::command]
-pub async fn profile_edit_icon(
-    app: AppHandle,
+pub async fn profile_edit_icon<R: tauri::Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     path: String,
     icon_path: Option<String>,
@@ -383,7 +388,11 @@ pub async fn profile_edit_icon(
 }
 
 #[tauri::command]
-pub async fn profile_remove(app: AppHandle, state: State<'_, AppState>, path: String) -> Result<(), String> {
+pub async fn profile_remove<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
     let settings = state.settings.read().await.clone();
     let profile_dir = resolve_profile_dir(&settings, &path);
     let meta = profiles::load_profile_meta(&profile_dir).map_err(|e| e.to_string())?;

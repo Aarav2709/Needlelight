@@ -11,7 +11,7 @@ use std::{io::{self, ErrorKind}, path::{Path, PathBuf}};
 use tauri::{AppHandle, Emitter, State};
 use zip::ZipArchive;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct ProfileEventPayload {
     pub uuid: String,
     pub name: String,
@@ -20,7 +20,12 @@ struct ProfileEventPayload {
     pub event: String,
 }
 
-fn emit_profile_event(app: &AppHandle, profile_dir: &Path, meta: &ProfileMeta, event: &str) {
+fn emit_profile_event<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    profile_dir: &Path,
+    meta: &ProfileMeta,
+    event: &str,
+) {
     let payload = ProfileEventPayload {
         uuid: profile_dir.to_string_lossy().to_string(),
         name: meta.name.clone(),
@@ -43,8 +48,8 @@ fn resolve_profile_dir(settings: &crate::backend::settings::AppSettings, raw: &s
 }
 
 #[tauri::command]
-pub async fn profile_create(
-    app: AppHandle,
+pub async fn profile_create<R: tauri::Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     name: String,
     _game_version: String,
@@ -98,8 +103,8 @@ pub async fn profile_create(
 }
 
 #[tauri::command]
-pub async fn profile_duplicate(
-    app: AppHandle,
+pub async fn profile_duplicate<R: tauri::Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     path: String,
 ) -> Result<GameInstance, String> {
