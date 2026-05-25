@@ -167,7 +167,12 @@ const messages = defineMessages({
               <ShieldIcon class="w-6 h-6" />
             </button>
             <div>
-              <p class="m-0 font-semibold">Needlelight v8.0.0.0</p>
+          <p class="m-0 font-semibold">
+            <span class="underline decoration-brand/60">Needlelight</span>
+            <span class="ml-2 px-2 py-0.5 rounded bg-button-bg text-contrast text-xs font-bold">
+              v8.0.0.0
+            </span>
+          </p>
             </div>
           </div>
         </div>

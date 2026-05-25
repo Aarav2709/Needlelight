@@ -21,8 +21,15 @@ const apiEnabled = ref(false)
 const error = ref(null)
 const activeGame = ref('hollow_knight')
 
+const isSilksong = computed(() => activeGame.value === 'silksong')
 const gameName = computed(() =>
   activeGame.value === 'silksong' ? 'Hollow Knight: Silksong' : 'Hollow Knight'
+)
+const apiTitle = computed(() =>
+  isSilksong.value ? 'BepInEx' : `${gameName.value} Modding API`
+)
+const apiCtaLabel = computed(() =>
+  isSilksong.value ? 'Install / Update BepInEx' : 'Install / Update API'
 )
 
 async function fetchApiStatus() {
@@ -65,10 +72,11 @@ onMounted(() => fetchApiStatus())
     <div>
       <h1 class="m-0 text-2xl font-extrabold flex items-center gap-3">
         <ShieldIcon class="w-7 h-7 text-brand" />
-        Modding API
+        {{ isSilksong ? 'BepInEx' : 'Modding API' }}
       </h1>
       <p class="text-secondary mt-1 mb-0">
-        The Modding API is required for {{ gameName }} mods to load. Install or update it here.
+        {{ isSilksong ? 'BepInEx is required for' : 'The Modding API is required for' }}
+        {{ gameName }} mods to load. Install or update it here.
       </p>
     </div>
 
@@ -91,7 +99,7 @@ onMounted(() => fetchApiStatus())
         <!-- Status + Install -->
         <div class="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h3 class="m-0 text-lg font-bold text-contrast">{{ gameName }} Modding API</h3>
+            <h3 class="m-0 text-lg font-bold text-contrast">{{ apiTitle }}</h3>
             <p v-if="apiInfo" class="text-secondary text-sm mt-1 mb-0">
               Latest version: <strong class="text-contrast">{{ apiInfo.version }}</strong>
             </p>
@@ -100,14 +108,16 @@ onMounted(() => fetchApiStatus())
             <button @click="installApi">
               <DownloadIcon v-if="!installing" />
               <RefreshCwIcon v-else class="animate-spin" />
-              {{ installing ? 'Installing...' : 'Install / Update API' }}
+              {{ installing ? 'Installing...' : apiCtaLabel }}
             </button>
           </ButtonStyled>
         </div>
 
         <!-- Info -->
         <div class="border-t border-solid border-surface-5 pt-4">
-          <h4 class="m-0 text-sm font-semibold mb-3 text-contrast">What does the API do?</h4>
+          <h4 class="m-0 text-sm font-semibold mb-3 text-contrast">
+            {{ isSilksong ? 'What does the mod loader do?' : 'What does the API do?' }}
+          </h4>
           <ul class="m-0 pl-5 text-sm text-secondary flex flex-col gap-1.5">
             <li>Patches the game to enable mod loading</li>
             <li>Provides hooks and APIs for mods to interact with the game</li>
@@ -120,7 +130,7 @@ onMounted(() => fetchApiStatus())
           <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">Source</h4>
           <p class="text-secondary text-sm m-0">
             Maintained by the <strong>hk-modding</strong> community at
-            <span class="text-brand">github.com/hk-modding/api</span>
+            <span class="text-brand underline decoration-brand/60">github.com/hk-modding/api</span>
           </p>
         </div>
       </div>

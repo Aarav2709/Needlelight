@@ -16,6 +16,10 @@ const ready = ref(false)
 onMounted(async () => {
 	try { os.value = await getOS() } catch { /* ignore */ }
 	try { settings.value = await get() } catch { /* ignore */ }
+	if (settings.value?.theme === 'system') {
+		settings.value.theme = 'dark'
+		themeStore.setThemeState('dark')
+	}
 	ready.value = true
 })
 
@@ -41,7 +45,7 @@ watch(
 			}
 		"
 		:current-theme="settings.theme"
-		:theme-options="themeStore.getThemeOptions()"
+		:theme-options="themeStore.getThemeOptions().filter((theme) => theme !== 'system')"
 		system-theme-color="system"
 	/>
 
@@ -82,21 +86,5 @@ watch(
 		<Toggle id="minimize-launcher" v-model="settings.hide_on_process_start" />
 	</div>
 
-	<div class="mt-4 flex items-center justify-between">
-		<div>
-			<h2 class="m-0 text-lg font-extrabold text-contrast">Toggle sidebar</h2>
-			<p class="m-0 mt-1">Enables the ability to toggle the sidebar.</p>
-		</div>
-		<Toggle
-			id="toggle-sidebar"
-			:model-value="settings.toggle_sidebar"
-			@update:model-value="
-				(e) => {
-					settings.toggle_sidebar = !!e
-					themeStore.toggleSidebar = settings.toggle_sidebar
-				}
-			"
-		/>
-	</div>
 	</div>
 </template>

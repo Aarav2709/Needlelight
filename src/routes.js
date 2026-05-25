@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import * as Instance from '@/pages/instance'
 import * as Library from '@/pages/library'
+import ModdingApi from '@/pages/ModdingApi.vue'
 
 /**
  * Configures application routing for Needlelight - Hollow Knight & Silksong Mod Manager.
@@ -19,6 +20,14 @@ export default new createRouter({
       component: Library.Index,
       meta: {
         breadcrumb: [{ name: 'Library' }],
+      },
+    },
+    {
+      path: '/modding-api',
+      name: 'Modding API',
+      component: ModdingApi,
+      meta: {
+        breadcrumb: [{ name: 'Modding API' }],
       },
     },
     {

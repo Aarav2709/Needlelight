@@ -4,10 +4,9 @@ import {
   DownloadIcon,
   RefreshCwIcon,
   SearchIcon,
-  ShieldIcon,
   XIcon,
 } from '@modrinth/assets'
-import { ButtonStyled, injectNotificationManager } from '@modrinth/ui'
+import { ButtonStyled, Toggle, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -29,25 +28,20 @@ const activeFilter = ref('all')
 const busyMods = ref(new Set())
 const activeGame = ref('hollow_knight')
 const switchingGame = ref(false)
-const installingApi = ref(false)
+const managedFolder = ref('')
 
 const isSilksong = computed(() => activeGame.value === 'silksong')
-
-const apiLabel = computed(() => isSilksong.value ? 'BepInEx (Mod Loader)' : 'Modding API')
-
-const apiInstalled = computed(() => {
-  if (!catalog.value) return false
-  const api = catalog.value.api
-  return api && api.url && api.url.length > 0
-})
+const hasGameFolder = computed(() => managedFolder.value.trim().length > 0)
 
 async function loadGame() {
   try {
     const settings = await invoke('load_settings')
     activeGame.value = settings.game || 'hollow_knight'
+    managedFolder.value = settings.managed_folder || ''
     applyGameTheme(activeGame.value)
   } catch {
     activeGame.value = 'hollow_knight'
+    managedFolder.value = ''
     applyGameTheme('hollow_knight')
   }
 }
@@ -59,8 +53,7 @@ async function switchGame(game) {
     const settings = await invoke('load_settings')
     settings.game = game
     await invoke('save_settings', { settings })
-    activeGame.value = game
-    applyGameTheme(game)
+    await loadGame()
     await fetchCatalog()
   } catch (err) {
     handleError(err)
@@ -129,7 +122,23 @@ function isEnabled(mod) {
   return mod.state?.enabled !== false
 }
 
+function formatModName(name) {
+  if (!isSilksong.value) return name
+  const parts = name.split('-')
+  if (parts.length <= 1) return name
+  return parts.slice(1).join('-')
+}
+
+function formatDependency(name) {
+  if (!isSilksong.value) return name
+  return formatModName(name)
+}
+
 async function installMod(modName) {
+  if (!hasGameFolder.value) {
+    handleError('Game folder not configured. Go to Settings > Game to set it up.')
+    return
+  }
   busyMods.value.add(modName)
   try {
     await invoke('install_mod', { name: modName })
@@ -142,6 +151,10 @@ async function installMod(modName) {
 }
 
 async function uninstallMod(modName) {
+  if (!hasGameFolder.value) {
+    handleError('Game folder not configured. Go to Settings > Game to set it up.')
+    return
+  }
   busyMods.value.add(modName)
   try {
     await invoke('uninstall_mod', { name: modName })
@@ -154,6 +167,10 @@ async function uninstallMod(modName) {
 }
 
 async function toggleMod(modName, enable) {
+  if (!hasGameFolder.value) {
+    handleError('Game folder not configured. Go to Settings > Game to set it up.')
+    return
+  }
   busyMods.value.add(modName)
   try {
     await invoke('toggle_mod', { name: modName, enable })
@@ -162,18 +179,6 @@ async function toggleMod(modName, enable) {
     handleError(err)
   } finally {
     busyMods.value.delete(modName)
-  }
-}
-
-async function installApi() {
-  installingApi.value = true
-  try {
-    await invoke('install_api')
-    await fetchCatalog()
-  } catch (err) {
-    handleError(err)
-  } finally {
-    installingApi.value = false
   }
 }
 
@@ -269,151 +274,121 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Modding API Card -->
-    <div
-      class="rounded-xl bg-bg-raised border border-solid border-surface-5 p-4 flex items-center justify-between gap-4 flex-wrap"
+    <Transition
+      enter-active-class="transition-opacity duration-200"
+      leave-active-class="transition-opacity duration-150"
+      enter-from-class="opacity-0"
+      leave-to-class="opacity-0"
+      mode="out-in"
     >
-      <div class="flex items-center gap-3">
+      <div :key="activeGame">
+        <!-- Loading state -->
+        <div v-if="catalogLoading" class="text-secondary text-sm py-8 text-center">
+          {{ isSilksong ? 'Loading mod catalog from Thunderstore...' : 'Loading mod catalog from modlinks...' }}
+        </div>
+
+        <!-- Error state -->
+        <div v-else-if="catalogError" class="text-secondary text-sm py-8 text-center">
+          <p class="m-0 mb-2">Could not load the mod catalog. You may be offline.</p>
+          <ButtonStyled size="small">
+            <button @click="fetchCatalog">Retry</button>
+          </ButtonStyled>
+        </div>
+
+        <!-- Empty search results -->
         <div
-          class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-          :class="apiInstalled ? 'bg-green-500/10 text-green-500' : 'bg-brand/10 text-brand'"
+          v-else-if="filteredMods.length === 0"
+          class="text-secondary text-sm py-8 text-center"
         >
-          <ShieldIcon class="w-5 h-5" />
+          <template v-if="searchQuery">
+            No mods match "<strong class="text-contrast">{{ searchQuery }}</strong>"
+          </template>
+          <template v-else-if="activeFilter === 'installed'">
+            No mods installed yet. Switch to "Available" to browse the catalog.
+          </template>
+          <template v-else> No mods available for this game. </template>
         </div>
-        <div>
-          <h4 class="m-0 text-sm font-semibold text-contrast">{{ apiLabel }}</h4>
-          <p class="text-xs text-secondary m-0 mt-0.5">
-            <template v-if="isSilksong">
-              {{ apiInstalled ? 'BepInEx mod loader is configured.' : 'Required mod loader for Silksong mods.' }}
-            </template>
-            <template v-else>
-              {{ apiInstalled ? 'The modding API is installed and ready.' : 'Required to load mods. Install it to get started.' }}
-            </template>
-          </p>
-        </div>
-      </div>
-      <button
-        v-if="!apiInstalled"
-        class="px-4 py-2 text-xs rounded-lg border-none bg-brand text-white cursor-pointer hover:brightness-90 transition-all font-medium flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-        :disabled="installingApi || catalogLoading"
-        @click="installApi"
-      >
-        <DownloadIcon class="w-3.5 h-3.5" />
-        {{ installingApi ? 'Installing...' : 'Install API' }}
-      </button>
-      <span
-        v-else
-        class="text-xs font-medium text-green-500 flex items-center gap-1"
-      >
-        <CheckIcon class="w-3.5 h-3.5" />
-        Installed
-      </span>
-    </div>
 
-    <!-- Loading state -->
-    <div v-if="catalogLoading" class="text-secondary text-sm py-8 text-center">
-      {{ isSilksong ? 'Loading mod catalog from Thunderstore...' : 'Loading mod catalog from modlinks...' }}
-    </div>
+        <!-- Mod grid -->
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div
+            v-for="mod in filteredMods"
+            :key="mod.name"
+            class="rounded-xl bg-bg-raised border border-solid border-surface-5 p-4 flex flex-col gap-2 transition-all hover:border-brand/30"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex-1 min-w-0">
+                <h4 class="m-0 font-semibold text-contrast text-sm truncate">
+                  {{ formatModName(mod.name) }}
+                </h4>
+                <p class="text-secondary text-xs mt-1 mb-0 line-clamp-2 leading-relaxed">
+                  {{ mod.description || 'No description' }}
+                </p>
+              </div>
+              <span
+                v-if="isInstalled(mod)"
+                class="shrink-0 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                :class="
+                  isEnabled(mod)
+                    ? 'text-green-500 bg-green-500/10'
+                    : 'text-orange-500 bg-orange-500/10'
+                "
+              >
+                <CheckIcon class="w-3 h-3" />
+                {{ isEnabled(mod) ? 'Enabled' : 'Disabled' }}
+              </span>
+            </div>
 
-    <!-- Error state -->
-    <div v-else-if="catalogError" class="text-secondary text-sm py-8 text-center">
-      <p class="m-0 mb-2">Could not load the mod catalog. You may be offline.</p>
-      <ButtonStyled size="small">
-        <button @click="fetchCatalog">Retry</button>
-      </ButtonStyled>
-    </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs text-secondary">v{{ mod.version }}</span>
+              <span v-if="mod.authors?.length" class="text-xs text-secondary">
+                by {{ mod.authors.join(', ') }}
+              </span>
+              <span
+                v-for="tag in (mod.tags || []).slice(0, 3)"
+                :key="tag"
+                class="text-xs text-secondary bg-button-bg px-1.5 py-0.5 rounded"
+              >
+                {{ tag }}
+              </span>
+            </div>
 
-    <!-- Empty search results -->
-    <div
-      v-else-if="filteredMods.length === 0"
-      class="text-secondary text-sm py-8 text-center"
-    >
-      <template v-if="searchQuery">
-        No mods match "<strong class="text-contrast">{{ searchQuery }}</strong>"
-      </template>
-      <template v-else-if="activeFilter === 'installed'">
-        No mods installed yet. Switch to "Available" to browse the catalog.
-      </template>
-      <template v-else> No mods available for this game. </template>
-    </div>
+            <div v-if="mod.dependencies?.length" class="text-xs text-secondary">
+              Requires: {{ mod.dependencies.map(formatDependency).join(', ') }}
+            </div>
 
-    <!-- Mod grid -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-      <div
-        v-for="mod in filteredMods"
-        :key="mod.name"
-        class="rounded-xl bg-bg-raised border border-solid border-surface-5 p-4 flex flex-col gap-2 transition-all hover:border-brand/30"
-      >
-        <div class="flex items-start justify-between gap-2">
-          <div class="flex-1 min-w-0">
-            <h4 class="m-0 font-semibold text-contrast text-sm truncate">
-              {{ mod.name }}
-            </h4>
-            <p class="text-secondary text-xs mt-1 mb-0 line-clamp-2 leading-relaxed">
-              {{ mod.description || 'No description' }}
-            </p>
+            <div class="flex items-center gap-3 mt-auto pt-1">
+              <template v-if="isInstalled(mod)">
+                <div class="flex items-center gap-2">
+                  <Toggle
+                    :model-value="isEnabled(mod)"
+                    :disabled="busyMods.has(mod.name)"
+                    @update:model-value="(v) => toggleMod(mod.name, v)"
+                  />
+                  <span class="text-xs text-secondary">{{ isEnabled(mod) ? 'Enabled' : 'Disabled' }}</span>
+                </div>
+                <button
+                  class="ml-auto px-3 py-1.5 text-xs rounded-lg border border-solid border-red-500/30 text-red-500 bg-transparent cursor-pointer hover:bg-red-500/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="busyMods.has(mod.name)"
+                  @click="uninstallMod(mod.name)"
+                >
+                  Uninstall
+                </button>
+              </template>
+              <template v-else>
+                <button
+                  class="px-3 py-1.5 text-xs rounded-lg border-none bg-brand text-white cursor-pointer hover:brightness-90 transition-all font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="busyMods.has(mod.name)"
+                  @click="installMod(mod.name)"
+                >
+                  <DownloadIcon class="w-3.5 h-3.5" />
+                  {{ busyMods.has(mod.name) ? 'Installing...' : 'Install' }}
+                </button>
+              </template>
+            </div>
           </div>
-          <span
-            v-if="isInstalled(mod)"
-            class="shrink-0 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
-            :class="
-              isEnabled(mod)
-                ? 'text-green-500 bg-green-500/10'
-                : 'text-orange-500 bg-orange-500/10'
-            "
-          >
-            <CheckIcon class="w-3 h-3" />
-            {{ isEnabled(mod) ? 'Enabled' : 'Disabled' }}
-          </span>
-        </div>
-
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-xs text-secondary">v{{ mod.version }}</span>
-          <span v-if="mod.authors?.length" class="text-xs text-secondary">
-            by {{ mod.authors.join(', ') }}
-          </span>
-          <span
-            v-for="tag in (mod.tags || []).slice(0, 3)"
-            :key="tag"
-            class="text-xs text-secondary bg-button-bg px-1.5 py-0.5 rounded"
-          >
-            {{ tag }}
-          </span>
-        </div>
-
-        <div v-if="mod.dependencies?.length" class="text-xs text-secondary">
-          Requires: {{ mod.dependencies.join(', ') }}
-        </div>
-
-        <div class="flex gap-2 mt-auto pt-1">
-          <template v-if="isInstalled(mod)">
-            <button
-              class="px-3 py-1.5 text-xs rounded-lg border border-solid border-surface-5 bg-button-bg cursor-pointer hover:brightness-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              :disabled="busyMods.has(mod.name)"
-              @click="toggleMod(mod.name, !isEnabled(mod))"
-            >
-              {{ isEnabled(mod) ? 'Disable' : 'Enable' }}
-            </button>
-            <button
-              class="px-3 py-1.5 text-xs rounded-lg border border-solid border-red-500/30 text-red-500 bg-transparent cursor-pointer hover:bg-red-500/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              :disabled="busyMods.has(mod.name)"
-              @click="uninstallMod(mod.name)"
-            >
-              Uninstall
-            </button>
-          </template>
-          <template v-else>
-            <button
-              class="px-3 py-1.5 text-xs rounded-lg border-none bg-brand text-white cursor-pointer hover:brightness-90 transition-all font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              :disabled="busyMods.has(mod.name)"
-              @click="installMod(mod.name)"
-            >
-              <DownloadIcon class="w-3.5 h-3.5" />
-              {{ busyMods.has(mod.name) ? 'Installing...' : 'Install' }}
-            </button>
-          </template>
         </div>
       </div>
-    </div>
+    </Transition>
   </div>
 </template>

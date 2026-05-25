@@ -15,6 +15,11 @@ pub async fn install_mod(
     catalog: &CatalogResponse,
     mod_name: &str,
 ) -> AppResult<()> {
+    if settings.managed_folder.trim().is_empty() {
+        return Err(AppError::InvalidInput(
+            "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
+        ));
+    }
     let mut visited = HashSet::new();
     install_mod_with_deps(settings, installed, catalog, mod_name, &mut visited).await
 }
@@ -24,6 +29,11 @@ pub async fn uninstall_mod(
     installed: &mut InstalledModsStore,
     mod_name: &str,
 ) -> AppResult<()> {
+    if settings.managed_folder.trim().is_empty() {
+        return Err(AppError::InvalidInput(
+            "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
+        ));
+    }
     if settings.game.is_silksong() {
         remove_silksong_mod(settings, mod_name).await?;
         installed.mark_uninstalled(mod_name);
@@ -52,6 +62,11 @@ pub async fn toggle_mod(
     mod_name: &str,
     enable: bool,
 ) -> AppResult<()> {
+    if settings.managed_folder.trim().is_empty() {
+        return Err(AppError::InvalidInput(
+            "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
+        ));
+    }
     if settings.game.is_silksong() {
         set_silksong_mod_enabled(settings, mod_name, enable)?;
         installed.set_enabled(mod_name, enable);
@@ -70,6 +85,12 @@ pub async fn install_api(
     installed: &mut InstalledModsStore,
     catalog: &CatalogResponse,
 ) -> AppResult<()> {
+    if settings.managed_folder.trim().is_empty() {
+        return Err(AppError::InvalidInput(
+            "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
+        ));
+    }
+
     let api = &catalog.api;
     if api.url.trim().is_empty() {
         return Ok(());
@@ -93,11 +114,7 @@ pub async fn install_api(
         }
     }
 
-    let target = if settings.game.is_silksong() {
-        settings.game_root_path()
-    } else {
-        PathBuf::from(&settings.managed_folder)
-    };
+    let target = settings.game_root_path();
 
     tokio::fs::create_dir_all(&target).await?;
     extract_zip_guarded(bytes.as_ref(), &target)?;
@@ -179,13 +196,21 @@ pub fn map_state_after_install(current: &ModState, version: &str) -> ModState {
     }
 }
 
-pub fn is_api_installed(settings: &AppSettings, installed: &InstalledModsStore) -> bool {
+pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore) -> bool {
     if settings.game.is_silksong() {
         let bepinex = settings.game_root_path().join("BepInEx/core/BepInEx.dll");
         return bepinex.exists();
     }
 
-    installed.db.api_install.is_some()
+    if settings.managed_folder.trim().is_empty() {
+        return false;
+    }
+
+    let managed = PathBuf::from(&settings.managed_folder).join("Assembly-CSharp.dll");
+    if let Ok(Some(_)) = detect_api_version(&managed) {
+        return true;
+    }
+    false
 }
 
 async fn install_mod_with_deps(

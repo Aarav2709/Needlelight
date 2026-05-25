@@ -262,6 +262,7 @@ impl AppSettings {
                 GameKey::HollowKnight => vec![
                     "Program Files/Steam/steamapps/common/Hollow Knight",
                     "Program Files (x86)/Steam/steamapps/common/Hollow Knight",
+                    "SteamLibrary/steamapps/common/Hollow Knight",
                     "Program Files/GOG Galaxy/Games/Hollow Knight",
                     "Program Files (x86)/GOG Galaxy/Games/Hollow Knight",
                     "XboxGames/Hollow Knight/Content",
@@ -271,6 +272,7 @@ impl AppSettings {
                 GameKey::Silksong => vec![
                     "Program Files/Steam/steamapps/common/Hollow Knight Silksong",
                     "Program Files (x86)/Steam/steamapps/common/Hollow Knight Silksong",
+                    "SteamLibrary/steamapps/common/Hollow Knight Silksong",
                     "Program Files/GOG Galaxy/Games/Hollow Knight Silksong",
                     "Program Files (x86)/GOG Galaxy/Games/Hollow Knight Silksong",
                     "XboxGames/Hollow Knight Silksong/Content",

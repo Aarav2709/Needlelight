@@ -30,6 +30,11 @@
   },
   "bundle": {
     "active": true,
+    "icon": [
+      "icons/icon-512.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
     "targets": "all"
   }
 }
