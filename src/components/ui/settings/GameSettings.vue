@@ -199,29 +199,6 @@ onMounted(() => loadBackendSettings());
       />
     </div>
 
-    <!-- Low Storage Mode -->
-    <div>
-      <div class="flex items-center gap-3">
-        <Toggle
-          :model-value="backendSettings.low_storage_mode"
-          @update:model-value="
-            (v) => {
-              backendSettings.low_storage_mode = v;
-              saveBackendSettings();
-            }
-          "
-        />
-        <div>
-          <h3 class="m-0 text-sm font-semibold text-contrast">
-            Low Storage Mode
-          </h3>
-          <p class="text-secondary text-xs mt-0.5 mb-0">
-            Skip caching downloaded archives to save disk space.
-          </p>
-        </div>
-      </div>
-    </div>
-
   </div>
   <div v-else-if="loading" class="text-secondary text-sm p-4">
     Loading game settings...

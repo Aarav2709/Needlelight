@@ -5,7 +5,7 @@ use super::{
     settings::AppSettings,
 };
 use sha2::{Digest, Sha256};
-use std::{collections::HashSet, fs::File, io::Read, path::{Path, PathBuf}};
+use std::{collections::HashSet, fs::File, io::{Cursor, Read}, path::{Path, PathBuf}};
 use walkdir::WalkDir;
 use zip::ZipArchive;
 
@@ -114,7 +114,11 @@ pub async fn install_api(
         }
     }
 
-    let target = settings.game_root_path();
+    let target = if settings.game.is_silksong() {
+        settings.game_root_path()
+    } else {
+        determine_hk_api_target(settings, bytes.as_ref())?
+    };
 
     tokio::fs::create_dir_all(&target).await?;
     extract_zip_guarded(bytes.as_ref(), &target)?;
@@ -206,11 +210,53 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
         return false;
     }
 
-    let managed = PathBuf::from(&settings.managed_folder).join("Assembly-CSharp.dll");
-    if let Ok(Some(_)) = detect_api_version(&managed) {
+    let managed_dir = PathBuf::from(&settings.managed_folder);
+    if managed_dir.join("ModdingApi.dll").exists() {
         return true;
     }
-    false
+
+    let managed = managed_dir.join("Assembly-CSharp.dll");
+    matches!(detect_api_version(&managed), Ok(Some(_)))
+}
+
+fn determine_hk_api_target(settings: &AppSettings, data: &[u8]) -> AppResult<PathBuf> {
+    let managed = PathBuf::from(&settings.managed_folder);
+    let managed_parent = managed
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| managed.clone());
+
+    let reader = Cursor::new(data);
+    let mut archive = ZipArchive::new(reader)?;
+
+    let mut has_managed_prefix = false;
+    let mut has_mods_prefix = false;
+    let mut has_root_assembly = false;
+
+    for i in 0..archive.len() {
+        let entry = archive.by_index(i)?;
+        let name = entry.name();
+        let first = name.split('/').next().unwrap_or("");
+        if first.eq_ignore_ascii_case("Managed") {
+            has_managed_prefix = true;
+            break;
+        }
+        if first.eq_ignore_ascii_case("Mods") {
+            has_mods_prefix = true;
+        }
+        if first.eq_ignore_ascii_case("Assembly-CSharp.dll") {
+            has_root_assembly = true;
+        }
+    }
+
+    if has_managed_prefix {
+        return Ok(managed_parent);
+    }
+    if has_mods_prefix || has_root_assembly {
+        return Ok(managed);
+    }
+
+    Ok(managed_parent)
 }
 
 async fn install_mod_with_deps(

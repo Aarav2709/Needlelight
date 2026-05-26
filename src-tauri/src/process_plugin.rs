@@ -16,11 +16,13 @@ pub struct ProcessStore {
 }
 
 impl ProcessStore {
+    #[allow(dead_code)]
     pub async fn insert(&self, info: ProcessInfo) {
         let mut guard = self.processes.lock().await;
         guard.insert(info.uuid.clone(), info);
     }
 
+    #[allow(dead_code)]
     pub async fn remove(&self, uuid: &str) {
         let mut guard = self.processes.lock().await;
         guard.remove(uuid);

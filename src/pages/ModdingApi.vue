@@ -1,5 +1,5 @@
 <script setup>
-import { DownloadIcon, RefreshCwIcon, ShieldIcon, CheckIcon } from '@modrinth/assets'
+import { DownloadIcon, RefreshCwIcon, ShieldIcon } from '@modrinth/assets'
 import { ButtonStyled, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { onMounted, ref, computed } from 'vue'
@@ -28,9 +28,16 @@ const gameName = computed(() =>
 const apiTitle = computed(() =>
   isSilksong.value ? 'BepInEx' : `${gameName.value} Modding API`
 )
-const apiCtaLabel = computed(() =>
-  isSilksong.value ? 'Install / Update BepInEx' : 'Install / Update API'
+const apiCtaLabel = computed(() => {
+  if (apiInstalled.value) {
+    return isSilksong.value ? 'Reinstall BepInEx' : 'Reinstall API'
+  }
+  return isSilksong.value ? 'Install BepInEx' : 'Install API'
+})
+const statusBadgeClass = computed(() =>
+  apiInstalled.value ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-400'
 )
+const statusLabel = computed(() => (apiInstalled.value ? 'Installed' : 'Not installed'))
 
 async function fetchApiStatus() {
   loading.value = true
@@ -94,15 +101,23 @@ onMounted(() => fetchApiStatus())
     </div>
 
     <template v-else>
-      <!-- API Actions Card -->
-      <div class="rounded-2xl bg-bg-raised p-6 border border-solid border-surface-5 flex flex-col gap-5">
-        <!-- Status + Install -->
-        <div class="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h3 class="m-0 text-lg font-bold text-contrast">{{ apiTitle }}</h3>
-            <p v-if="apiInfo" class="text-secondary text-sm mt-1 mb-0">
-              Latest version: <strong class="text-contrast">{{ apiInfo.version }}</strong>
-            </p>
+      <div class="rounded-2xl bg-bg-raised p-6 border border-solid border-surface-5 flex flex-col gap-6">
+        <div class="flex items-start justify-between flex-wrap gap-4">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
+              <ShieldIcon class="w-6 h-6" />
+            </div>
+            <div>
+              <h2 class="m-0 text-xl font-extrabold text-contrast">{{ apiTitle }}</h2>
+              <div class="mt-2 flex items-center gap-2 text-xs">
+                <span v-if="apiInfo" class="px-2 py-0.5 rounded bg-button-bg text-contrast font-semibold">
+                  v{{ apiInfo.version }}
+                </span>
+                <span class="px-2 py-0.5 rounded font-semibold" :class="statusBadgeClass">
+                  {{ statusLabel }}
+                </span>
+              </div>
+            </div>
           </div>
           <ButtonStyled color="brand" :disabled="installing">
             <button @click="installApi">
@@ -113,29 +128,33 @@ onMounted(() => fetchApiStatus())
           </ButtonStyled>
         </div>
 
-        <!-- Info -->
-        <div class="border-t border-solid border-surface-5 pt-4">
-          <h4 class="m-0 text-sm font-semibold mb-3 text-contrast">
-            {{ isSilksong ? 'What does the mod loader do?' : 'What does the API do?' }}
-          </h4>
-          <ul class="m-0 pl-5 text-sm text-secondary flex flex-col gap-1.5">
-            <li>Patches the game to enable mod loading</li>
-            <li>Provides hooks and APIs for mods to interact with the game</li>
-            <li>Required for all mods from the modlinks repository</li>
-            <li>Use <strong>Launch Modded</strong> vs <strong>Launch Vanilla</strong> in the sidebar to play with or without mods</li>
-          </ul>
-        </div>
-
-        <div class="border-t border-solid border-surface-5 pt-4">
-          <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">Source</h4>
-          <p class="text-secondary text-sm m-0">
-            Maintained by the <strong>hk-modding</strong> community at
-            <span class="text-brand underline decoration-brand/60">github.com/hk-modding/api</span>
-          </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+            <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">
+              {{ isSilksong ? 'What does the mod loader do?' : 'What does the API do?' }}
+            </h4>
+            <ul class="m-0 pl-4 text-sm text-secondary flex flex-col gap-1.5">
+              <li>Patches the game to enable mod loading</li>
+              <li>Provides hooks and APIs for mods to interact with the game</li>
+              <li>Required for all mods from the modlinks repository</li>
+              <li>Use <strong>Launch Modded</strong> vs <strong>Launch Vanilla</strong> in the sidebar</li>
+            </ul>
+          </div>
+          <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+            <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">Where it installs</h4>
+            <p class="m-0 text-sm text-secondary">
+              {{ isSilksong
+                ? 'Installs into the game root and creates the BepInEx folder.'
+                : 'Installs into the game data Managed folder.' }}
+            </p>
+            <p class="m-0 mt-3 text-sm text-secondary">
+              Maintained by the <strong>hk-modding</strong> community at
+              <span class="text-brand underline decoration-brand/60">github.com/hk-modding/api</span>
+            </p>
+          </div>
         </div>
       </div>
 
-      <!-- Refresh -->
       <div>
         <ButtonStyled type="transparent" size="small">
           <button @click="fetchApiStatus">

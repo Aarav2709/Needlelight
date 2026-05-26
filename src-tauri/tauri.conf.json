@@ -32,6 +32,7 @@
     "active": true,
     "icon": [
       "icons/icon-512.png",
+      "icons/icon.icns",
       "icons/icon.png",
       "icons/icon.ico"
     ],
