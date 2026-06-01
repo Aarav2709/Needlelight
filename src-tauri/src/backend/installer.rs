@@ -376,7 +376,7 @@ async fn install_mod_with_deps(
                         file_name = format!("{item_name}.dll");
                     }
                     let target = folder.join(file_name);
-                    tokio::fs::write(target, bytes.as_ref()).await?;
+                    tokio::fs::write(target, bytes.as_slice()).await?;
                 }
             }
 
