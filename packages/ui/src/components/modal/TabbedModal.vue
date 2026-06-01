@@ -18,9 +18,17 @@ export type Tab<Props> = {
 const props = defineProps<{
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	tabs: Tab<any>[]
+	contentWidth?: string
+	contentHeight?: string
 }>()
 
 const visibleTabs = computed(() => props.tabs.filter((tab) => tab.shown !== false))
+const contentWidth = computed(
+	() => props.contentWidth ?? 'min(640px, calc(100vw - 6rem))'
+)
+const contentHeight = computed(
+	() => props.contentHeight ?? 'min(560px, calc(100vh - 16rem))'
+)
 
 const selectedTab = ref(0)
 
@@ -75,13 +83,26 @@ defineExpose({ selectedTab, setTab })
 
 			<div
 				ref="scrollContainer"
-				class="w-[min(640px,calc(100vw-6rem))] h-[min(560px,calc(100vh-16rem))] overflow-y-auto overflow-x-hidden px-4"
+				class="overflow-y-auto overflow-x-hidden px-4"
+				:style="{ width: contentWidth, height: contentHeight }"
 				@scroll="checkScrollState"
 			>
-				<component
-					:is="visibleTabs[selectedTab].content"
-					v-bind="visibleTabs[selectedTab].props ?? {}"
-				/>
+				<Transition
+					mode="out-in"
+					enter-active-class="transition-all duration-200 ease-out"
+					enter-from-class="opacity-0 translate-y-2"
+					enter-to-class="opacity-100 translate-y-0"
+					leave-active-class="transition-all duration-150 ease-in"
+					leave-from-class="opacity-100 translate-y-0"
+					leave-to-class="opacity-0 -translate-y-1"
+				>
+					<div :key="selectedTab">
+						<component
+							:is="visibleTabs[selectedTab].content"
+							v-bind="visibleTabs[selectedTab].props ?? {}"
+						/>
+					</div>
+				</Transition>
 			</div>
 
 			<Transition

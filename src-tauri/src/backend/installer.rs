@@ -9,6 +9,40 @@ use std::{collections::HashSet, fs::File, io::{Cursor, Read}, path::{Path, PathB
 use walkdir::WalkDir;
 use zip::ZipArchive;
 
+fn ensure_valid_hk_managed_folder(settings: &AppSettings) -> AppResult<()> {
+    let managed = PathBuf::from(&settings.managed_folder);
+    if !managed.exists() {
+        return Err(AppError::InvalidInput(
+            "Managed folder does not exist. Go to Settings > Game to set it up.".to_string(),
+        ));
+    }
+
+    let assembly = managed.join("Assembly-CSharp.dll");
+    if !assembly.exists() {
+        return Err(AppError::InvalidInput(
+            "Managed folder is invalid (Assembly-CSharp.dll not found). Go to Settings > Game to set it up.".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn looks_like_zip(data: &[u8]) -> bool {
+    data.len() >= 4 && data[0] == b'P' && data[1] == b'K'
+}
+
+fn filename_from_url(url: &str) -> Option<String> {
+    let base = url.split('/').last()?;
+    let base = base.split('?').next().unwrap_or(base);
+    let base = base.split('#').next().unwrap_or(base);
+    let base = base.trim();
+    if base.is_empty() {
+        None
+    } else {
+        Some(base.to_string())
+    }
+}
+
 pub async fn install_mod(
     settings: &AppSettings,
     installed: &mut InstalledModsStore,
@@ -20,6 +54,14 @@ pub async fn install_mod(
             "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
         ));
     }
+
+    if !settings.game.is_silksong() {
+        ensure_valid_hk_managed_folder(settings)?;
+        if !is_api_installed(settings, installed) {
+            install_api(settings, installed, catalog).await?;
+        }
+    }
+
     let mut visited = HashSet::new();
     install_mod_with_deps(settings, installed, catalog, mod_name, &mut visited).await
 }
@@ -89,6 +131,10 @@ pub async fn install_api(
         return Err(AppError::InvalidInput(
             "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
         ));
+    }
+
+    if !settings.game.is_silksong() {
+        ensure_valid_hk_managed_folder(settings)?;
     }
 
     let api = &catalog.api;
@@ -229,6 +275,7 @@ fn determine_hk_api_target(settings: &AppSettings, data: &[u8]) -> AppResult<Pat
     let reader = Cursor::new(data);
     let mut archive = ZipArchive::new(reader)?;
 
+    let mut has_data_managed_prefix = false;
     let mut has_managed_prefix = false;
     let mut has_mods_prefix = false;
     let mut has_root_assembly = false;
@@ -236,10 +283,16 @@ fn determine_hk_api_target(settings: &AppSettings, data: &[u8]) -> AppResult<Pat
     for i in 0..archive.len() {
         let entry = archive.by_index(i)?;
         let name = entry.name();
-        let first = name.split('/').next().unwrap_or("");
+        let parts: Vec<&str> = name.split('/').collect();
+        let first = parts.first().copied().unwrap_or("");
+        if parts.len() >= 2
+            && parts[1].eq_ignore_ascii_case("Managed")
+            && first.to_lowercase().ends_with("_data")
+        {
+            has_data_managed_prefix = true;
+        }
         if first.eq_ignore_ascii_case("Managed") {
             has_managed_prefix = true;
-            break;
         }
         if first.eq_ignore_ascii_case("Mods") {
             has_mods_prefix = true;
@@ -247,6 +300,10 @@ fn determine_hk_api_target(settings: &AppSettings, data: &[u8]) -> AppResult<Pat
         if first.eq_ignore_ascii_case("Assembly-CSharp.dll") {
             has_root_assembly = true;
         }
+    }
+
+    if has_data_managed_prefix {
+        return Ok(settings.game_root_path());
     }
 
     if has_managed_prefix {
@@ -310,7 +367,17 @@ async fn install_mod_with_deps(
                     tokio::fs::remove_dir_all(&folder).await?;
                 }
                 tokio::fs::create_dir_all(&folder).await?;
-                extract_zip_guarded(bytes.as_ref(), &folder)?;
+                if looks_like_zip(bytes.as_ref()) {
+                    extract_zip_guarded(bytes.as_ref(), &folder)?;
+                } else {
+                    let mut file_name = filename_from_url(&item_link)
+                        .unwrap_or_else(|| format!("{item_name}.dll"));
+                    if !file_name.to_lowercase().ends_with(".dll") {
+                        file_name = format!("{item_name}.dll");
+                    }
+                    let target = folder.join(file_name);
+                    tokio::fs::write(target, bytes.as_ref()).await?;
+                }
             }
 
             installed.mark_installed(&item_name, &item_version, true);

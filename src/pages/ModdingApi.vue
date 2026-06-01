@@ -17,9 +17,9 @@ const loading = ref(true)
 const installing = ref(false)
 const apiInfo = ref(null)
 const apiInstalled = ref(false)
-const apiEnabled = ref(false)
 const error = ref(null)
 const activeGame = ref('hollow_knight')
+const managedFolder = ref('')
 
 const isSilksong = computed(() => activeGame.value === 'silksong')
 const gameName = computed(() =>
@@ -38,6 +38,35 @@ const statusBadgeClass = computed(() =>
   apiInstalled.value ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-400'
 )
 const statusLabel = computed(() => (apiInstalled.value ? 'Installed' : 'Not installed'))
+const resourceUrl = computed(() =>
+  isSilksong.value
+    ? 'https://bepinex.org/'
+    : 'https://github.com/hk-modding/api/releases/tag/1.5.78.11833-77'
+)
+const resourceLabel = computed(() => (isSilksong.value ? 'BepInEx' : 'HK Modding API v77'))
+const resourceHost = computed(() => (isSilksong.value ? 'bepinex.org' : 'github.com/hk-modding/api'))
+const installLocationLabel = computed(() =>
+  isSilksong.value ? 'Game root' : 'Managed folder'
+)
+const installLocationValue = computed(() => {
+  if (!managedFolder.value) {
+    return 'Not set'
+  }
+  if (!isSilksong.value) {
+    return managedFolder.value
+  }
+
+  const separator = managedFolder.value.includes('\\') ? '\\' : '/'
+  const parts = managedFolder.value.split(/[/\\]+/)
+  if (
+    parts.length >= 2 &&
+    parts[parts.length - 1].toLowerCase() === 'managed' &&
+    parts[parts.length - 2].toLowerCase().endsWith('_data')
+  ) {
+    return parts.slice(0, -2).join(separator)
+  }
+  return managedFolder.value
+})
 
 async function fetchApiStatus() {
   loading.value = true
@@ -45,11 +74,11 @@ async function fetchApiStatus() {
   try {
     const settings = await invoke('load_settings')
     activeGame.value = settings.game || 'hollow_knight'
+    managedFolder.value = settings.managed_folder || ''
 
     const catalog = await invoke('refresh_catalog', { fetchOfficial: true })
     apiInfo.value = catalog.api || null
     apiInstalled.value = !!catalog.api_installed
-    apiEnabled.value = !!catalog.api_enabled
   } catch (err) {
     error.value = err
     console.warn('Failed to fetch API status:', err)
@@ -101,56 +130,81 @@ onMounted(() => fetchApiStatus())
     </div>
 
     <template v-else>
-      <div class="rounded-2xl bg-bg-raised p-6 border border-solid border-surface-5 flex flex-col gap-6">
-        <div class="flex items-start justify-between flex-wrap gap-4">
-          <div class="flex items-start gap-4">
-            <div class="w-12 h-12 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
-              <ShieldIcon class="w-6 h-6" />
+      <div class="rounded-2xl bg-bg-raised p-6 border border-solid border-surface-5">
+        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6">
+          <div class="flex flex-col gap-6">
+            <div class="flex items-start justify-between flex-wrap gap-4">
+              <div>
+                <h2 class="m-0 text-xl font-extrabold text-contrast">{{ apiTitle }}</h2>
+                <p class="m-0 mt-2 text-sm text-secondary">
+                  {{ isSilksong
+                    ? 'BepInEx bootstraps the mod loader for Silksong.'
+                    : 'The Modding API patches the game and enables mod loading.' }}
+                </p>
+                <div class="mt-3 flex items-center gap-2 text-xs">
+                  <span v-if="apiInfo" class="px-2 py-0.5 rounded bg-button-bg text-contrast font-semibold">
+                    v{{ apiInfo.version }}
+                  </span>
+                  <span class="px-2 py-0.5 rounded font-semibold" :class="statusBadgeClass">
+                    {{ statusLabel }}
+                  </span>
+                </div>
+              </div>
+              <ButtonStyled color="brand" :disabled="installing">
+                <button @click="installApi">
+                  <DownloadIcon v-if="!installing" />
+                  <RefreshCwIcon v-else class="animate-spin" />
+                  {{ installing ? 'Installing...' : apiCtaLabel }}
+                </button>
+              </ButtonStyled>
             </div>
-            <div>
-              <h2 class="m-0 text-xl font-extrabold text-contrast">{{ apiTitle }}</h2>
-              <div class="mt-2 flex items-center gap-2 text-xs">
-                <span v-if="apiInfo" class="px-2 py-0.5 rounded bg-button-bg text-contrast font-semibold">
-                  v{{ apiInfo.version }}
-                </span>
-                <span class="px-2 py-0.5 rounded font-semibold" :class="statusBadgeClass">
-                  {{ statusLabel }}
-                </span>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+                <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">
+                  {{ isSilksong ? 'What does the mod loader do?' : 'What does the API do?' }}
+                </h4>
+                <ul class="m-0 pl-4 text-sm text-secondary flex flex-col gap-1.5">
+                  <li>Patches the game to enable mod loading</li>
+                  <li>Provides hooks and APIs for mods to interact with the game</li>
+                  <li>Required for all mods from the modlinks repository</li>
+                  <li>Use <strong>Launch Modded</strong> vs <strong>Launch Vanilla</strong> in the sidebar</li>
+                </ul>
+              </div>
+              <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+                <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">Where it installs</h4>
+                <p class="m-0 text-sm text-secondary">
+                  {{ isSilksong
+                    ? 'Installs into the game root and creates the BepInEx folder.'
+                    : 'Installs into the game data Managed folder.' }}
+                </p>
               </div>
             </div>
           </div>
-          <ButtonStyled color="brand" :disabled="installing">
-            <button @click="installApi">
-              <DownloadIcon v-if="!installing" />
-              <RefreshCwIcon v-else class="animate-spin" />
-              {{ installing ? 'Installing...' : apiCtaLabel }}
-            </button>
-          </ButtonStyled>
-        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
-            <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">
-              {{ isSilksong ? 'What does the mod loader do?' : 'What does the API do?' }}
-            </h4>
-            <ul class="m-0 pl-4 text-sm text-secondary flex flex-col gap-1.5">
-              <li>Patches the game to enable mod loading</li>
-              <li>Provides hooks and APIs for mods to interact with the game</li>
-              <li>Required for all mods from the modlinks repository</li>
-              <li>Use <strong>Launch Modded</strong> vs <strong>Launch Vanilla</strong> in the sidebar</li>
-            </ul>
-          </div>
-          <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
-            <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">Where it installs</h4>
-            <p class="m-0 text-sm text-secondary">
-              {{ isSilksong
-                ? 'Installs into the game root and creates the BepInEx folder.'
-                : 'Installs into the game data Managed folder.' }}
-            </p>
-            <p class="m-0 mt-3 text-sm text-secondary">
-              Maintained by the <strong>hk-modding</strong> community at
-              <span class="text-brand underline decoration-brand/60">github.com/hk-modding/api</span>
-            </p>
+          <div class="flex flex-col gap-4">
+            <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+              <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">Install location</h4>
+              <p class="m-0 text-xs text-secondary">
+                {{ installLocationLabel }} used by Needlelight
+              </p>
+              <div class="mt-2 break-all rounded-lg bg-button-bg px-2 py-1 text-xs text-contrast">
+                {{ installLocationValue }}
+              </div>
+            </div>
+
+            <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+              <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">Official resource</h4>
+              <a
+                class="text-brand underline decoration-brand/60 text-sm font-semibold"
+                :href="resourceUrl"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {{ resourceLabel }}
+              </a>
+              <p class="m-0 mt-2 text-xs text-secondary">{{ resourceHost }}</p>
+            </div>
           </div>
         </div>
       </div>

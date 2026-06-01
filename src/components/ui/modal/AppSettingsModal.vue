@@ -134,6 +134,7 @@ const messages = defineMessages({
     <TabbedModal
       v-if="ready"
       :tabs="tabs.filter((t) => !t.developerOnly || themeStore.devMode)"
+      content-width="min(720px, calc(100vw - 6rem))"
     >
       <template #footer>
         <div class="mt-auto text-secondary text-sm">
