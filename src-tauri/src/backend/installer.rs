@@ -139,7 +139,9 @@ pub async fn install_api(
 
     let api = &catalog.api;
     if api.url.trim().is_empty() {
-        return Ok(());
+        return Err(AppError::InvalidInput(
+            "modding api download is unavailable".to_string(),
+        ));
     }
 
     let client = reqwest::Client::builder().user_agent("Needlelight").build()?;
@@ -163,6 +165,7 @@ pub async fn install_api(
     let target = if settings.game.is_silksong() {
         settings.game_root_path()
     } else {
+        ensure_hk_api_backup(settings).await?;
         determine_hk_api_target(settings, bytes.as_ref())?
     };
 
@@ -175,6 +178,18 @@ pub async fn install_api(
         pinned: false,
     });
     installed.save(settings).await?;
+
+    Ok(())
+}
+
+async fn ensure_hk_api_backup(settings: &AppSettings) -> AppResult<()> {
+    let managed = PathBuf::from(&settings.managed_folder);
+    let current = managed.join("Assembly-CSharp.dll");
+    let vanilla = managed.join("Assembly-CSharp.dll.v");
+
+    if current.exists() && !vanilla.exists() {
+        tokio::fs::copy(&current, &vanilla).await?;
+    }
 
     Ok(())
 }

@@ -25,9 +25,7 @@ const isSilksong = computed(() => activeGame.value === 'silksong')
 const gameName = computed(() =>
   activeGame.value === 'silksong' ? 'Hollow Knight: Silksong' : 'Hollow Knight'
 )
-const apiTitle = computed(() =>
-  isSilksong.value ? 'BepInEx' : `${gameName.value} Modding API`
-)
+const apiTitle = computed(() => (isSilksong.value ? 'BepInEx' : `${gameName.value} Modding API`))
 const apiCtaLabel = computed(() => {
   if (apiInstalled.value) {
     return isSilksong.value ? 'Reinstall BepInEx' : 'Reinstall API'
@@ -48,6 +46,12 @@ const resourceHost = computed(() => (isSilksong.value ? 'bepinex.org' : 'github.
 const installLocationLabel = computed(() =>
   isSilksong.value ? 'Game root' : 'Managed folder'
 )
+const installSummary = computed(() =>
+  apiInstalled.value
+    ? 'the runtime is present and Needlelight can install mods that depend on it.'
+    : 'install the runtime first so mod installs have a target to patch or load from.',
+)
+const canInstall = computed(() => managedFolder.value.trim().length > 0)
 const installLocationValue = computed(() => {
   if (!managedFolder.value) {
     return 'Not set'
@@ -88,6 +92,10 @@ async function fetchApiStatus() {
 }
 
 async function installApi() {
+  if (!canInstall.value) {
+    handleError('Game folder not configured. Go to Settings > Game to set it up.')
+    return
+  }
   installing.value = true
   try {
     await invoke('install_api')
@@ -104,118 +112,139 @@ onMounted(() => fetchApiStatus())
 
 <template>
   <div class="p-6 flex flex-col gap-6">
-    <!-- Header -->
-    <div>
-      <h1 class="m-0 text-2xl font-extrabold flex items-center gap-3">
-        <ShieldIcon class="w-7 h-7 text-brand" />
-        {{ isSilksong ? 'BepInEx' : 'Modding API' }}
-      </h1>
-      <p class="text-secondary mt-1 mb-0">
-        {{ isSilksong ? 'BepInEx is required for' : 'The Modding API is required for' }}
-        {{ gameName }} mods to load. Install or update it here.
-      </p>
+    <div v-if="loading" class="rounded-2xl bg-bg-raised border border-solid border-surface-5 p-6 text-secondary text-sm">
+      loading api information...
     </div>
 
-    <!-- Loading -->
-    <div v-if="loading" class="text-secondary text-sm py-4">
-      Loading API information...
-    </div>
-
-    <!-- Error -->
-    <div v-else-if="error" class="text-secondary text-sm py-4">
-      <p class="m-0 mb-2">Could not fetch API information. You may be offline.</p>
+    <div v-else-if="error" class="rounded-2xl bg-bg-raised border border-solid border-surface-5 p-6 text-sm text-secondary">
+      <p class="m-0 mb-3">could not fetch api information. you may be offline.</p>
       <ButtonStyled size="small">
-        <button @click="fetchApiStatus">Retry</button>
+        <button @click="fetchApiStatus">retry</button>
       </ButtonStyled>
     </div>
 
     <template v-else>
-      <div class="rounded-2xl bg-bg-raised p-6 border border-solid border-surface-5">
-        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6">
-          <div class="flex flex-col gap-6">
-            <div class="flex items-start justify-between flex-wrap gap-4">
-              <div>
-                <h2 class="m-0 text-xl font-extrabold text-contrast">{{ apiTitle }}</h2>
-                <p class="m-0 mt-2 text-sm text-secondary">
-                  {{ isSilksong
-                    ? 'BepInEx bootstraps the mod loader for Silksong.'
-                    : 'The Modding API patches the game and enables mod loading.' }}
-                </p>
-                <div class="mt-3 flex items-center gap-2 text-xs">
-                  <span v-if="apiInfo" class="px-2 py-0.5 rounded bg-button-bg text-contrast font-semibold">
-                    v{{ apiInfo.version }}
-                  </span>
-                  <span class="px-2 py-0.5 rounded font-semibold" :class="statusBadgeClass">
-                    {{ statusLabel }}
-                  </span>
-                </div>
-              </div>
-              <ButtonStyled color="brand" :disabled="installing">
-                <button @click="installApi">
-                  <DownloadIcon v-if="!installing" />
-                  <RefreshCwIcon v-else class="animate-spin" />
-                  {{ installing ? 'Installing...' : apiCtaLabel }}
-                </button>
-              </ButtonStyled>
+      <div class="rounded-2xl bg-bg-raised border border-solid border-surface-5 p-6 relative overflow-hidden">
+        <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand via-brand/60 to-transparent"></div>
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div class="max-w-2xl">
+            <div class="inline-flex items-center gap-2 rounded-full bg-button-bg px-3 py-1 text-xs font-semibold text-secondary">
+              <ShieldIcon class="w-4 h-4 text-brand" />
+              {{ isSilksong ? 'silksong runtime' : 'hollow knight runtime' }}
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
-                <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">
-                  {{ isSilksong ? 'What does the mod loader do?' : 'What does the API do?' }}
-                </h4>
-                <ul class="m-0 pl-4 text-sm text-secondary flex flex-col gap-1.5">
-                  <li>Patches the game to enable mod loading</li>
-                  <li>Provides hooks and APIs for mods to interact with the game</li>
-                  <li>Required for all mods from the modlinks repository</li>
-                  <li>Use <strong>Launch Modded</strong> vs <strong>Launch Vanilla</strong> in the sidebar</li>
-                </ul>
-              </div>
-              <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
-                <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">Where it installs</h4>
-                <p class="m-0 text-sm text-secondary">
-                  {{ isSilksong
-                    ? 'Installs into the game root and creates the BepInEx folder.'
-                    : 'Installs into the game data Managed folder.' }}
-                </p>
-              </div>
-            </div>
+            <h1 class="m-0 mt-4 text-3xl font-black tracking-tight text-contrast">
+              {{ apiTitle }}
+            </h1>
+            <p class="m-0 mt-3 text-sm leading-relaxed text-secondary max-w-xl">
+              {{ isSilksong ? 'BepInEx' : 'the modding api' }} keeps Needlelight usable for
+              {{ gameName }} mods.
+              {{ installSummary }}
+            </p>
           </div>
 
-          <div class="flex flex-col gap-4">
-            <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
-              <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">Install location</h4>
-              <p class="m-0 text-xs text-secondary">
-                {{ installLocationLabel }} used by Needlelight
-              </p>
-              <div class="mt-2 break-all rounded-lg bg-button-bg px-2 py-1 text-xs text-contrast">
-                {{ installLocationValue }}
-              </div>
-            </div>
+          <ButtonStyled color="brand" :disabled="installing || !canInstall">
+            <button @click="installApi">
+              <DownloadIcon v-if="!installing" />
+              <RefreshCwIcon v-else class="animate-spin" />
+              {{ installing ? 'Installing...' : apiCtaLabel }}
+            </button>
+          </ButtonStyled>
+        </div>
 
-            <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
-              <h4 class="m-0 text-sm font-semibold mb-2 text-contrast">Official resource</h4>
-              <a
-                class="text-brand underline decoration-brand/60 text-sm font-semibold"
-                :href="resourceUrl"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {{ resourceLabel }}
-              </a>
-              <p class="m-0 mt-2 text-xs text-secondary">{{ resourceHost }}</p>
-            </div>
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+            <p class="m-0 text-xs uppercase tracking-wide text-secondary">status</p>
+            <p class="m-0 mt-2 text-lg font-semibold text-contrast">{{ statusLabel }}</p>
+            <p class="m-0 mt-1 text-xs text-secondary">{{ apiInstalled ? 'ready for installs' : 'needs setup before mod installs' }}</p>
+          </div>
+          <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+            <p class="m-0 text-xs uppercase tracking-wide text-secondary">version</p>
+            <p class="m-0 mt-2 text-lg font-semibold text-contrast">
+              {{ apiInfo?.version ? `v${apiInfo.version}` : 'unknown' }}
+            </p>
+            <p class="m-0 mt-1 text-xs text-secondary">pulled from the live catalog</p>
+          </div>
+          <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+            <p class="m-0 text-xs uppercase tracking-wide text-secondary">target</p>
+            <p class="m-0 mt-2 text-lg font-semibold text-contrast">{{ installLocationLabel }}</p>
+            <p class="m-0 mt-1 text-xs text-secondary">{{ installLocationValue }}</p>
           </div>
         </div>
       </div>
 
-      <div>
-        <ButtonStyled type="transparent" size="small">
-          <button @click="fetchApiStatus">
-            <RefreshCwIcon />
-            Refresh status
-          </button>
-        </ButtonStyled>
+      <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)] gap-4">
+        <div class="rounded-2xl bg-bg-raised border border-solid border-surface-5 p-5 flex flex-col gap-4">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 class="m-0 text-base font-bold text-contrast">what it changes</h2>
+              <p class="m-0 mt-1 text-sm text-secondary">
+                Needlelight installs the runtime into the right game folder and keeps it ready for mod downloads.
+              </p>
+            </div>
+            <span class="px-2 py-1 rounded-full text-xs font-semibold" :class="statusBadgeClass">
+              {{ statusLabel }}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+              <h3 class="m-0 text-sm font-semibold text-contrast">install path</h3>
+              <p class="m-0 mt-2 text-sm text-secondary">
+                {{ isSilksong ? 'drops BepInEx into the game root' : 'writes the modding api into the managed folder' }}
+              </p>
+            </div>
+            <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+              <h3 class="m-0 text-sm font-semibold text-contrast">why it matters</h3>
+              <p class="m-0 mt-2 text-sm text-secondary">
+                {{ isSilksong ? 'mods need BepInEx to load at startup' : 'mods need the patched assembly before they can launch' }}
+              </p>
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+            <h3 class="m-0 text-sm font-semibold text-contrast">official resource</h3>
+            <a
+              class="mt-2 inline-flex text-brand underline decoration-brand/60 text-sm font-semibold"
+              :href="resourceUrl"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {{ resourceLabel }}
+            </a>
+            <p class="m-0 mt-2 text-xs text-secondary">{{ resourceHost }}</p>
+          </div>
+        </div>
+
+        <div class="rounded-2xl bg-bg-raised border border-solid border-surface-5 p-5 flex flex-col gap-4">
+          <div>
+            <h2 class="m-0 text-base font-bold text-contrast">quick status</h2>
+            <p class="m-0 mt-1 text-sm text-secondary">
+              check the runtime, then go back to the library to install mods.
+            </p>
+          </div>
+
+          <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+            <p class="m-0 text-xs uppercase tracking-wide text-secondary">current folder</p>
+            <div class="mt-2 break-all rounded-lg bg-button-bg px-3 py-2 text-xs text-contrast">
+              {{ installLocationValue }}
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
+            <p class="m-0 text-xs uppercase tracking-wide text-secondary">refresh</p>
+            <p class="m-0 mt-2 text-sm text-secondary">
+              use this if the runtime was installed outside of Needlelight.
+            </p>
+            <div class="mt-3">
+              <ButtonStyled type="transparent" size="small">
+                <button @click="fetchApiStatus">
+                  <RefreshCwIcon />
+                  refresh status
+                </button>
+              </ButtonStyled>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
   </div>
