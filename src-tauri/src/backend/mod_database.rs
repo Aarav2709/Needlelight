@@ -76,7 +76,7 @@ impl CatalogCache {
 
         // Silksong uses Thunderstore instead of modlinks
         if settings.game == GameKey::Silksong {
-            return Self::build_thunderstore(&client, installed).await;
+            return Self::build_silksong(&client, settings, installed).await;
         }
 
         let modlinks_xml = fetch_modlinks_xml(&client, settings, fetch_official).await;
@@ -137,8 +137,9 @@ impl CatalogCache {
     }
 
     /// Build catalog from Thunderstore API for Silksong
-    async fn build_thunderstore(
+    async fn build_silksong(
         client: &reqwest::Client,
+        settings: &AppSettings,
         installed: &InstalledModsStore,
     ) -> AppResult<Self> {
         let packages: Vec<ThunderstorePackage> = match client
@@ -165,11 +166,15 @@ impl CatalogCache {
             "Kesomannen-GaleModManager",
         ];
 
-        let mut api = ApiInfo {
-            url: String::new(),
-            version: String::new(),
-            sha256: String::new(),
-        };
+        let mut api = fetch_apilinks_xml(client, settings)
+            .await
+            .ok()
+            .and_then(|xml| parse_api_info(&xml).ok())
+            .unwrap_or_else(|| ApiInfo {
+                url: String::new(),
+                version: String::new(),
+                sha256: String::new(),
+            });
 
         let mut items: Vec<ModItem> = Vec::new();
         for pkg in packages.into_iter().filter(|p| !p.is_deprecated && !p.versions.is_empty()) {

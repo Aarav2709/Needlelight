@@ -60,6 +60,8 @@ pub async fn install_mod(
         if !is_api_installed(settings, installed) {
             install_api(settings, installed, catalog).await?;
         }
+    } else if !is_api_installed(settings, installed) {
+        install_api(settings, installed, catalog).await?;
     }
 
     let mut visited = HashSet::new();
@@ -166,7 +168,7 @@ pub async fn install_api(
         settings.game_root_path()
     } else {
         ensure_hk_api_backup(settings).await?;
-        determine_hk_api_target(settings, bytes.as_ref())?
+        PathBuf::from(&settings.managed_folder)
     };
 
     tokio::fs::create_dir_all(&target).await?;
@@ -278,57 +280,6 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
 
     let managed = managed_dir.join("Assembly-CSharp.dll");
     matches!(detect_api_version(&managed), Ok(Some(_)))
-}
-
-fn determine_hk_api_target(settings: &AppSettings, data: &[u8]) -> AppResult<PathBuf> {
-    let managed = PathBuf::from(&settings.managed_folder);
-    let managed_parent = managed
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| managed.clone());
-
-    let reader = Cursor::new(data);
-    let mut archive = ZipArchive::new(reader)?;
-
-    let mut has_data_managed_prefix = false;
-    let mut has_managed_prefix = false;
-    let mut has_mods_prefix = false;
-    let mut has_root_assembly = false;
-
-    for i in 0..archive.len() {
-        let entry = archive.by_index(i)?;
-        let name = entry.name();
-        let parts: Vec<&str> = name.split('/').collect();
-        let first = parts.first().copied().unwrap_or("");
-        if parts.len() >= 2
-            && parts[1].eq_ignore_ascii_case("Managed")
-            && first.to_lowercase().ends_with("_data")
-        {
-            has_data_managed_prefix = true;
-        }
-        if first.eq_ignore_ascii_case("Managed") {
-            has_managed_prefix = true;
-        }
-        if first.eq_ignore_ascii_case("Mods") {
-            has_mods_prefix = true;
-        }
-        if first.eq_ignore_ascii_case("Assembly-CSharp.dll") {
-            has_root_assembly = true;
-        }
-    }
-
-    if has_data_managed_prefix {
-        return Ok(settings.game_root_path());
-    }
-
-    if has_managed_prefix {
-        return Ok(managed_parent);
-    }
-    if has_mods_prefix || has_root_assembly {
-        return Ok(managed);
-    }
-
-    Ok(managed_parent)
 }
 
 async fn install_mod_with_deps(
@@ -458,33 +409,6 @@ async fn download_mod_bytes(url: &str, sha256: &str) -> AppResult<Vec<u8>> {
     }
 
     Ok(bytes.to_vec())
-}
-
-async fn ensure_silksong_bepinex(settings: &AppSettings) -> AppResult<()> {
-    let bepinex = settings.game_root_path().join("BepInEx/core/BepInEx.dll");
-    if bepinex.exists() {
-        return Ok(());
-    }
-
-    // Reuse the Thunderstore BepInEx pack from the catalog if available
-    let api = super::mod_database::CatalogCache::build(settings, &InstalledModsStore::default(), true)
-        .await
-        .map(|cache| cache.response.api)
-        .unwrap_or_else(|_| super::models::ApiInfo {
-            url: String::new(),
-            version: String::new(),
-            sha256: String::new(),
-        });
-
-    if api.url.trim().is_empty() {
-        return Err(AppError::InvalidInput("BepInEx pack not available".to_string()));
-    }
-
-    let bytes = download_mod_bytes(&api.url, &api.sha256).await?;
-    let target = settings.game_root_path();
-    tokio::fs::create_dir_all(&target).await?;
-    extract_zip_guarded(bytes.as_ref(), &target)?;
-    Ok(())
 }
 
 async fn install_silksong_mod_archive(
