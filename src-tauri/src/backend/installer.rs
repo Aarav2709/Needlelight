@@ -350,7 +350,7 @@ async fn install_mod_with_deps(
                     .ok_or_else(|| AppError::NotFound(format!("mod '{current}' not found")))?;
 
                 if let Some(state) = installed.db.mods.get(&item.name) {
-                    if state.version == item.version {
+                    if state.version == item.version && installed_mod_exists_on_disk(settings, &item.name) {
                         continue;
                     }
                 }
@@ -431,6 +431,17 @@ async fn install_mod_with_deps(
     }
 
     Ok(())
+}
+
+fn installed_mod_exists_on_disk(settings: &AppSettings, mod_name: &str) -> bool {
+    if settings.game.is_silksong() {
+        return silksong_mod_paths(settings, mod_name)
+            .into_iter()
+            .any(|path| path.exists());
+    }
+
+    InstalledModsStore::mod_folder(settings, mod_name, true).exists()
+        || InstalledModsStore::mod_folder(settings, mod_name, false).exists()
 }
 
 async fn download_mod_bytes(url: &str, sha256: &str) -> AppResult<Vec<u8>> {

@@ -167,13 +167,11 @@ const messages = defineMessages({
             >
               <ShieldIcon class="w-6 h-6" />
             </button>
-            <div>
-          <p class="m-0 font-semibold">
-            <span class="underline decoration-brand/60">Needlelight</span>
-            <span class="ml-2 px-2 py-0.5 rounded bg-button-bg text-contrast text-xs font-bold">
-              v8.0.0.0
-            </span>
-          </p>
+            <div class="flex items-center gap-2">
+              <span class="font-semibold underline decoration-brand/60">Needlelight</span>
+              <span class="px-2 py-0.5 rounded bg-button-bg text-contrast text-xs font-bold">
+                v8.0.0.0
+              </span>
             </div>
           </div>
         </div>

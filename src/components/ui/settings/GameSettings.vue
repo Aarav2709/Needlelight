@@ -38,6 +38,7 @@ async function saveBackendSettings() {
 }
 
 async function autoDetect() {
+  if (!backendSettings.value) return;
   detecting.value = true;
   try {
     const folder = await invoke("auto_detect_managed_folder", {
@@ -66,6 +67,7 @@ async function autoDetect() {
 }
 
 async function browseFolder() {
+  if (!backendSettings.value) return;
   const selected = await open({
     directory: true,
     title: `Select ${gameName.value} Managed folder`,
@@ -73,7 +75,6 @@ async function browseFolder() {
   if (selected) {
     backendSettings.value.managed_folder = selected;
     await saveBackendSettings();
-    showSuccess(`Game folder set to: ${selected}`);
   }
 }
 

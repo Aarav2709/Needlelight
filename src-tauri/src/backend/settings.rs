@@ -1,6 +1,7 @@
 use super::errors::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::{Path, PathBuf}};
+use walkdir::WalkDir;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -331,6 +332,78 @@ impl AppSettings {
             }
         }
 
+        if let Some(path) = Self::scan_for_managed_folder(game, data_dir) {
+            return Ok(Some(path.to_string_lossy().to_string()));
+        }
+
         Ok(None)
+    }
+
+    fn scan_for_managed_folder(game: &GameKey, data_dir: &str) -> Option<PathBuf> {
+        let roots: Vec<PathBuf> = if cfg!(target_os = "windows") {
+            let mut roots = Vec::new();
+            for drive in b'A'..=b'Z' {
+                let drive_root = PathBuf::from(format!("{}:\\", drive as char));
+                if drive_root.exists() {
+                    roots.push(drive_root);
+                }
+            }
+            roots
+        } else if cfg!(target_os = "macos") {
+            vec![
+                PathBuf::from("/Applications"),
+                PathBuf::from(std::env::var("HOME").unwrap_or_default()),
+            ]
+        } else {
+            vec![
+                PathBuf::from(std::env::var("HOME").unwrap_or_default()),
+                PathBuf::from("/mnt"),
+                PathBuf::from("/media"),
+            ]
+        };
+
+        let max_depth = match game {
+            GameKey::HollowKnight => 5,
+            GameKey::Silksong => 5,
+        };
+
+        for root in roots {
+            if !root.exists() {
+                continue;
+            }
+
+            for entry in WalkDir::new(&root)
+                .follow_links(false)
+                .max_depth(max_depth)
+                .into_iter()
+                .filter_map(Result::ok)
+            {
+                if !entry.file_type().is_dir() {
+                    continue;
+                }
+
+                if !entry
+                    .file_name()
+                    .to_string_lossy()
+                    .eq_ignore_ascii_case("Managed")
+                {
+                    continue;
+                }
+
+                let Some(parent) = entry.path().parent() else {
+                    continue;
+                };
+
+                let Some(parent_name) = parent.file_name().and_then(|name| name.to_str()) else {
+                    continue;
+                };
+
+                if parent_name.eq_ignore_ascii_case(data_dir) {
+                    return Some(entry.path().to_path_buf());
+                }
+            }
+        }
+
+        None
     }
 }
