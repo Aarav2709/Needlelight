@@ -5,7 +5,7 @@ use super::{
     settings::AppSettings,
 };
 use sha2::{Digest, Sha256};
-use std::{collections::HashSet, fs::File, io::{Cursor, Read}, path::{Path, PathBuf}};
+use std::{collections::HashSet, fs::File, io::Read, path::{Path, PathBuf}};
 use walkdir::WalkDir;
 use zip::ZipArchive;
 
@@ -317,10 +317,6 @@ async fn install_mod_with_deps(
 
             if item_link.trim().is_empty() {
                 return Err(AppError::InvalidInput("mod has no download link".to_string()));
-            }
-
-            if is_silksong {
-                ensure_silksong_bepinex(settings).await?;
             }
 
             let bytes = download_mod_bytes(&item_link, &item_sha256).await?;
