@@ -284,13 +284,13 @@ onMounted(async () => {
     >
       <div :key="activeGame">
         <!-- Loading state -->
-        <div v-if="catalogLoading" class="py-10 text-center">
+        <div v-if="catalogLoading" class="flex min-h-[60vh] w-full items-center justify-center text-center">
           <div class="inline-flex flex-col items-center gap-3 text-secondary">
             <span class="w-12 h-12 rounded-full bg-bg-raised border border-solid border-surface-5 flex items-center justify-center">
               <SpinnerIcon class="w-5 h-5 animate-spin" />
             </span>
             <span class="text-sm">
-              {{ isSilksong ? 'Loading mod catalog from Thunderstore...' : 'Loading mod catalog from modlinks...' }}
+              {{ isSilksong ? 'Loading mod catalog from Thunderstore...' : 'Loading mod catalog from Modlinks...' }}
             </span>
           </div>
         </div>

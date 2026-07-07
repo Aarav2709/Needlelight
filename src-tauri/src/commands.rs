@@ -88,6 +88,7 @@ pub async fn refresh_catalog(
     let settings = state.settings.read().await.clone();
     let installed = state.installed.read().await.clone();
 
+    let fetch_official = fetch_official && !settings.use_custom_modlinks;
     let mut cache = map_err(CatalogCache::build(&settings, &installed, fetch_official).await)?;
     let api_installed = installer::is_api_installed(&settings, &installed);
     cache.response.api_installed = api_installed;

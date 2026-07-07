@@ -35,8 +35,8 @@ const installLocationValue = computed(() => {
 
 const installSummary = computed(() =>
   isSilksong.value
-    ? 'installs the loader that Silksong mods need before they can run.'
-    : 'patches Hollow Knight so mods can load and run.',
+    ? 'Installs the loader that Silksong mods need before they can run.'
+    : 'Patches Hollow Knight so mods can load and run.',
 )
 const canInstall = computed(() => managedFolder.value.trim().length > 0)
 
@@ -86,12 +86,12 @@ onMounted(() => fetchApiStatus())
         <span class="w-12 h-12 rounded-full bg-bg-raised border border-solid border-surface-5 flex items-center justify-center">
           <SpinnerIcon class="w-5 h-5 animate-spin" />
         </span>
-        <span class="text-sm">Loading modding API...</span>
+        <span class="text-sm">Loading Modding API...</span>
       </div>
     </div>
 
     <div v-else-if="error" class="w-full max-w-3xl rounded-2xl bg-bg-raised border border-solid border-surface-5 p-6 text-sm text-secondary">
-      <p class="m-0 mb-3">Could not fetch modding API status. You may be offline.</p>
+      <p class="m-0 mb-3">Could not fetch Modding API status. You may be offline.</p>
       <ButtonStyled size="small">
         <button @click="fetchApiStatus">Retry</button>
       </ButtonStyled>
@@ -126,13 +126,13 @@ onMounted(() => fetchApiStatus())
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
-          <h2 class="m-0 text-sm font-semibold text-contrast">what it does</h2>
+          <h2 class="m-0 text-sm font-semibold text-contrast">What It Does</h2>
           <p class="m-0 mt-2 text-sm text-secondary">
             {{ installSummary }}
           </p>
         </div>
         <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
-          <h2 class="m-0 text-sm font-semibold text-contrast">install location</h2>
+          <h2 class="m-0 text-sm font-semibold text-contrast">Install Location</h2>
           <p class="m-0 mt-2 text-sm text-secondary">
             {{ installLocationLabel }}
           </p>
