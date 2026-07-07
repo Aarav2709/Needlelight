@@ -172,7 +172,12 @@ pub async fn install_api(
     };
 
     tokio::fs::create_dir_all(&target).await?;
-    extract_zip_guarded(bytes.as_ref(), &target)?;
+    let preserve_roots = if settings.game.is_silksong() {
+        ["BepInEx"].as_slice()
+    } else {
+        [].as_slice()
+    };
+    extract_zip_guarded(bytes.as_ref(), &target, preserve_roots)?;
 
     installed.db.api_install = Some(super::models::PersistedModState {
         enabled: true,
@@ -196,7 +201,19 @@ async fn ensure_hk_api_backup(settings: &AppSettings) -> AppResult<()> {
     Ok(())
 }
 
-fn extract_zip_guarded(data: &[u8], destination: &Path) -> AppResult<()> {
+fn extract_zip_guarded(data: &[u8], destination: &Path, preserve_roots: &[&str]) -> AppResult<()> {
+    let names = {
+        let reader = std::io::Cursor::new(data);
+        let mut archive = ZipArchive::new(reader)?;
+        let mut collected = Vec::new();
+        for i in 0..archive.len() {
+            collected.push(archive.by_index(i)?.name().to_string());
+        }
+        collected
+    };
+
+    let wrapped_root = detect_wrapped_root(&names, preserve_roots);
+
     let reader = std::io::Cursor::new(data);
     let mut archive = ZipArchive::new(reader)?;
 
@@ -207,7 +224,13 @@ fn extract_zip_guarded(data: &[u8], destination: &Path) -> AppResult<()> {
             .ok_or_else(|| AppError::InvalidInput("zip entry path traversal blocked".to_string()))?
             .to_path_buf();
 
-        let output = destination.join(enclosed);
+        let output = if let Some(root) = wrapped_root.as_ref() {
+            strip_wrapped_root(&enclosed, root)
+        } else {
+            enclosed
+        }
+        .to_path_buf();
+
         if entry.name().ends_with('/') {
             std::fs::create_dir_all(&output)?;
             continue;
@@ -222,6 +245,47 @@ fn extract_zip_guarded(data: &[u8], destination: &Path) -> AppResult<()> {
     }
 
     Ok(())
+}
+
+fn detect_wrapped_root(names: &[String], preserve_roots: &[&str]) -> Option<String> {
+    let mut first_root: Option<String> = None;
+
+    for name in names {
+        let path = Path::new(name);
+        let mut components = path.components();
+        let root = components.next()?.as_os_str().to_str()?;
+        if components.next().is_none() {
+            return None;
+        }
+
+        if let Some(existing) = &first_root {
+            if !existing.eq_ignore_ascii_case(root) {
+                return None;
+            }
+        } else {
+            first_root = Some(root.to_string());
+        }
+    }
+
+    let root = first_root?;
+    if preserve_roots.iter().any(|candidate| candidate.eq_ignore_ascii_case(&root)) {
+        None
+    } else {
+        Some(root)
+    }
+}
+
+fn strip_wrapped_root(path: &Path, wrapped_root: &str) -> PathBuf {
+    let mut components = path.components();
+    let Some(first) = components.next() else {
+        return path.to_path_buf();
+    };
+
+    if first.as_os_str().to_str().is_some_and(|segment| segment.eq_ignore_ascii_case(wrapped_root)) {
+        components.collect()
+    } else {
+        path.to_path_buf()
+    }
 }
 
 pub fn detect_api_version(path: &Path) -> AppResult<Option<i32>> {
@@ -330,7 +394,7 @@ async fn install_mod_with_deps(
                 }
                 tokio::fs::create_dir_all(&folder).await?;
                 if looks_like_zip(bytes.as_ref()) {
-                    extract_zip_guarded(bytes.as_ref(), &folder)?;
+                    extract_zip_guarded(bytes.as_ref(), &folder, &[])?;
                 } else {
                     let mut file_name = filename_from_url(&item_link)
                         .unwrap_or_else(|| format!("{item_name}.dll"));
