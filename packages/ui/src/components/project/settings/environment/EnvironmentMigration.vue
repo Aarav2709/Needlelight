@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { CheckIcon } from '@modrinth/assets'
 import {
 	Admonition,
 	commonProjectSettingsMessages,
