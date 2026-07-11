@@ -333,18 +333,6 @@ onMounted(async () => {
                   {{ mod.description || 'No description' }}
                 </p>
               </div>
-              <span
-                v-if="isInstalled(mod)"
-                class="shrink-0 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
-                :class="
-                  isEnabled(mod)
-                    ? 'text-green-500 bg-green-500/10'
-                    : 'text-orange-500 bg-orange-500/10'
-                "
-              >
-                <CheckIcon class="w-3 h-3" />
-                {{ isEnabled(mod) ? 'Enabled' : 'Disabled' }}
-              </span>
             </div>
 
             <div class="flex items-center gap-2 flex-wrap">

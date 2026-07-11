@@ -35,6 +35,8 @@ tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-os = "2"
 tauri-plugin-window-state = "2"
+tauri-plugin-log = "2.8.0"
+log = "0.4.33"
 
 [features]
 default = ["custom-protocol"]

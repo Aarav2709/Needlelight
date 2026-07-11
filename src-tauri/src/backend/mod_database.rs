@@ -11,8 +11,10 @@ use std::time::Duration;
 
 const HK_MODLINKS: &str = "https://raw.githubusercontent.com/hk-modding/modlinks/main/ModLinks.xml";
 const HK_APILINKS: &str = "https://raw.githubusercontent.com/hk-modding/modlinks/main/ApiLinks.xml";
-const HK_MODLINKS_FALLBACK: &str = "https://cdn.jsdelivr.net/gh/hk-modding/modlinks@latest/ModLinks.xml";
-const HK_APILINKS_FALLBACK: &str = "https://cdn.jsdelivr.net/gh/hk-modding/modlinks@latest/ApiLinks.xml";
+const HK_MODLINKS_FALLBACK: &str =
+    "https://cdn.jsdelivr.net/gh/hk-modding/modlinks@latest/ModLinks.xml";
+const HK_APILINKS_FALLBACK: &str =
+    "https://cdn.jsdelivr.net/gh/hk-modding/modlinks@latest/ApiLinks.xml";
 
 const SS_MODLINKS: &[&str] = &[
     "https://raw.githubusercontent.com/silksong-modding/modlinks/main/ModLinks.xml",
@@ -68,7 +70,11 @@ pub struct CatalogCache {
 }
 
 impl CatalogCache {
-    pub async fn build(settings: &AppSettings, installed: &InstalledModsStore, fetch_official: bool) -> AppResult<Self> {
+    pub async fn build(
+        settings: &AppSettings,
+        installed: &InstalledModsStore,
+        fetch_official: bool,
+    ) -> AppResult<Self> {
         let client = reqwest::Client::builder()
             .user_agent("Needlelight")
             .timeout(Duration::from_secs(30))
@@ -94,7 +100,7 @@ impl CatalogCache {
         let mut items = match modlinks_xml {
             Ok(xml) => parse_mod_items(&xml, installed)?,
             Err(e) => {
-                eprintln!("Could not fetch modlinks: {e}");
+                log::error!("Could not fetch modlinks: {e}");
                 Vec::new()
             }
         };
@@ -142,20 +148,17 @@ impl CatalogCache {
         settings: &AppSettings,
         installed: &InstalledModsStore,
     ) -> AppResult<Self> {
-        let packages: Vec<ThunderstorePackage> = match client
-            .get(THUNDERSTORE_SS_URL)
-            .send()
-            .await
+        let packages: Vec<ThunderstorePackage> = match client.get(THUNDERSTORE_SS_URL).send().await
         {
             Ok(resp) => match resp.error_for_status() {
                 Ok(ok) => ok.json().await.unwrap_or_default(),
                 Err(e) => {
-                    eprintln!("Thunderstore API error: {e}");
+                    log::error!("Thunderstore API error: {e}");
                     Vec::new()
                 }
             },
             Err(e) => {
-                eprintln!("Could not reach Thunderstore: {e}");
+                log::error!("Could not reach Thunderstore: {e}");
                 Vec::new()
             }
         };
@@ -177,7 +180,10 @@ impl CatalogCache {
             });
 
         let mut items: Vec<ModItem> = Vec::new();
-        for pkg in packages.into_iter().filter(|p| !p.is_deprecated && !p.versions.is_empty()) {
+        for pkg in packages
+            .into_iter()
+            .filter(|p| !p.is_deprecated && !p.versions.is_empty())
+        {
             if excluded.contains(&pkg.full_name.as_str()) {
                 if pkg.full_name == "BepInEx-BepInExPack_Silksong" {
                     if let Some(latest) = pkg.versions.first() {
@@ -252,7 +258,13 @@ async fn fetch_modlinks_xml(
         if uri.is_empty() {
             return Err(AppError::InvalidModlinks);
         }
-        let text = client.get(uri).send().await?.error_for_status()?.text().await?;
+        let text = client
+            .get(uri)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
         if text.trim().is_empty() {
             return Err(AppError::InvalidModlinks);
         }
@@ -322,7 +334,9 @@ async fn fetch_first_ok(client: &reqwest::Client, urls: &[String]) -> AppResult<
         }
     }
 
-    Err(AppError::NotFound("unable to fetch remote resource".to_string()))
+    Err(AppError::NotFound(
+        "unable to fetch remote resource".to_string(),
+    ))
 }
 
 fn parse_api_info(xml: &str) -> AppResult<ApiInfo> {
@@ -361,7 +375,11 @@ fn parse_api_info(xml: &str) -> AppResult<ApiInfo> {
     let url = os_link.text().unwrap_or_default().trim().to_string();
     let sha256 = os_link.attribute("SHA256").unwrap_or_default().to_string();
 
-    Ok(ApiInfo { url, version, sha256 })
+    Ok(ApiInfo {
+        url,
+        version,
+        sha256,
+    })
 }
 
 fn parse_mod_items(xml: &str, installed: &InstalledModsStore) -> AppResult<Vec<ModItem>> {
@@ -394,7 +412,8 @@ fn parse_mod_items(xml: &str, installed: &InstalledModsStore) -> AppResult<Vec<M
                 .children()
                 .find(|n| n.has_tag_name(os_key))
                 .or_else(|| links.children().find(|n| n.has_tag_name("Windows")));
-            let selected = target.ok_or_else(|| AppError::InvalidInput("invalid Links node".to_string()))?;
+            let selected =
+                target.ok_or_else(|| AppError::InvalidInput("invalid Links node".to_string()))?;
             (
                 selected.text().unwrap_or_default().trim().to_string(),
                 selected.attribute("SHA256").unwrap_or_default().to_string(),

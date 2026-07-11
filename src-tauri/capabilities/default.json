@@ -4,6 +4,7 @@
   "description": "Default capability for main window",
   "windows": ["main"],
   "permissions": [
+    "log:default",
     "core:default",
     "core:app:default",
     "core:app:allow-version",
