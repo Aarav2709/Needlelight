@@ -80,12 +80,12 @@ const allMods = computed(() => catalog.value?.items ?? [])
 
 const installedMods = computed(() =>
   allMods.value.filter(
-    (m) => m.state?.kind === 'Installed' || m.state?.kind === 'NotInModlinks',
+    (m) => m.state?.kind === 'installed' || m.state?.kind === 'not_in_modlinks',
   ),
 )
 
 const availableMods = computed(() =>
-  allMods.value.filter((m) => m.state?.kind === 'NotInstalled'),
+  allMods.value.filter((m) => m.state?.kind === 'not_installed'),
 )
 
 const filteredMods = computed(() => {
@@ -116,7 +116,7 @@ const filteredMods = computed(() => {
 })
 
 function isInstalled(mod) {
-  return mod.state?.kind === 'Installed' || mod.state?.kind === 'NotInModlinks'
+  return mod.state?.kind === 'installed' || mod.state?.kind === 'not_in_modlinks'
 }
 
 function isEnabled(mod) {
