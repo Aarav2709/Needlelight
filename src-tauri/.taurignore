@@ -1,0 +1,3 @@
+*.dll
+*.pdb
+mscorlib.xml

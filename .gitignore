@@ -17,3 +17,6 @@ yarn-debug.log*
 pnpm-debug.log*
 
 reference
+*.dll
+*.pdb
+mscorlib.xml
