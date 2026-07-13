@@ -20,3 +20,5 @@ reference
 *.dll
 *.pdb
 mscorlib.xml
+src-tauri/*.xml
+src-tauri/fds/

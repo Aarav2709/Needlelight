@@ -1,3 +1,10 @@
-*.dll
-*.pdb
-mscorlib.xml
+/*
+!/src
+!/Cargo.toml
+!/Cargo.lock
+!/build.rs
+!/tauri.conf.json
+!/capabilities
+!/icons
+!/.taurignore
+!/README.md
