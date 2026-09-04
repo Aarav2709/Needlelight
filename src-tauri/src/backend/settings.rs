@@ -39,12 +39,22 @@ pub struct AppSettings {
     pub use_custom_modlinks: bool,
     #[serde(default)]
     pub custom_modlinks_uri: String,
+    /// Per-game custom catalog values. The two legacy fields above remain the
+    /// frontend-facing values for the selected game and keep old configs valid.
+    #[serde(default)]
+    pub custom_modlinks_by_game: HashMap<String, CustomModlinksConfig>,
     #[serde(default)]
     pub use_github_mirror: bool,
     #[serde(default)]
     pub github_mirror_format: String,
     #[serde(default)]
     pub low_storage_mode: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CustomModlinksConfig {
+    pub enabled: bool,
+    pub uri: String,
 }
 
 impl Default for AppSettings {
@@ -55,6 +65,7 @@ impl Default for AppSettings {
             managed_folders: HashMap::new(),
             use_custom_modlinks: false,
             custom_modlinks_uri: String::new(),
+            custom_modlinks_by_game: HashMap::new(),
             use_github_mirror: false,
             github_mirror_format: String::new(),
             low_storage_mode: false,
@@ -160,6 +171,32 @@ impl AppSettings {
         if !stored.is_empty() {
             self.managed_folder = stored;
         }
+    }
+
+    pub fn sync_custom_modlinks(&mut self) {
+        if self.custom_modlinks_by_game.is_empty()
+            && (self.use_custom_modlinks || !self.custom_modlinks_uri.trim().is_empty())
+        {
+            self.set_custom_modlinks_for_current();
+        }
+
+        if let Some(config) = self.custom_modlinks_by_game.get(self.game.as_str()) {
+            self.use_custom_modlinks = config.enabled;
+            self.custom_modlinks_uri = config.uri.clone();
+        } else {
+            self.use_custom_modlinks = false;
+            self.custom_modlinks_uri.clear();
+        }
+    }
+
+    pub fn set_custom_modlinks_for_current(&mut self) {
+        self.custom_modlinks_by_game.insert(
+            self.game.as_str().to_string(),
+            CustomModlinksConfig {
+                enabled: self.use_custom_modlinks,
+                uri: self.custom_modlinks_uri.clone(),
+            },
+        );
     }
 
     pub fn config_dir() -> AppResult<PathBuf> {

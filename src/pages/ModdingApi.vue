@@ -18,26 +18,13 @@ const installing = ref(false)
 const apiInfo = ref(null)
 const apiInstalled = ref(false)
 const error = ref(null)
-const activeGame = ref('hollow_knight')
 const managedFolder = ref('')
 
-const isSilksong = computed(() => activeGame.value === 'silksong')
 const apiTitle = computed(() => 'Modding API')
 const apiCtaLabel = computed(() =>
   apiInstalled.value ? 'Reinstall API' : 'Install API',
 )
 const statusLabel = computed(() => (apiInstalled.value ? 'Installed' : 'Not Installed'))
-const installLocationLabel = computed(() => (isSilksong.value ? 'Game Root' : 'Managed Folder'))
-const installLocationValue = computed(() => {
-  if (!managedFolder.value) return 'Not set'
-  return managedFolder.value
-})
-
-const installSummary = computed(() =>
-  isSilksong.value
-    ? 'Installs the loader that Silksong mods need before they can run.'
-    : 'Patches Hollow Knight so mods can load and run.',
-)
 const canInstall = computed(() => managedFolder.value.trim().length > 0)
 
 async function fetchApiStatus() {
@@ -45,7 +32,6 @@ async function fetchApiStatus() {
   error.value = null
   try {
     const settings = await invoke('load_settings')
-    activeGame.value = settings.game || 'hollow_knight'
     managedFolder.value = settings.managed_folder || ''
 
     const catalog = await invoke('refresh_catalog', { fetchOfficial: true })
@@ -97,15 +83,12 @@ onMounted(() => fetchApiStatus())
       </ButtonStyled>
     </div>
 
-    <div v-else class="w-full max-w-4xl rounded-2xl bg-bg-raised border border-solid border-surface-5 p-6 flex flex-col gap-5">
+    <div v-else class="w-full max-w-2xl rounded-2xl bg-bg-raised border border-solid border-surface-5 p-6 flex flex-col gap-5">
       <div class="flex items-start justify-between gap-4 flex-wrap">
-        <div class="max-w-2xl">
+        <div>
           <h1 class="m-0 text-2xl font-black tracking-tight text-contrast">
             {{ apiTitle }}
           </h1>
-          <p class="m-0 mt-2 text-sm leading-relaxed text-secondary max-w-xl">
-            {{ installSummary }}
-          </p>
         </div>
 
         <ButtonStyled color="brand" :disabled="installing || !canInstall">
@@ -122,24 +105,6 @@ onMounted(() => fetchApiStatus())
           <ProgressBar :progress="0.65" color="brand" />
         </div>
         <p class="m-0 text-xs text-secondary">Installing the runtime. This may take a moment.</p>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
-          <h2 class="m-0 text-sm font-semibold text-contrast">What It Does</h2>
-          <p class="m-0 mt-2 text-sm text-secondary">
-            {{ installSummary }}
-          </p>
-        </div>
-        <div class="rounded-xl bg-bg border border-solid border-surface-5 p-4">
-          <h2 class="m-0 text-sm font-semibold text-contrast">Install Location</h2>
-          <p class="m-0 mt-2 text-sm text-secondary">
-            {{ installLocationLabel }}
-          </p>
-          <p class="m-0 mt-1 text-xs text-secondary break-all">
-            {{ installLocationValue }}
-          </p>
-        </div>
       </div>
 
       <div class="flex flex-wrap items-center gap-2 text-xs">

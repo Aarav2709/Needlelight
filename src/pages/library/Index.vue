@@ -9,6 +9,7 @@ import {
 } from '@modrinth/assets'
 import { ButtonStyled, Toggle, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -55,6 +56,19 @@ async function switchGame(game) {
     settings.game = game
     await invoke('save_settings', { settings })
     await loadGame()
+    if (!managedFolder.value) {
+      const gameName = game === 'silksong' ? 'Hollow Knight Silksong' : 'Hollow Knight'
+      const folder = await open({
+        directory: true,
+        title: `Select ${gameName} game folder`,
+      })
+      if (folder) {
+        const configuredSettings = await invoke('load_settings')
+        configuredSettings.managed_folder = folder
+        await invoke('save_settings', { settings: configuredSettings })
+        await loadGame()
+      }
+    }
     await fetchCatalog()
   } catch (err) {
     handleError(err)
@@ -290,7 +304,7 @@ onMounted(async () => {
               <SpinnerIcon class="w-5 h-5 animate-spin" />
             </span>
             <span class="text-sm">
-              {{ isSilksong ? 'Loading mod catalog from Thunderstore...' : 'Loading mod catalog from Modlinks...' }}
+              Loading mod catalog...
             </span>
           </div>
         </div>
@@ -355,13 +369,12 @@ onMounted(async () => {
 
             <div class="flex items-center gap-3 mt-auto pt-1">
               <template v-if="isInstalled(mod)">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center">
                   <Toggle
                     :model-value="isEnabled(mod)"
                     :disabled="busyMods.has(mod.name)"
                     @update:model-value="(v) => toggleMod(mod.name, v)"
                   />
-                  <span class="text-xs text-secondary">{{ isEnabled(mod) ? 'Enabled' : 'Disabled' }}</span>
                 </div>
                 <button
                   class="ml-auto px-3 py-1.5 text-xs rounded-lg border border-solid border-red-500/30 text-red-500 bg-transparent cursor-pointer hover:bg-red-500/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"

@@ -2518,7 +2518,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "needlelight-tauri"
+name = "Needlelight"
 version = "1.0.0"
 dependencies = [
  "chrono",

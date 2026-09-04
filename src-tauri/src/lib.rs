@@ -18,6 +18,7 @@ impl AppState {
     pub async fn new() -> Self {
         let mut settings = AppSettings::load().await.unwrap_or_default();
         settings.sync_managed_folder();
+        settings.sync_custom_modlinks();
         let installed = InstalledModsStore::load(&settings).await.unwrap_or_default();
         Self {
             settings: Arc::new(RwLock::new(settings)),

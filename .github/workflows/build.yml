@@ -118,48 +118,63 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: pnpm tauri build --bundles dmg
 
+      - name: Name release files (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: cp src-tauri/target/release/bundle/appimage/*.AppImage Needlelight-Linux.AppImage
+
+      - name: Name release files (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Copy-Item (Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1).FullName Needlelight-Windows-Setup.exe
+          Copy-Item src-tauri/target/release/Needlelight.exe Needlelight-Windows.exe
+
+      - name: Name release files (macOS)
+        if: matrix.os == 'macos-latest'
+        run: cp src-tauri/target/release/bundle/dmg/*.dmg Needlelight-macOS.dmg
+
       - name: Upload Linux artifact
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: src-tauri/target/release/bundle/appimage/*.AppImage
+          path: Needlelight-Linux.AppImage
 
       - name: Upload Windows artifact
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: src-tauri/target/release/bundle/nsis/*.exe
+          path: Needlelight-Windows-Setup.exe
 
       - name: Upload macOS artifact
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: src-tauri/target/release/bundle/dmg/*.dmg
+          path: Needlelight-macOS.dmg
 
       - name: Upload portable exe
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: Needlelight-Windows-Portable
-          path: src-tauri/target/release/needlelight-tauri.exe
+          path: Needlelight-Windows.exe
 
       - name: Publish GitHub Release (Linux)
         if: startsWith(github.ref, 'refs/tags/v') && matrix.os == 'ubuntu-latest'
         uses: softprops/action-gh-release@v2
         with:
-          files: src-tauri/target/release/bundle/appimage/*.AppImage
+          files: Needlelight-Linux.AppImage
 
       - name: Publish GitHub Release (Windows)
         if: startsWith(github.ref, 'refs/tags/v') && matrix.os == 'windows-latest'
         uses: softprops/action-gh-release@v2
         with:
-          files: src-tauri/target/release/bundle/nsis/*.exe
+          files: Needlelight-Windows-Setup.exe
 
       - name: Publish GitHub Release (macOS)
         if: startsWith(github.ref, 'refs/tags/v') && matrix.os == 'macos-latest'
         uses: softprops/action-gh-release@v2
         with:
-          files: src-tauri/target/release/bundle/dmg/*.dmg
+          files: Needlelight-macOS.dmg

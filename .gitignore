@@ -16,9 +16,10 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
-reference
 *.dll
 *.pdb
 mscorlib.xml
 src-tauri/*.xml
 src-tauri/fds/
+
+.pnpm-store

@@ -80,8 +80,10 @@ impl CatalogCache {
             .timeout(Duration::from_secs(30))
             .build()?;
 
-        // Silksong uses Thunderstore instead of modlinks
-        if settings.game == GameKey::Silksong {
+        // A custom Silksong ModLinks feed follows the same schema as Hollow
+        // Knight's catalog. Use it when requested; Thunderstore remains the
+        // default Silksong source.
+        if settings.game == GameKey::Silksong && !settings.use_custom_modlinks {
             return Self::build_silksong(&client, settings, installed).await;
         }
 

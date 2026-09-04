@@ -29,6 +29,7 @@ fn sync_managed_folder(mut settings: AppSettings) -> AppSettings {
         settings.managed_folder = stored;
     }
 
+    settings.sync_custom_modlinks();
     settings
 }
 
@@ -46,6 +47,9 @@ pub async fn save_settings(state: State<'_, AppState>, settings: AppSettings) ->
     if incoming.managed_folders.is_empty() {
         incoming.managed_folders = previous.managed_folders.clone();
     }
+    if incoming.custom_modlinks_by_game.is_empty() {
+        incoming.custom_modlinks_by_game = previous.custom_modlinks_by_game.clone();
+    }
 
     let prev_path = previous.managed_folder;
     let incoming_game = incoming.game.clone();
@@ -55,9 +59,25 @@ pub async fn save_settings(state: State<'_, AppState>, settings: AppSettings) ->
         incoming.managed_folder = stored;
     }
 
+    if incoming.game != previous.game {
+        // The form was loaded for the previous game, so preserve its catalog
+        // values before exposing the selected game's independent values.
+        incoming.custom_modlinks_by_game.insert(
+            previous.game.as_str().to_string(),
+            crate::backend::settings::CustomModlinksConfig {
+                enabled: incoming.use_custom_modlinks,
+                uri: incoming.custom_modlinks_uri.clone(),
+            },
+        );
+        incoming.sync_custom_modlinks();
+    } else {
+        incoming.set_custom_modlinks_for_current();
+    }
+
     incoming.managed_folder = AppSettings::normalize_managed_folder(&incoming.managed_folder, &incoming_game);
     let folder = incoming.managed_folder.clone();
     incoming.set_managed_folder_for(&incoming_game, folder);
+    incoming.set_custom_modlinks_for_current();
 
     map_err(incoming.save().await)?;
 
@@ -106,7 +126,11 @@ pub async fn install_mod(state: State<'_, AppState>, name: String) -> Result<(),
     let mut installed = state.installed.write().await;
     let catalog = map_err(CatalogCache::build(&settings, &installed, !settings.use_custom_modlinks).await)?;
 
-    map_err(installer::install_mod(&settings, &mut installed, &catalog.response, &name).await)
+    let result = installer::install_mod(&settings, &mut installed, &catalog.response, &name).await;
+    if let Err(error) = &result {
+        installer::write_install_log(&settings, format!("Mod install failed for {name}: {error}"));
+    }
+    map_err(result)
 }
 
 #[tauri::command]
@@ -129,7 +153,11 @@ pub async fn install_api(state: State<'_, AppState>) -> Result<(), String> {
     let mut installed = state.installed.write().await;
     let catalog = map_err(CatalogCache::build(&settings, &installed, !settings.use_custom_modlinks).await)?;
 
-    map_err(installer::install_api(&settings, &mut installed, &catalog.response).await)
+    let result = installer::install_api(&settings, &mut installed, &catalog.response).await;
+    if let Err(error) = &result {
+        installer::write_install_log(&settings, format!("Modding API install failed: {error}"));
+    }
+    map_err(result)
 }
 
 #[tauri::command]
@@ -194,6 +222,7 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
             game_root.join("hollowknightsilksong"),
             game_root.join("hollowknightsilksong.exe"),
             game_root.join("Hollow Knight Silksong.exe"),
+            game_root.join("Hollow Knight Silksong.app/Contents/MacOS/Hollow Knight Silksong"),
         ],
     };
 

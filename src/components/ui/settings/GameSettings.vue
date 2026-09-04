@@ -8,12 +8,11 @@ import { onMounted, ref, computed } from "vue";
 
 const backendSettings = ref(null);
 const loading = ref(true);
-const detecting = ref(false);
 const { handleError } = injectNotificationManager();
 
 const gameName = computed(() =>
   backendSettings.value?.game === "silksong"
-    ? "Hollow Knight: Silksong"
+    ? "Hollow Knight Silksong"
     : "Hollow Knight",
 );
 
@@ -34,35 +33,6 @@ async function saveBackendSettings() {
     await invoke("save_settings", { settings: backendSettings.value });
   } catch (err) {
     handleError(err);
-  }
-}
-
-async function autoDetect() {
-  if (!backendSettings.value) return;
-  detecting.value = true;
-  try {
-    const folder = await invoke("auto_detect_managed_folder", {
-      game: backendSettings.value.game,
-    });
-    if (folder) {
-      backendSettings.value.managed_folder = folder;
-      await saveBackendSettings();
-    } else {
-      handleError(
-        `${gameName.value} was not detected on this system. Please browse to the game's Managed folder manually, or check that the game is installed.`,
-      );
-    }
-  } catch (err) {
-    const msg = typeof err === "string" ? err : String(err);
-    if (msg.includes("not found") || msg.includes("not detect")) {
-      handleError(
-        `Could not find ${gameName.value}. Make sure the game is installed, then use "Browse" to select the Managed folder manually.`,
-      );
-    } else {
-      handleError(msg);
-    }
-  } finally {
-    detecting.value = false;
   }
 }
 
@@ -115,23 +85,16 @@ onMounted(() => loadBackendSettings());
           </button>
         </ButtonStyled>
       </div>
-      <div class="mt-2 flex items-center gap-2">
-        <ButtonStyled type="transparent" size="small">
-          <button @click="autoDetect" :disabled="detecting">
-            {{ detecting ? "Searching..." : "Auto-detect" }}
-          </button>
-        </ButtonStyled>
-      </div>
     </div>
 
-    <!-- Custom Modlinks (HK only) -->
-    <div v-if="backendSettings.game === 'hollow_knight'">
+    <!-- Custom Modlinks -->
+    <div>
       <h3 class="m-0 text-sm font-semibold text-contrast mb-1">
         Custom Modlinks
       </h3>
       <p class="text-secondary text-xs mb-3">
-        Use a custom ModLinks.xml URL instead of the official hk-modding
-        repository.
+        Use a custom ModLinks.xml URL for this game instead of its default
+        catalog.
       </p>
       <div class="flex items-center gap-3 mb-2">
         <Toggle
@@ -153,21 +116,6 @@ onMounted(() => loadBackendSettings());
         class="w-full bg-bg-raised rounded-lg border border-solid border-surface-5 px-3 py-2 text-sm text-contrast outline-none placeholder:text-secondary"
         @input="debouncedSave"
       />
-    </div>
-
-    <!-- Silksong note -->
-    <div
-      v-if="backendSettings.game === 'silksong'"
-      class="px-4 py-3 rounded-lg bg-brand/5 border border-solid border-brand/20"
-    >
-      <h3 class="m-0 text-sm font-semibold text-contrast mb-1">
-        Silksong Mods
-      </h3>
-      <p class="text-secondary text-xs m-0 leading-relaxed">
-        Silksong mods are sourced from
-        <strong class="text-contrast">Thunderstore</strong>. The mod catalog
-        in your Library will show available community packages for Silksong.
-      </p>
     </div>
 
     <!-- GitHub Mirror -->

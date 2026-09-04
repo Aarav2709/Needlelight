@@ -1,5 +1,5 @@
 [package]
-name = "needlelight-tauri"
+name = "Needlelight"
 version = "1.0.0"
 description = "Needlelight Tauri rewrite"
 authors = ["Needlelight"]

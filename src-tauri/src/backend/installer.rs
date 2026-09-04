@@ -5,7 +5,7 @@ use super::{
     settings::AppSettings,
 };
 use sha2::{Digest, Sha256};
-use std::{collections::HashSet, fs::File, io::Read, path::{Path, PathBuf}};
+use std::{collections::HashSet, fs::{File, OpenOptions}, io::{Read, Write}, path::{Path, PathBuf}};
 use walkdir::WalkDir;
 use zip::ZipArchive;
 
@@ -43,12 +43,33 @@ fn filename_from_url(url: &str) -> Option<String> {
     }
 }
 
+pub(crate) fn write_install_log(settings: &AppSettings, message: impl AsRef<str>) {
+    let message = message.as_ref();
+    log::info!("{message}");
+
+    let result = (|| -> std::io::Result<()> {
+        let log_path = AppSettings::config_dir()
+            .map_err(|error| std::io::Error::other(error.to_string()))?
+            .join("Needlelight-install.log");
+        if let Some(parent) = log_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut file = OpenOptions::new().create(true).append(true).open(log_path)?;
+        writeln!(file, "{} {message}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"))
+    })();
+
+    if let Err(error) = result {
+        log::warn!("Could not write installation diagnostic: {error}");
+    }
+}
+
 pub async fn install_mod(
     settings: &AppSettings,
     installed: &mut InstalledModsStore,
     catalog: &CatalogResponse,
     mod_name: &str,
 ) -> AppResult<()> {
+    write_install_log(settings, format!("Starting mod install: {mod_name} (game: {})", settings.game.as_str()));
     if settings.managed_folder.trim().is_empty() {
         return Err(AppError::InvalidInput(
             "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
@@ -61,6 +82,7 @@ pub async fn install_mod(
             install_api(settings, installed, catalog).await?;
         }
     } else if !is_api_installed(settings, installed) {
+        write_install_log(settings, "Modding API is missing; installing it before the mod.");
         install_api(settings, installed, catalog).await?;
     }
 
@@ -73,6 +95,7 @@ pub async fn uninstall_mod(
     installed: &mut InstalledModsStore,
     mod_name: &str,
 ) -> AppResult<()> {
+    write_install_log(settings, format!("Starting mod uninstall: {mod_name} (game: {})", settings.game.as_str()));
     if settings.managed_folder.trim().is_empty() {
         return Err(AppError::InvalidInput(
             "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
@@ -129,6 +152,7 @@ pub async fn install_api(
     installed: &mut InstalledModsStore,
     catalog: &CatalogResponse,
 ) -> AppResult<()> {
+    write_install_log(settings, format!("Starting Modding API install (game: {}).", settings.game.as_str()));
     if settings.managed_folder.trim().is_empty() {
         return Err(AppError::InvalidInput(
             "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
@@ -154,6 +178,7 @@ pub async fn install_api(
         .error_for_status()?
         .bytes()
         .await?;
+    write_install_log(settings, format!("Downloaded Modding API archive ({} bytes).", bytes.len()));
 
     if !api.sha256.trim().is_empty() {
         let mut hasher = Sha256::new();
@@ -179,12 +204,18 @@ pub async fn install_api(
     };
     extract_zip_guarded(bytes.as_ref(), &target, preserve_roots)?;
 
+    if !is_api_installed(settings, installed) {
+        write_install_log(settings, format!("Modding API verification failed after extraction to {}.", target.display()));
+        return Err(AppError::InvalidInput("Modding API files were not found after installation. See Needlelight-install.log for details.".to_string()));
+    }
+
     installed.db.api_install = Some(super::models::PersistedModState {
         enabled: true,
         version: api.version.clone(),
         pinned: false,
     });
     installed.save(settings).await?;
+    write_install_log(settings, format!("Modding API installed successfully in {}.", target.display()));
 
     Ok(())
 }
@@ -224,12 +255,15 @@ fn extract_zip_guarded(data: &[u8], destination: &Path, preserve_roots: &[&str])
             .ok_or_else(|| AppError::InvalidInput("zip entry path traversal blocked".to_string()))?
             .to_path_buf();
 
-        let output = if let Some(root) = wrapped_root.as_ref() {
+        let relative = if let Some(root) = wrapped_root.as_ref() {
             strip_wrapped_root(&enclosed, root)
         } else {
             enclosed
+        };
+        let output = destination.join(relative);
+        if !output.starts_with(destination) {
+            return Err(AppError::InvalidInput("zip entry path traversal blocked".to_string()));
         }
-        .to_path_buf();
 
         if entry.name().ends_with('/') {
             std::fs::create_dir_all(&output)?;
@@ -384,9 +418,19 @@ async fn install_mod_with_deps(
             }
 
             let bytes = download_mod_bytes(&item_link, &item_sha256).await?;
+            write_install_log(settings, format!("Downloaded mod {item_name} ({} bytes).", bytes.len()));
 
             if is_silksong {
-                install_silksong_mod_archive(settings, &item_name, bytes.as_ref()).await?;
+                if looks_like_zip(bytes.as_ref()) {
+                    install_silksong_mod_archive(settings, &item_name, bytes.as_ref()).await?;
+                } else {
+                    let folder = settings.mods_folder().join(&item_name);
+                    tokio::fs::create_dir_all(&folder).await?;
+                    let file_name = filename_from_url(&item_link)
+                        .filter(|name| name.to_lowercase().ends_with(".dll"))
+                        .unwrap_or_else(|| format!("{item_name}.dll"));
+                    tokio::fs::write(folder.join(file_name), bytes.as_slice()).await?;
+                }
             } else {
                 let folder = InstalledModsStore::mod_folder(settings, &item_name, true);
                 if folder.exists() {
@@ -408,6 +452,11 @@ async fn install_mod_with_deps(
 
             installed.mark_installed(&item_name, &item_version, true);
             installed.save(settings).await?;
+            if !installed_mod_exists_on_disk(settings, &item_name) {
+                write_install_log(settings, format!("Mod verification failed: {item_name} is missing after extraction."));
+                return Err(AppError::InvalidInput(format!("{item_name} was not found after installation. See Needlelight-install.log for details.")));
+            }
+            write_install_log(settings, format!("Installed mod {item_name} version {item_version}."));
             continue;
         }
 

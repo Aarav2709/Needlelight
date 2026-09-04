@@ -137,12 +137,20 @@ Tip: You can also verify individual executables (e.g., `Needlelight.exe`, `Needl
 - Switch the active game from the top bar or Settings → Game. Needlelight now remembers a managed folder per game; if the stored path does not match the selected profile, you’ll be asked to pick the correct Silksong install.
 - For Silksong, Needlelight installs BepInEx automatically when you toggle “Install/Toggle API.” It installs into the Silksong game root (next to the executable), not the Hollow Knight folder.
 - Steam default path: `steamapps/common/Hollow Knight Silksong`. Mods live in `Hollow Knight Silksong_Data/Managed/Mods` (and `Disabled`).
-- If auto-detect fails, browse to the Silksong executable (or `.app` on macOS). On Linux, both native and Proton installs are supported; pick the folder that contains `Hollow Knight Silksong_Data/Managed`.
+- If the game folder is not set, browse to the Silksong game folder (or `.app` on macOS). On Linux, both native and Proton installs are supported; pick the folder that contains `Hollow Knight Silksong_Data/Managed`.
 
 ## Custom modlinks
 
-- Settings → “Use Custom Modlinks”: toggle on and paste a ModLinks.xml URL (e.g., a community list or your own fork). Needlelight will fetch that list first; if it’s invalid, it will fall back to the official modlinks and show an error.
+- Settings → “Use Custom Modlinks”: toggle on and paste a ModLinks.xml URL (e.g., a community list or your own fork). This works for both games and is saved separately for each game profile. Needlelight will fetch that list first; if it’s invalid, it will show an error.
 - To revert to the official catalog, toggle “Use Custom Modlinks” off (or use the corresponding URL command). The current selection is saved per profile and applied on next launch.
+
+## Installation diagnostics
+
+Every Modding API and mod installation writes its outcome to `Needlelight-install.log`. If an install fails or says it completed but a mod does not load, attach this file to a bug report:
+
+- Windows: `%APPDATA%\HKModInstaller\Needlelight-install.log`
+- macOS: `~/Library/Application Support/HKModInstaller/Needlelight-install.log`
+- Linux: `~/.config/HKModInstaller/Needlelight-install.log` (or `$XDG_CONFIG_HOME/HKModInstaller/Needlelight-install.log`)
 
 ## Backend endpoint override (desktop)
 
