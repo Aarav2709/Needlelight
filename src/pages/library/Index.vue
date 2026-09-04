@@ -1,6 +1,5 @@
 <script setup>
 import {
-  CheckIcon,
   DownloadIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -60,7 +59,7 @@ async function switchGame(game) {
       const gameName = game === 'silksong' ? 'Hollow Knight Silksong' : 'Hollow Knight'
       const folder = await open({
         directory: true,
-        title: `Select ${gameName} game folder`,
+        title: `Select ${gameName}'s Managed Folder`,
       })
       if (folder) {
         const configuredSettings = await invoke('load_settings')
@@ -363,21 +362,22 @@ onMounted(async () => {
               </span>
             </div>
 
-            <div v-if="mod.dependencies?.length" class="text-xs text-secondary">
+            <div v-if="mod.dependencies?.length" class="text-xs text-secondary italic">
               Requires: {{ mod.dependencies.map(formatDependency).join(', ') }}
             </div>
 
             <div class="flex items-center gap-3 mt-auto pt-1">
               <template v-if="isInstalled(mod)">
-                <div class="flex items-center">
+                <div class="flex items-center gap-2">
                   <Toggle
                     :model-value="isEnabled(mod)"
                     :disabled="busyMods.has(mod.name)"
                     @update:model-value="(v) => toggleMod(mod.name, v)"
                   />
+                  <span class="text-xs text-secondary">{{ isEnabled(mod) ? 'Enabled' : 'Disabled' }}</span>
                 </div>
                 <button
-                  class="ml-auto px-3 py-1.5 text-xs rounded-lg border border-solid border-red-500/30 text-red-500 bg-transparent cursor-pointer hover:bg-red-500/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="ml-auto px-3 py-1.5 text-xs rounded-lg border-none text-red-500 bg-red-500/10 cursor-pointer hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   :disabled="busyMods.has(mod.name)"
                   @click="uninstallMod(mod.name)"
                 >

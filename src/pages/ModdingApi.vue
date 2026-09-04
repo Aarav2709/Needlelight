@@ -1,5 +1,5 @@
 <script setup>
-import { DownloadIcon, RefreshCwIcon, SpinnerIcon } from '@modrinth/assets'
+import { DownloadIcon, RefreshCwIcon, ShieldIcon, SpinnerIcon } from '@modrinth/assets'
 import { ButtonStyled, ProgressBar, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { computed, onMounted, ref } from 'vue'
@@ -20,11 +20,9 @@ const apiInstalled = ref(false)
 const error = ref(null)
 const managedFolder = ref('')
 
-const apiTitle = computed(() => 'Modding API')
 const apiCtaLabel = computed(() =>
   apiInstalled.value ? 'Reinstall API' : 'Install API',
 )
-const statusLabel = computed(() => (apiInstalled.value ? 'Installed' : 'Not Installed'))
 const canInstall = computed(() => managedFolder.value.trim().length > 0)
 
 async function fetchApiStatus() {
@@ -83,12 +81,24 @@ onMounted(() => fetchApiStatus())
       </ButtonStyled>
     </div>
 
-    <div v-else class="w-full max-w-2xl rounded-2xl bg-bg-raised border border-solid border-surface-5 p-6 flex flex-col gap-5">
+    <div v-else class="w-full max-w-2xl rounded-2xl bg-bg-raised border border-solid border-surface-5 p-6 flex flex-col gap-5 shadow-lg shadow-black/10">
       <div class="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 class="m-0 text-2xl font-black tracking-tight text-contrast">
-            {{ apiTitle }}
-          </h1>
+        <div class="flex items-center gap-3">
+          <span class="w-11 h-11 rounded-xl bg-brand/15 text-brand flex items-center justify-center shrink-0">
+            <ShieldIcon class="w-6 h-6" />
+          </span>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="m-0 text-2xl font-black tracking-tight text-contrast">Modding API</h1>
+              <span class="px-2 py-0.5 rounded-md bg-button-bg text-secondary text-xs font-bold">
+                {{ apiInfo?.version ? `v${apiInfo.version}` : 'v?' }}
+              </span>
+            </div>
+            <p class="m-0 mt-1 text-sm" :class="apiInstalled ? 'text-green-500' : 'text-secondary'">
+              <span class="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" :class="apiInstalled ? 'bg-green-500' : 'bg-secondary'" />
+              {{ apiInstalled ? 'Installed and ready' : 'Not installed' }}
+            </p>
+          </div>
         </div>
 
         <ButtonStyled color="brand" :disabled="installing || !canInstall">
@@ -107,14 +117,6 @@ onMounted(() => fetchApiStatus())
         <p class="m-0 text-xs text-secondary">Installing the runtime. This may take a moment.</p>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <span class="px-2 py-1 rounded-full font-semibold" :class="statusLabel === 'Installed' ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-400'">
-          {{ statusLabel }}
-        </span>
-        <span class="px-2 py-1 rounded-full bg-button-bg text-secondary font-medium">
-          {{ apiInfo?.version ? `Version ${apiInfo.version}` : 'Version unknown' }}
-        </span>
-      </div>
     </div>
   </div>
 </template>

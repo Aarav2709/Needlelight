@@ -40,7 +40,7 @@ async function browseFolder() {
   if (!backendSettings.value) return;
   const selected = await open({
     directory: true,
-    title: `Select ${gameName.value} Managed folder`,
+    title: `Select ${gameName.value}'s Managed Folder`,
   });
   if (selected) {
     backendSettings.value.managed_folder = selected;

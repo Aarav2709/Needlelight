@@ -128,7 +128,7 @@ pub async fn install_mod(state: State<'_, AppState>, name: String) -> Result<(),
 
     let result = installer::install_mod(&settings, &mut installed, &catalog.response, &name).await;
     if let Err(error) = &result {
-        installer::write_install_log(&settings, format!("Mod install failed for {name}: {error}"));
+        installer::write_install_log(format!("Mod install failed for {name}: {error}"));
     }
     map_err(result)
 }
@@ -155,7 +155,7 @@ pub async fn install_api(state: State<'_, AppState>) -> Result<(), String> {
 
     let result = installer::install_api(&settings, &mut installed, &catalog.response).await;
     if let Err(error) = &result {
-        installer::write_install_log(&settings, format!("Modding API install failed: {error}"));
+        installer::write_install_log(format!("Modding API install failed: {error}"));
     }
     map_err(result)
 }
@@ -202,10 +202,15 @@ pub async fn import_pack(state: State<'_, AppState>, code: String) -> Result<Opt
 pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<String, String> {
     let settings = state.settings.read().await.clone();
     if settings.managed_folder.is_empty() {
+        installer::write_install_log("Game launch failed: no managed folder is configured.");
         return Err("Game folder not configured. Go to Settings > Game to set it up.".to_string());
     }
 
     let game_root = settings.game_root_path();
+    if !game_root.is_dir() {
+        installer::write_install_log(format!("Game launch failed: game root is not a directory: {}", game_root.display()));
+        return Err(format!("Game folder is invalid: {}", game_root.display()));
+    }
 
     // Find executable
     let exe_candidates: Vec<std::path::PathBuf> = match settings.game {
@@ -213,6 +218,8 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
             game_root.join("hollow_knight.x86_64"),
             game_root.join("hollow_knight"),
             game_root.join("hollow_knight.exe"),
+            game_root.join("Hollow Knight.exe"),
+            game_root.join("HollowKnight.exe"),
             game_root.join("Hollow Knight.app/Contents/MacOS/Hollow Knight"),
         ],
         GameKey::Silksong => vec![
@@ -229,18 +236,25 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
     let exe = exe_candidates
         .iter()
         .find(|p| p.exists())
-        .ok_or_else(|| format!("Could not find game executable in {}", game_root.display()))?;
+        .ok_or_else(|| {
+            let message = format!("Could not find game executable in {}", game_root.display());
+            installer::write_install_log(format!("Game launch failed: {message}"));
+            message
+        })?;
 
     // If vanilla, temporarily disable mods by renaming Assembly-CSharp.dll.modded
     // For now just launch the game directly - vanilla/modded distinction is handled by
     // whether the API is installed
-    let exe_str = exe.to_string_lossy().to_string();
-
-    Command::new(&exe_str)
+    installer::write_install_log(format!("Launching {} from {}.", exe.display(), game_root.display()));
+    let child = Command::new(exe.as_os_str())
         .current_dir(&game_root)
         .spawn()
-        .map_err(|e| format!("Failed to launch game: {}", e))?;
+        .map_err(|e| {
+            let message = format!("Failed to launch game: {e}");
+            installer::write_install_log(format!("Game launch failed: {message}"));
+            message
+        })?;
 
     let mode = if modded { "modded" } else { "vanilla" };
-    Ok(format!("Launched {} ({})", exe.file_name().unwrap_or_default().to_string_lossy(), mode))
+    Ok(format!("Launched {} ({mode}, process {}).", exe.file_name().unwrap_or_default().to_string_lossy(), child.id()))
 }

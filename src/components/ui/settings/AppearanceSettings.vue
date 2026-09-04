@@ -3,18 +3,15 @@ import { ThemeSelector, Toggle } from '@modrinth/ui'
 import { onMounted, ref, watch } from 'vue'
 
 import { get, set } from '@/helpers/settings.ts'
-import { getOS } from '@/helpers/utils'
 import { useTheming } from '@/store/state'
 import type { ColorTheme } from '@/store/theme.ts'
 
 const themeStore = useTheming()
 
-const os = ref('')
 const settings = ref<Record<string, any> | null>(null)
 const ready = ref(false)
 
 onMounted(async () => {
-	try { os.value = await getOS() } catch { /* ignore */ }
 	try { settings.value = await get() } catch { /* ignore */ }
 	if (settings.value?.theme === 'system') {
 		settings.value.theme = 'dark'
@@ -68,14 +65,6 @@ watch(
 				}
 			"
 		/>
-	</div>
-
-	<div v-if="os !== 'MacOS'" class="mt-4 flex items-center justify-between gap-4">
-		<div>
-			<h2 class="m-0 text-lg font-extrabold text-contrast">Native decorations</h2>
-			<p class="m-0 mt-1">Use system window frame (app restart required).</p>
-		</div>
-		<Toggle id="native-decorations" v-model="settings.native_decorations" />
 	</div>
 
 	<div class="mt-4 flex items-center justify-between">

@@ -46,7 +46,6 @@ import { initialize_state } from "@/helpers/state";
 import {
   areUpdatesEnabled,
   enqueueUpdateForInstallation,
-  getOS,
   getUpdateSize,
   isDev,
   isNetworkMetered,
@@ -69,9 +68,6 @@ provideNotificationManager(notificationManager);
 const { handleError, addNotification } = notificationManager;
 
 const showOnboarding = ref(false);
-const nativeDecorations = ref(false);
-
-const os = ref("");
 const isDevEnvironment = ref(false);
 
 const stateInitialized = ref(false);
@@ -135,7 +131,6 @@ const messages = defineMessages({
 
 async function setupApp() {
   const {
-    native_decorations,
     theme,
     locale,
     collapsed_navigation,
@@ -152,19 +147,9 @@ async function setupApp() {
     i18n.global.locale.value = locale;
   }
 
-  os.value = await getOS();
   const dev = await isDev();
   isDevEnvironment.value = dev;
   showOnboarding.value = !onboarded;
-
-  nativeDecorations.value = native_decorations;
-  if (os.value !== "MacOS") {
-    try {
-      await getCurrentWindow().setDecorations(native_decorations);
-    } catch (error) {
-      console.warn("Unable to set window decorations:", error);
-    }
-  }
 
   themeStore.setThemeState(theme);
   themeStore.collapsedNavigation = collapsed_navigation;
@@ -190,18 +175,6 @@ async function setupApp() {
 
   if (!dev)
     document.addEventListener("contextmenu", (event) => event.preventDefault());
-
-  const osType =
-    os.value === "MacOS"
-      ? "macos"
-      : os.value === "Windows"
-        ? "windows"
-        : "linux";
-  if (osType === "macos") {
-    document.getElementsByTagName("html")[0].classList.add("mac");
-  } else {
-    document.getElementsByTagName("html")[0].classList.add("windows");
-  }
 
   await warning_listener((e) =>
     addNotification({
@@ -559,11 +532,7 @@ onMounted(() => {
             <RunningAppBar />
           </Suspense>
         </div>
-        <section
-          v-if="!nativeDecorations"
-          class="window-controls"
-          data-tauri-drag-region-exclude
-        >
+        <section class="window-controls" data-tauri-drag-region-exclude>
           <Button
             class="titlebar-button"
             icon-only
@@ -610,7 +579,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .window-controls {
   z-index: 20;
-  display: none;
+  display: flex;
   flex-direction: row;
   align-items: center;
 
@@ -819,20 +788,9 @@ onMounted(() => {
 }
 </style>
 <style>
-.mac {
-  .app-grid-statusbar {
-    padding-left: 5rem;
-  }
-}
-
-.windows,
-:root:not(.mac) {
+:root {
   .fake-appbar {
     height: 2.5rem !important;
-  }
-
-  .window-controls {
-    display: flex !important;
   }
 
   .info-card {
