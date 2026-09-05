@@ -47,6 +47,46 @@ async function loadGame() {
   }
 }
 
+function gameDisplayName(game = activeGame.value) {
+  return game === 'silksong' ? 'Hollow Knight Silksong' : 'Hollow Knight'
+}
+
+async function selectManagedFolder(game = activeGame.value) {
+  try {
+    const detected = await invoke('auto_detect_managed_folder', { game }).catch(() => null)
+    if (detected) {
+      const settings = await invoke('load_settings')
+      settings.game = game
+      settings.managed_folder = detected
+      await invoke('save_settings', { settings })
+      await loadGame()
+      return true
+    }
+
+    const folder = await open({
+      directory: true,
+      title: `Select ${gameDisplayName(game)}'s Managed Folder`,
+    })
+
+    if (!folder) return false
+
+    const settings = await invoke('load_settings')
+    settings.game = game
+    settings.managed_folder = folder
+    await invoke('save_settings', { settings })
+    await loadGame()
+    return true
+  } catch (err) {
+    handleError(err)
+    return false
+  }
+}
+
+async function ensureGameFolder(game = activeGame.value) {
+  if (hasGameFolder.value) return true
+  return selectManagedFolder(game)
+}
+
 async function switchGame(game) {
   if (game === activeGame.value || switchingGame.value) return
   switchingGame.value = true
@@ -55,24 +95,14 @@ async function switchGame(game) {
     settings.game = game
     await invoke('save_settings', { settings })
     await loadGame()
-    if (!managedFolder.value) {
-      const gameName = game === 'silksong' ? 'Hollow Knight Silksong' : 'Hollow Knight'
-      const folder = await open({
-        directory: true,
-        title: `Select ${gameName}'s Managed Folder`,
-      })
-      if (folder) {
-        const configuredSettings = await invoke('load_settings')
-        configuredSettings.managed_folder = folder
-        await invoke('save_settings', { settings: configuredSettings })
-        await loadGame()
-      } else {
-        catalog.value = null
-        catalogLoading.value = false
-        catalogError.value = null
-        return
-      }
+
+    if (!managedFolder.value && !(await selectManagedFolder(game))) {
+      catalog.value = null
+      catalogLoading.value = false
+      catalogError.value = null
+      return
     }
+
     await fetchCatalog()
   } catch (err) {
     handleError(err)
@@ -81,12 +111,15 @@ async function switchGame(game) {
   }
 }
 
-async function fetchCatalog() {
+async function fetchCatalog({ promptForFolder = true } = {}) {
   if (!hasGameFolder.value) {
-    catalog.value = null
-    catalogLoading.value = false
-    catalogError.value = null
-    return
+    if (promptForFolder && !(await ensureGameFolder())) {
+      catalog.value = null
+      catalogLoading.value = false
+      catalogError.value = null
+      return
+    }
+    if (!hasGameFolder.value) return
   }
 
   catalogLoading.value = true
@@ -148,6 +181,10 @@ function isEnabled(mod) {
   return mod.state?.enabled !== false
 }
 
+function needsUpdate(mod) {
+  return mod.state?.kind === 'installed' && mod.state?.updated === false
+}
+
 function formatModName(name) {
   if (!isSilksong.value) return name
   const parts = name.split('-')
@@ -161,10 +198,7 @@ function formatDependency(name) {
 }
 
 async function installMod(modName) {
-  if (!hasGameFolder.value) {
-    handleError('Game folder not configured. Go to Settings > Game to set it up.')
-    return
-  }
+  if (!(await ensureGameFolder())) return
   busyMods.value.add(modName)
   try {
     await invoke('install_mod', { name: modName })
@@ -177,10 +211,7 @@ async function installMod(modName) {
 }
 
 async function uninstallMod(modName) {
-  if (!hasGameFolder.value) {
-    handleError('Game folder not configured. Go to Settings > Game to set it up.')
-    return
-  }
+  if (!(await ensureGameFolder())) return
   busyMods.value.add(modName)
   try {
     await invoke('uninstall_mod', { name: modName })
@@ -193,10 +224,7 @@ async function uninstallMod(modName) {
 }
 
 async function toggleMod(modName, enable) {
-  if (!hasGameFolder.value) {
-    handleError('Game folder not configured. Go to Settings > Game to set it up.')
-    return
-  }
+  if (!(await ensureGameFolder())) return
   busyMods.value.add(modName)
   try {
     await invoke('toggle_mod', { name: modName, enable })
@@ -306,8 +334,13 @@ onMounted(async () => {
     >
       <h2 class="m-0 text-xl font-bold text-contrast">Please select a directory to continue</h2>
       <p class="m-0 mt-2 max-w-lg text-sm text-secondary leading-relaxed">
-        Select the {{ isSilksong ? 'Hollow Knight Silksong' : 'Hollow Knight' }} Managed folder in Settings to browse and manage mods.
+        Select the {{ isSilksong ? 'Hollow Knight Silksong' : 'Hollow Knight' }} Managed folder to browse and manage mods.
       </p>
+      <ButtonStyled size="small" class="mt-4">
+        <button @click="selectManagedFolder().then((selected) => selected && fetchCatalog())">
+          Select directory
+        </button>
+      </ButtonStyled>
     </div>
 
     <Transition v-else
@@ -398,13 +431,23 @@ onMounted(async () => {
                   />
                   <span class="text-xs text-secondary">{{ isEnabled(mod) ? 'Enabled' : 'Disabled' }}</span>
                 </div>
-                <button
-                  class="ml-auto appearance-none px-3 py-1.5 text-xs rounded-lg border-0 outline-none text-red-500 bg-red-500/10 cursor-pointer hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  :disabled="busyMods.has(mod.name)"
-                  @click="uninstallMod(mod.name)"
-                >
-                  Uninstall
-                </button>
+                <div class="ml-auto flex items-center gap-2">
+                  <button
+                    v-if="needsUpdate(mod)"
+                    class="appearance-none px-3 py-1.5 text-xs rounded-lg border border-brand/40 outline-none text-brand bg-brand/10 cursor-pointer hover:bg-brand/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="busyMods.has(mod.name)"
+                    @click="installMod(mod.name)"
+                  >
+                    {{ busyMods.has(mod.name) ? 'Updating...' : 'Update' }}
+                  </button>
+                  <button
+                    class="appearance-none px-3 py-1.5 text-xs rounded-lg border border-red-500/20 outline-none text-red-500 bg-red-500/10 cursor-pointer hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="busyMods.has(mod.name)"
+                    @click="uninstallMod(mod.name)"
+                  >
+                    Uninstall
+                  </button>
+                </div>
               </template>
               <template v-else>
                 <button

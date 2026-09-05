@@ -453,11 +453,11 @@ onMounted(() => {
         <ShieldIcon class="text-contrast" />
       </NavButton>
       <div class="flex flex-grow"></div>
-      <NavButton v-tooltip.right="'Launch Vanilla'" :to="() => launchGame(false)">
+      <NavButton v-tooltip.right="'Launch Vanilla'" class="launch-button launch-button-vanilla" :to="() => launchGame(false)">
         <PlayIcon />
       </NavButton>
-      <NavButton v-tooltip.right="'Launch Modded'" :to="() => launchGame(true)">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/><line x1="19" y1="3" x2="19" y2="21" stroke-dasharray="3 3"/></svg>
+      <NavButton v-tooltip.right="'Launch Modded'" class="launch-button launch-button-modded" :to="() => launchGame(true)">
+        <svg class="modded-launch-icon" xmlns="http://www.w3.org/2000/svg" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/><path d="M15 3v18" stroke-dasharray="2.5 2.5"/></svg>
       </NavButton>
       <Transition name="nav-button-animated">
         <div
@@ -715,6 +715,18 @@ onMounted(() => {
   opacity: 0;
 }
 
+
+.launch-button-vanilla {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.launch-button-modded {
+  box-shadow: inset 0 0 0 1px rgba(210, 190, 255, 0.42);
+}
+
+.launch-button-modded .modded-launch-icon {
+  filter: drop-shadow(0 0 5px rgba(210, 190, 255, 0.16));
+}
 @media (prefers-reduced-motion: no-preference) {
   .toast-enter-active,
   .nav-button-animated-enter-active {

@@ -112,7 +112,7 @@ pub async fn refresh_catalog(
     let mut cache = map_err(CatalogCache::build(&settings, &installed, fetch_official).await)?;
     let api_installed = installer::is_api_installed(&settings, &installed);
     cache.response.api_installed = api_installed;
-    cache.response.api_enabled = api_installed;
+    cache.response.api_enabled = installer::is_api_enabled(&settings, &installed);
     if !api_installed {
         cache.response.api.url = String::new();
     }
@@ -242,10 +242,22 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
             message
         })?;
 
-    // If vanilla, temporarily disable mods by renaming Assembly-CSharp.dll.modded
-    // For now just launch the game directly - vanilla/modded distinction is handled by
-    // whether the API is installed
-    installer::write_install_log(format!("Launching {} from {}.", exe.display(), game_root.display()));
+    let mode = if modded { "modded" } else { "vanilla" };
+
+    if settings.game == GameKey::HollowKnight {
+        if modded {
+            if !installer::is_api_installed(&settings, &state.installed.read().await) {
+                let message = "Modded launch requires the Modding API. Install the API first.";
+                installer::write_install_log(format!("Game launch failed: {message}"));
+                return Err(message.to_string());
+            }
+            map_err(installer::set_hk_api_enabled(&settings, true))?;
+        } else if installer::is_api_installed(&settings, &state.installed.read().await) {
+            map_err(installer::set_hk_api_enabled(&settings, false))?;
+        }
+    }
+
+    installer::write_install_log(format!("Launching {} from {} ({mode}).", exe.display(), game_root.display(), if modded { "modded" } else { "vanilla" }));
     let child = Command::new(exe.as_os_str())
         .current_dir(&game_root)
         .spawn()
@@ -255,6 +267,5 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
             message
         })?;
 
-    let mode = if modded { "modded" } else { "vanilla" };
     Ok(format!("Launched {} ({mode}, process {}).", exe.file_name().unwrap_or_default().to_string_lossy(), child.id()))
 }
