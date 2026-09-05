@@ -127,11 +127,37 @@ jobs:
         run: pnpm tauri build --bundles ${{ matrix.bundle }}
 
       - name: Name release files
-        env:
-          BUNDLE_DIRECTORY: ${{ matrix.bundle_directory }}
-          RELEASE_FILE: ${{ matrix.release_file }}
-        run: >-
-          node -e "const fs=require('fs'); const path=require('path'); const extension={appimage:'.AppImage',nsis:'.exe',dmg:'.dmg'}[process.env.BUNDLE_DIRECTORY]; const root=path.join('src-tauri','target','release','bundle',process.env.BUNDLE_DIRECTORY); const find=(dir)=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?find(path.join(dir,e.name)):[path.join(dir,e.name)]).find(p=>p.endsWith(extension)); const source=find(root); if(!source) throw new Error('Bundled release file not found'); fs.copyFileSync(source,process.env.RELEASE_FILE);"
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="src-tauri/target/release/bundle/${{ matrix.bundle_directory }}"
+          case "${{ matrix.platform }}" in
+            Windows)
+              source=$(find "$root" -type f -iname '*-setup.exe' -print -quit)
+              if [ -z "$source" ]; then
+                echo "Windows setup installer not found under $root" >&2
+                find "$root" -type f -maxdepth 2 -print >&2 || true
+                exit 1
+              fi
+              cp "$source" "Needlelight-Windows.exe"
+              ;;
+            Linux)
+              source=$(find "$root" -type f -name '*.AppImage' -print -quit)
+              if [ -z "$source" ]; then
+                echo "Linux AppImage not found under $root" >&2
+                exit 1
+              fi
+              cp "$source" "Needlelight-Linux.AppImage"
+              ;;
+            macOS)
+              source=$(find "$root" -type f -name '*.dmg' -print -quit)
+              if [ -z "$source" ]; then
+                echo "macOS DMG not found under $root" >&2
+                exit 1
+              fi
+              cp "$source" "Needlelight-macOS.dmg"
+              ;;
+          esac
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4

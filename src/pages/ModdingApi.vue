@@ -1,5 +1,5 @@
 <script setup>
-import { DownloadIcon, RefreshCwIcon, ShieldIcon, SpinnerIcon } from '@modrinth/assets'
+import { DownloadIcon, RefreshCwIcon, SpinnerIcon } from '@modrinth/assets'
 import { ButtonStyled, ProgressBar, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { computed, onMounted, ref } from 'vue'
@@ -82,23 +82,18 @@ onMounted(() => fetchApiStatus())
     </div>
 
     <div v-else class="w-full max-w-2xl rounded-2xl bg-bg-raised border border-solid border-surface-5 p-6 flex flex-col gap-5 shadow-lg shadow-black/10">
-      <div class="flex items-start justify-between gap-4 flex-wrap">
-        <div class="flex items-center gap-3">
-          <span class="w-11 h-11 rounded-xl bg-brand/15 text-brand flex items-center justify-center shrink-0">
-            <ShieldIcon class="w-6 h-6" />
-          </span>
-          <div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <h1 class="m-0 text-2xl font-black tracking-tight text-contrast">Modding API</h1>
-              <span class="px-2 py-0.5 rounded-md bg-button-bg text-secondary text-xs font-bold">
-                {{ apiInfo?.version ? `v${apiInfo.version}` : 'v?' }}
-              </span>
-            </div>
-            <p class="m-0 mt-1 text-sm" :class="apiInstalled ? 'text-green-500' : 'text-secondary'">
-              <span class="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" :class="apiInstalled ? 'bg-green-500' : 'bg-secondary'" />
-              {{ apiInstalled ? 'Installed and ready' : 'Not installed' }}
-            </p>
+      <div class="flex items-start justify-between gap-5 flex-wrap">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="m-0 text-2xl font-black tracking-tight text-contrast">Modding API</h1>
+            <span class="px-2 py-0.5 rounded-md bg-button-bg text-secondary text-xs font-bold">
+              {{ apiInfo?.version ? `v${apiInfo.version}` : 'v?' }}
+            </span>
           </div>
+          <p class="m-0 mt-1 text-sm" :class="apiInstalled ? 'text-green-500' : 'text-secondary'">
+            <span class="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" :class="apiInstalled ? 'bg-green-500' : 'bg-secondary'" />
+            {{ apiInstalled ? 'Installed and ready' : 'Not installed' }}
+          </p>
         </div>
 
         <ButtonStyled color="brand" :disabled="installing || !canInstall">
@@ -110,8 +105,17 @@ onMounted(() => fetchApiStatus())
         </ButtonStyled>
       </div>
 
-      <div v-if="installing" class="flex flex-col items-center gap-3 py-2">
-        <div class="w-full max-w-md">
+      <div class="border-t border-solid border-surface-5 pt-4">
+        <p class="m-0 text-sm text-secondary leading-relaxed">
+          The Modding API provides the runtime Hollow Knight and its mods use to load
+          together. Install it once before using mods; reinstall it to refresh the
+          current API files. Needlelight installs it directly into the selected game's
+          Managed folder.
+        </p>
+      </div>
+
+      <div v-if="installing" class="flex flex-col gap-3">
+        <div class="w-full">
           <ProgressBar :progress="0.65" color="brand" />
         </div>
         <p class="m-0 text-xs text-secondary">Installing the runtime. This may take a moment.</p>

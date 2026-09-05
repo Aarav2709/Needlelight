@@ -66,6 +66,11 @@ async function switchGame(game) {
         configuredSettings.managed_folder = folder
         await invoke('save_settings', { settings: configuredSettings })
         await loadGame()
+      } else {
+        catalog.value = null
+        catalogLoading.value = false
+        catalogError.value = null
+        return
       }
     }
     await fetchCatalog()
@@ -77,6 +82,13 @@ async function switchGame(game) {
 }
 
 async function fetchCatalog() {
+  if (!hasGameFolder.value) {
+    catalog.value = null
+    catalogLoading.value = false
+    catalogError.value = null
+    return
+  }
+
   catalogLoading.value = true
   catalogError.value = null
   try {
@@ -288,7 +300,17 @@ onMounted(async () => {
       </div>
     </div>
 
-    <Transition
+    <div
+      v-if="!hasGameFolder"
+      class="rounded-2xl bg-bg-raised border border-solid border-surface-5 p-8 min-h-[48vh] flex flex-col items-center justify-center text-center"
+    >
+      <h2 class="m-0 text-xl font-bold text-contrast">Please select a directory to continue</h2>
+      <p class="m-0 mt-2 max-w-lg text-sm text-secondary leading-relaxed">
+        Select the {{ isSilksong ? 'Hollow Knight Silksong' : 'Hollow Knight' }} Managed folder in Settings to browse and manage mods.
+      </p>
+    </div>
+
+    <Transition v-else
       enter-active-class="transition-opacity duration-200"
       leave-active-class="transition-opacity duration-150"
       enter-from-class="opacity-0"
@@ -377,7 +399,7 @@ onMounted(async () => {
                   <span class="text-xs text-secondary">{{ isEnabled(mod) ? 'Enabled' : 'Disabled' }}</span>
                 </div>
                 <button
-                  class="ml-auto px-3 py-1.5 text-xs rounded-lg border-none text-red-500 bg-red-500/10 cursor-pointer hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="ml-auto appearance-none px-3 py-1.5 text-xs rounded-lg border-0 outline-none text-red-500 bg-red-500/10 cursor-pointer hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   :disabled="busyMods.has(mod.name)"
                   @click="uninstallMod(mod.name)"
                 >

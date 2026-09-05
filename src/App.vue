@@ -167,9 +167,14 @@ async function setupApp() {
     applyGameTheme('hollow_knight');
   }
 
-  isMaximized.value = await getCurrentWindow().isMaximized();
+  const currentWindow = getCurrentWindow();
 
-  await getCurrentWindow().onResized(async () => {
+  // Needlelight owns the title bar. Keep native OS decorations disabled even
+  // if an older persisted window state tries to restore them.
+  await currentWindow.setDecorations(false);
+  isMaximized.value = await currentWindow.isMaximized();
+
+  await currentWindow.onResized(async () => {
     isMaximized.value = await getCurrentWindow().isMaximized();
   });
 
@@ -582,63 +587,55 @@ onMounted(() => {
   display: flex;
   flex-direction: row;
   align-items: center;
+  gap: 0.15rem;
+  padding-right: 0.35rem;
 
   .titlebar-button {
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all ease-in-out 0.1s;
+    transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
     background-color: transparent;
     color: var(--color-base);
-    height: 100%;
-    width: 3rem;
+    height: 2rem;
+    width: 2rem;
+    min-width: 2rem;
+    padding: 0 !important;
+    margin: 0;
     position: relative;
-    box-shadow: none;
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+    border-radius: 9999px;
 
     &:last-child {
-      padding-right: 0.75rem;
-      width: 3.75rem;
+      width: 2rem;
+      min-width: 2rem;
+      padding: 0 !important;
     }
 
     svg {
-      width: 1.25rem;
-      height: 1.25rem;
-    }
-
-    &::before {
-      content: "";
-      border-radius: 999999px;
-      width: 3rem;
-      height: 3rem;
-      aspect-ratio: 1 / 1;
-      margin-block: auto;
-      position: absolute;
-      background-color: transparent;
-      scale: 0.9;
-      transition: all ease-in-out 0.2s;
-      z-index: -1;
+      width: 1rem;
+      height: 1rem;
     }
 
     &.close {
       &:hover,
       &:active {
         color: var(--color-accent-contrast);
-
-        &::before {
-          background-color: var(--color-red);
-        }
+        background-color: var(--color-red);
       }
     }
 
     &:hover,
     &:active {
       color: var(--color-contrast);
+      background-color: var(--color-button-bg);
+    }
 
-      &::before {
-        background-color: var(--color-button-bg);
-        scale: 1;
-      }
+    &:active {
+      transform: scale(0.94);
     }
   }
 }
