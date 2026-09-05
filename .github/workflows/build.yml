@@ -69,30 +69,22 @@ jobs:
             platform: Linux
             bundle: appimage
             bundle_directory: appimage
-            bundle_extension: .AppImage
             artifact_name: Needlelight-Linux
             release_file: Needlelight-Linux.AppImage
-            portable_file: ""
             artifact_files: Needlelight-Linux.AppImage
           - os: windows-latest
             platform: Windows
             bundle: nsis
             bundle_directory: nsis
-            bundle_extension: .exe
             artifact_name: Needlelight-Windows
             release_file: Needlelight-Windows.exe
-            portable_file: Needlelight-Windows-Portable.exe
-            artifact_files: |
-              Needlelight-Windows.exe
-              Needlelight-Windows-Portable.exe
+            artifact_files: Needlelight-Windows.exe
           - os: macos-latest
             platform: macOS
             bundle: dmg
             bundle_directory: dmg
-            bundle_extension: .dmg
             artifact_name: Needlelight-macOS
             release_file: Needlelight-macOS.dmg
-            portable_file: ""
             artifact_files: Needlelight-macOS.dmg
 
     steps:
@@ -137,11 +129,9 @@ jobs:
       - name: Name release files
         env:
           BUNDLE_DIRECTORY: ${{ matrix.bundle_directory }}
-          BUNDLE_EXTENSION: ${{ matrix.bundle_extension }}
           RELEASE_FILE: ${{ matrix.release_file }}
-          PORTABLE_FILE: ${{ matrix.portable_file }}
         run: >-
-          node -e "const fs=require('fs'); const path=require('path'); const root=path.join('src-tauri','target','release','bundle',process.env.BUNDLE_DIRECTORY); const find=(dir)=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?find(path.join(dir,e.name)):[path.join(dir,e.name)]).find(p=>p.endsWith(process.env.BUNDLE_EXTENSION)); const source=find(root); if(!source) throw new Error('Bundled release file not found'); fs.copyFileSync(source,process.env.RELEASE_FILE); if(process.env.PORTABLE_FILE) fs.copyFileSync(path.join('src-tauri','target','release','Needlelight.exe'),process.env.PORTABLE_FILE);"
+          node -e "const fs=require('fs'); const path=require('path'); const extension={appimage:'.AppImage',nsis:'.exe',dmg:'.dmg'}[process.env.BUNDLE_DIRECTORY]; const root=path.join('src-tauri','target','release','bundle',process.env.BUNDLE_DIRECTORY); const find=(dir)=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?find(path.join(dir,e.name)):[path.join(dir,e.name)]).find(p=>p.endsWith(extension)); const source=find(root); if(!source) throw new Error('Bundled release file not found'); fs.copyFileSync(source,process.env.RELEASE_FILE);"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
