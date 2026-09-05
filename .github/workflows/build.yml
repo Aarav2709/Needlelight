@@ -131,7 +131,7 @@ jobs:
           BUNDLE_DIRECTORY: ${{ matrix.bundle_directory }}
           RELEASE_FILE: ${{ matrix.release_file }}
         run: >-
-          node -e "const fs=require('fs'); const path=require('path'); const extension={appimage:'.AppImage',nsis:'.exe',dmg:'.dmg'}[process.env.BUNDLE_DIRECTORY]; const root=path.join('src-tauri','target','release','bundle',process.env.BUNDLE_DIRECTORY); const find=(dir)=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?find(path.join(dir,e.name)):[path.join(dir,e.name)]).find(p=>p.endsWith(extension)); const source=find(root); if(!source) throw new Error('Bundled release file not found'); fs.copyFileSync(source,process.env.RELEASE_FILE);"
+          node -e "const fs=require('fs'); const path=require('path'); const extension={appimage:'.AppImage',nsis:'.exe',dmg:'.dmg'}[process.env.BUNDLE_DIRECTORY]; const root=path.join('src-tauri','target','release','bundle',process.env.BUNDLE_DIRECTORY); const find=(dir)=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?find(path.join(dir,e.name)):[path.join(dir,e.name)]).find(p=>typeof p==='string'&&p.endsWith(extension)); const source=find(root); if(!source) throw new Error('Bundled release file not found'); fs.copyFileSync(source,process.env.RELEASE_FILE);"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
