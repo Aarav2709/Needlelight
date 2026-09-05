@@ -1,11 +1,11 @@
-<h1 align="center"> Needlelight</h1>
+<h1 align="center">Needlelight</h1>
 
 <p align="center">
-  Needlelight is a desktop mod manager built on Tauri + Rust with a modern frontend and a native backend.
+A modern desktop mod manager for Hollow Knight and Hollow Knight: Silksong, built with Tauri and Rust.
 </p>
 
 <p align="center">
-  <img src="image.png" alt="Needlelight Banner" />
+<img src="image.png" alt="Needlelight Banner" />
 </p>
 
 <div align="center">
@@ -15,154 +15,116 @@
 
 </div>
 
-Key improvements in Needlelight:
+## About
+- Needlelight is a desktop mod manager for Hollow Knight and Hollow Knight: Silksong.
+- The project has been rebuilt from the ground up around a Tauri and Rust architecture, with a native Rust backend handling game files, mod installation, profiles, and other system level operations.
+- The goal is to provide a simple way to discover, install, manage, and configure mods without having to manually deal with game files.
 
-- Ground-up rewrite of backend and frontend around a Rust-first architecture.
-- Reworked game profile system with stronger Silksong path handling and mod catalog fallback.
-- Installer flow with explicit checksums, extraction guards, and typed error paths.
+## Project Status and Attribution
 
-## Project status and attribution
-
-- This repository is **not associated with Lumafly**.
-- The current codebase is a **fresh ground-up rewrite**.
-- No legacy Lumafly implementation is used as runtime code in this project.
-- Thanks to the original owners for inspiring me to make this.
+- Needlelight is not associated with Lumafly.
+- The current codebase is a fresh rewrite built around Tauri and Rust. It does not use the legacy Lumafly implementation as runtime code.
+- The project was inspired by the work that came before it.
 
 ## Credits
+### Modrinth
+- The Needlelight frontend is built using parts of Modrinth's open source Theseus launcher project.
+- This includes the Vue.js frontend, `@modrinth/ui` component library, and `@modrinth/assets` icon set.
+- Modrinth's code is licensed under the GNU General Public License v3.
+- Huge thanks to the Modrinth team for making their work available as open source.
+- I personally e-mailed the team as well, for permission, they allowed me to do so.
+> I have used the base, and iterated it accordingly, so it doesn't comes off as a rip-off of modrinth. Several features were stripped off, which were not required for my project.
 
-- **[Modrinth](https://modrinth.com/)** — The frontend UI of Needlelight is built on top of Modrinth's open-source [Theseus launcher](https://github.com/modrinth/code) (Vue.js frontend, `@modrinth/ui` component library, and `@modrinth/assets` icon set). Modrinth's code is licensed under the [GNU General Public License v3](https://github.com/modrinth/code/blob/main/COPYING.md). Huge thanks to the Modrinth team for making their work open source.
-- **[hk-modding](https://github.com/hk-modding)** — Needlelight fetches mod data from the official [modlinks](https://github.com/hk-modding/modlinks) and installs the [Modding API](https://github.com/hk-modding/api).
+### hk-modding
+- Big thanks for hk-modding team, Needlelight uses the official mod data provided by [modlinks](https://github.com/hk-modding/modlinks) and installs the [Modding API](https://github.com/hk-modding/api) when required.
 
 ## Usage
-
-- Download the latest version from the releases page.
-- Default game = Hollow Knight. To manage Silksong, open Settings → Game → select "Silksong". The active profile changes immediately and persists to your config.
-- Search through and download the mods you like.
-- Mods appear in the top left corner of the game title screen after installation.
-- Enable/Disable mods using the toggle. (Manual update UI was removed in v6.0.0.0 — use the Releases page.)
-- If you are unable to connect to the internet, Needlelight can still be launched in offline mode where you can toggle installed mods/API.
+- Download the latest version from the [Releases](https://github.com/Aarav2709/Needlelight/releases) page and launch Needlelight.
+- Hollow Knight is selected by default.
+- To manage Silksong, open Settings and select Silksong under Game. Needlelight keeps the selected game profile between launches.
+- Once a game is configured, you can browse the available mods, install the ones you want, and manage your installed mods directly from Needlelight.
+- Installed mods can be enabled or disabled from the application.
+- Needlelight can also be used offline to manage mods that are already installed.
 
 ## Features
+### Game Profiles
+- Needlelight supports both Hollow Knight and Hollow Knight: Silksong.
+- Each game has its own profile and game directory, so switching between games does not require manually changing paths every time.
 
-- Multi‑game profiles: Switch between Hollow Knight and Hollow Knight: Silksong in Settings.
-- Automatically downloads the [Modding API](https://github.com/hk-modding/api) which is required for mods to load. It also allows switching between modded and vanilla via the Toggle API button.
-- Search through the 300+ mods available in the [official modlinks](https://github.com/hk-modding/modlinks).
-- Group mods in modpacks and share them using the commands.
-- Display mods that were recently updated or released.
-- A single place to install, update, configure, view readmes, and report issues for mods.
-- Manage mods not available through modlinks via the manual install button.
+### Mod Management
+- Browse available mods through the official modlinks catalog.
+- Install and manage mods directly from Needlelight without manually moving files around.
+- You can also manually install mods that are not available through the catalog.
 
-## Migration notes
+### Modding API
+- Needlelight can install and manage the required Modding API for supported games.
+- The API can also be toggled to switch between a modded and vanilla setup.
+- For Silksong, Needlelight handles the BepInEx installation required for mod support.
 
-- Older configs continue to load with Hollow Knight as the default (`game` missing or set to `hollow_knight`).
-- When you choose Silksong in Settings, the config persists `silksong` and will restore that on next launch.
+## Silksong Support
+- Needlelight supports Hollow Knight: Silksong as a separate game profile.
+- When Silksong is selected, Needlelight uses the configured Silksong installation directory instead of the Hollow Knight directory.
+- If a Silksong installation has not been configured yet, Needlelight will ask you to select the game folder.
+- Needlelight also handles the BepInEx setup required for Silksong when the Modding API is installed.
 
-## Contributions
+## Custom Modlinks
+- Needlelight supports custom ModLinks catalogs.
+- Open Settings and enable `Use Custom Modlinks`, then provide the URL of a ModLinks.xml file.
+- This can be useful for community maintained catalogs or personal forks of the official modlinks repository.
+- Custom catalogs are saved separately for each game profile.
+- To return to the official catalog, disable `Use Custom Modlinks` in Settings.
 
-- If you want to suggest a feature or report a bug, report it on the issues page.
-- If you want to contribute, feel free to. You can see what features are currently requested over here.
+## Installation Diagnostics
+- Needlelight records installation related information in its log file.
+- If a mod installation fails or a mod appears to install correctly but does not load, the installation log can be useful when reporting the issue.
 
-## Windows SmartScreen (free workaround)
-
-Because the app isn’t code-signed with a paid certificate, Windows SmartScreen may warn on first launch. Free options:
-
-- Unblock the downloaded ZIP before extracting.
-  - Right‑click the ZIP → Properties → check “Unblock” → OK → then extract.
-  - Or in PowerShell (replace the filename if different):
-
-    ```powershell
-    Unblock-File -Path .\Needlelight-Windows.zip
-    Expand-Archive .\Needlelight-Windows.zip -DestinationPath .\Needlelight
-    ```
-
-- If already extracted, unblock the files:
-
-  ```powershell
-  Get-ChildItem .\Needlelight -Recurse | Unblock-File
-  ```
-
-- Verify downloads with the provided SHA256SUMS.txt in each release.
-
-Note: Fully removing SmartScreen requires a trusted code‑signing certificate (paid). The steps above avoid the “downloaded from the internet” flag and keep things safe and free.
-
-## Verify downloads (SHA‑256)
-
-Each release includes a `SHA256SUMS.txt` file. Verify the file(s) you downloaded match the published checksums.
-
-- Download `SHA256SUMS.txt` from the same release as your file.
-- Put it in the same folder as the file(s) you want to verify.
-
-Windows (PowerShell)
-
-```powershell
-# Show the file's SHA-256 and compare with SHA256SUMS.txt
-Get-FileHash -Algorithm SHA256 .\Needlelight-Windows.zip
-
-# Optionally verify multiple files manually by comparing the printed hash
-# with the corresponding line in SHA256SUMS.txt.
+The log can be found at:
+### Windows
+```text
+%APPDATA%\HKModInstaller\Needlelight-install.log
 ```
 
-Windows (Command Prompt)
-
-```bat
-certutil -hashfile Needlelight-Windows.zip SHA256
+### macOS
+```text
+~/Library/Application Support/HKModInstaller/Needlelight-install.log
 ```
 
-macOS
+### Linux
+```text
+~/.config/HKModInstaller/Needlelight-install.log
+```
+If you have set `XDG_CONFIG_HOME`, the log will instead be located under:
+```text
+$XDG_CONFIG_HOME/HKModInstaller/Needlelight-install.log
+```
 
+## Backend Configuration
+- The desktop application supports overriding the backend catalog endpoints through environment variables.
+- These settings are primarily useful for development and testing different catalog sources.
+
+The available variables are:
+```text
+NEEDLELIGHT_HK_MODLINKS_URLS
+NEEDLELIGHT_HK_APILINKS_URLS
+NEEDLELIGHT_SS_MODLINKS_URLS
+NEEDLELIGHT_SS_APILINKS_URLS
+```
+
+Multiple URLs can be provided as a comma separated list.
+For example:
 ```bash
-# Quick: print a file's hash
-shasum -a 256 Needlelight-MacOS.zip
-
-# Check against the whole list (expects files next to SHA256SUMS.txt)
-shasum -a 256 --check SHA256SUMS.txt
-# Outputs: "filename: OK" or "FAILED"
+NEEDLELIGHT_HK_MODLINKS_URLS="https://your.backend/ModLinks.xml"
+NEEDLELIGHT_HK_APILINKS_URLS="https://your.backend/ApiLinks.xml"
 ```
 
-Linux
+## Development
+- Needlelight is built using Tauri, Rust, and Vue.
+- Install the project dependencies and use the project's development commands to start the desktop application.
+- The Rust backend is located in the Tauri application and handles native functionality such as filesystem access, game detection, mod installation, and configuration.
+> Though there is no estimation on when I will be done with v8.0.0.0, due to other projects and school life, I plan to finish it super soon, and if everything goes as planned, v8.0.0.0 will be the last Major Update to the launcher, and bugs (if any reported) will be fixed too!
+> If there are any suggestions, which y'all wanna suggest, then go ahead. If multiple people think the launcher needs it, then I will surely add it, maybe as a minor update if I am constantly updating the launcher, or as a major update if I am not updating it, with additional bug fixes.
 
-```bash
-# Quick: print a file's hash
-sha256sum Needlelight-Linux.zip
-
-# Check against the whole list (expects files next to SHA256SUMS.txt)
-sha256sum -c SHA256SUMS.txt
-# Outputs: "filename: OK" or "FAILED"
-```
-
-Tip: You can also verify individual executables (e.g., `Needlelight.exe`, `Needlelight.AU.exe`) using the same commands.
-
-## Silksong support & BepInEx
-
-- Switch the active game from the top bar or Settings → Game. Needlelight now remembers a managed folder per game; if the stored path does not match the selected profile, you’ll be asked to pick the correct Silksong install.
-- For Silksong, Needlelight installs BepInEx automatically when you toggle “Install/Toggle API.” It installs into the Silksong game root (next to the executable), not the Hollow Knight folder.
-- Steam default path: `steamapps/common/Hollow Knight Silksong`. Mods live in `Hollow Knight Silksong_Data/Managed/Mods` (and `Disabled`).
-- If the game folder is not set, browse to the Silksong game folder (or `.app` on macOS). On Linux, both native and Proton installs are supported; pick the folder that contains `Hollow Knight Silksong_Data/Managed`.
-
-## Custom modlinks
-
-- Settings → “Use Custom Modlinks”: toggle on and paste a ModLinks.xml URL (e.g., a community list or your own fork). This works for both games and is saved separately for each game profile. Needlelight will fetch that list first; if it’s invalid, it will show an error.
-- To revert to the official catalog, toggle “Use Custom Modlinks” off (or use the corresponding URL command). The current selection is saved per profile and applied on next launch.
-
-## Installation diagnostics
-
-Every Modding API and mod installation writes its outcome to `Needlelight-install.log`. If an install fails or says it completed but a mod does not load, attach this file to a bug report:
-
-- Windows: `%APPDATA%\HKModInstaller\Needlelight-install.log`
-- macOS: `~/Library/Application Support/HKModInstaller/Needlelight-install.log`
-- Linux: `~/.config/HKModInstaller/Needlelight-install.log` (or `$XDG_CONFIG_HOME/HKModInstaller/Needlelight-install.log`)
-
-## Backend endpoint override (desktop)
-
-- You can point Needlelight to your own backend catalog feeds at runtime (no frontend change required) using comma-separated URL env vars:
-  - `NEEDLELIGHT_HK_MODLINKS_URLS`
-  - `NEEDLELIGHT_HK_APILINKS_URLS`
-  - `NEEDLELIGHT_SS_MODLINKS_URLS`
-  - `NEEDLELIGHT_SS_APILINKS_URLS`
-- Example:
-
-  ```bash
-  NEEDLELIGHT_HK_MODLINKS_URLS="https://your.backend/ModLinks.xml" \
-  NEEDLELIGHT_HK_APILINKS_URLS="https://your.backend/ApiLinks.xml" \
-  pnpm dev:desktop
-  ```
+## Contributing
+- Contributions are welcome.
+- If you find a bug, have an idea, or want to suggest an improvement, open an issue on GitHub.
+- If you want to contribute code, feel free to open a pull request.
