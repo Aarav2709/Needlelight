@@ -4,9 +4,9 @@
 
 | Version | Supported |
 |---|---|
-| Latest stable release | Yes |
-| Older releases | No |
-| Development and prerelease builds | No |
+| Latest stable release (v7.0.0.0) | Yes |
+| Older releases (anything before v7.0.0.0) | No |
+| Development and prerelease builds (v8.0.0.0-beta) | No |
 
 ## Reporting a Vulnerability
 - Please **do not open a public GitHub issue** for security vulnerabilities.
