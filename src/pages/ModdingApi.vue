@@ -53,11 +53,24 @@ async function loadState() {
 }
 
 async function installApi() {
-  if (!hasFolder.value || installing.value) return
-  installing.value = true
-  installProgress.value = 0
-  installStage.value = isSilksong.value ? 'Downloading BepInEx...' : 'Downloading Modding API...'
+  if (installing.value) return
+
   try {
+    // Refresh the selected game/folder state at click time. The API action
+    // must never silently no-op because the page has stale state.
+    const settings = await invoke('load_settings')
+    game.value = settings.game || game.value
+    hasFolder.value = !!settings.managed_folder?.trim()
+
+    if (!hasFolder.value) {
+      handleError('Please select a game directory by clicking Browse in the Library first.')
+      return
+    }
+
+    installing.value = true
+    installProgress.value = 0
+    installStage.value = isSilksong.value ? 'Downloading BepInEx...' : 'Downloading Modding API...'
+
     await invoke('install_api')
     installProgress.value = 100
     installStage.value = 'Installation complete'
@@ -102,7 +115,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <ButtonStyled color="brand" :disabled="!hasFolder || installing">
+        <ButtonStyled color="brand" :disabled="installing">
           <button @click="installApi">
             <RefreshCwIcon v-if="installing" class="animate-spin" />
             <DownloadIcon v-else />
@@ -134,12 +147,12 @@ onUnmounted(() => {
       <section v-if="!isSilksong" class="pt-8 mt-8 border-t border-solid border-surface-5">
         <h2 class="m-0 text-lg font-bold text-contrast">Hollow Knight version compatibility</h2>
         <p class="m-0 mt-3 max-w-4xl text-sm text-secondary leading-relaxed">
-          Hollow Knight <span class="text-contrast font-semibold">1.5.12620</span> launched on March 27, 2026 and moved the game to Unity 6. The official Modding API <span class="text-contrast font-semibold">v77</span> targets <span class="text-contrast font-semibold">1.5.78.11833</span>, so it is not compatible with the Unity 6 build yet. The community is still working on the Unity 6 API transition and compatible mod ports.
+          Hollow Knight <span class="text-contrast font-semibold">1.5.12620</span>, released March 27, 2026, moved the game to Unity 6. The official Modding API <span class="text-contrast font-semibold">v77</span> targets <span class="text-contrast font-semibold">1.5.78.11833</span>, the last pre-Unity 6 build. Unity 6 API support and compatible mod ports are still in development.
         </p>
 
         <div class="mt-6">
-          <h3 class="m-0 text-sm font-bold text-contrast">Use the supported legacy build</h3>
-          <ol class="m-0 mt-3 pl-5 max-w-4xl text-sm text-secondary leading-7">
+          <h3 class="m-0 text-sm font-bold text-contrast">Use the supported version</h3>
+          <ol class="m-0 mt-3 pl-5 max-w-4xl text-sm text-secondary leading-7 marker:text-brand">
             <li>Open <span class="text-contrast font-semibold">Steam</span> and right-click <span class="text-contrast font-semibold">Hollow Knight</span>.</li>
             <li>Select <span class="text-contrast font-semibold">Properties</span>.</li>
             <li>Open <span class="text-contrast font-semibold">Betas</span> or <span class="text-contrast font-semibold">Game Versions and Betas</span>.</li>
@@ -148,8 +161,8 @@ onUnmounted(() => {
           </ol>
         </div>
 
-        <p class="m-0 mt-4 max-w-4xl text-sm text-secondary leading-relaxed">
-          Until the Modding API has an official Unity 6 release, Needlelight stays on <span class="text-contrast font-semibold">v77</span> and the supported pre-Unity 6 game build to avoid installing an incompatible API.
+        <p class="m-0 mt-4 max-w-4xl text-xs text-secondary leading-relaxed">
+          Until the Modding API has an official Unity 6 release, Needlelight stays on <span class="text-contrast font-semibold">v77</span> for the supported pre-Unity 6 game build.
         </p>
       </section>
 
