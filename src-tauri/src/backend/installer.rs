@@ -6,6 +6,7 @@ use super::{
 };
 use sha2::{Digest, Sha256};
 use std::{collections::HashSet, fs::{File, OpenOptions}, io::{Read, Write}, path::{Path, PathBuf}};
+use tauri::{AppHandle, Emitter};
 use walkdir::WalkDir;
 use zip::ZipArchive;
 
@@ -63,7 +64,8 @@ pub(crate) fn write_install_log(message: impl AsRef<str>) {
     }
 }
 
-pub async fn install_mod(
+pub async fn install_mod<R: tauri::Runtime>(
+    app: &AppHandle<R>,
     settings: &AppSettings,
     installed: &mut InstalledModsStore,
     catalog: &CatalogResponse,
@@ -79,12 +81,12 @@ pub async fn install_mod(
     if !settings.game.is_silksong() {
         ensure_valid_hk_managed_folder(settings)?;
         if !is_api_installed(settings, installed) {
-            install_api(settings, installed, catalog).await?;
+            install_api(app, settings, installed, catalog).await?;
         }
         ensure_hk_api_enabled(settings).await?;
     } else if !is_api_installed(settings, installed) {
         write_install_log("Modding API is missing; installing it before the mod.");
-        install_api(settings, installed, catalog).await?;
+        install_api(app, settings, installed, catalog).await?;
     }
 
     let mut visited = HashSet::new();
@@ -148,7 +150,21 @@ pub async fn toggle_mod(
     Ok(())
 }
 
-pub async fn install_api(
+#[derive(Clone, serde::Serialize)]
+struct ApiInstallProgress {
+    progress: u8,
+    stage: String,
+}
+
+fn emit_api_progress<R: tauri::Runtime>(app: &AppHandle<R>, progress: u8, stage: impl Into<String>) {
+    let _ = app.emit("api-install-progress", ApiInstallProgress {
+        progress: progress.min(100),
+        stage: stage.into(),
+    });
+}
+
+pub async fn install_api<R: tauri::Runtime>(
+    app: &AppHandle<R>,
     settings: &AppSettings,
     installed: &mut InstalledModsStore,
     catalog: &CatalogResponse,
@@ -171,15 +187,29 @@ pub async fn install_api(
         ));
     }
 
+    emit_api_progress(app, 0, "Downloading Modding API...");
     let client = reqwest::Client::builder().user_agent("Needlelight").build()?;
-    let bytes = client
+    let mut response = client
         .get(&api.url)
         .send()
         .await?
-        .error_for_status()?
-        .bytes()
-        .await?;
+        .error_for_status()?;
+    let total = response.content_length();
+    let mut downloaded = 0u64;
+    let mut bytes = Vec::new();
+
+    while let Some(chunk) = response.chunk().await? {
+        downloaded += chunk.len() as u64;
+        bytes.extend_from_slice(&chunk);
+        let progress = total
+            .filter(|size| *size > 0)
+            .map(|size| ((downloaded.saturating_mul(70) / size).min(70)) as u8)
+            .unwrap_or(35);
+        emit_api_progress(app, progress, "Downloading Modding API...");
+    }
+
     write_install_log(format!("Downloaded Modding API archive ({} bytes).", bytes.len()));
+    emit_api_progress(app, 72, "Verifying download...");
 
     if !api.sha256.trim().is_empty() {
         let mut hasher = Sha256::new();
@@ -190,6 +220,7 @@ pub async fn install_api(
         }
     }
 
+    emit_api_progress(app, 82, "Installing API files...");
     if settings.game.is_silksong() {
         let target = settings.game_root_path();
         tokio::fs::create_dir_all(&target).await?;
@@ -198,6 +229,7 @@ pub async fn install_api(
         install_hk_api_payload(settings, bytes.as_ref()).await?;
     }
 
+    emit_api_progress(app, 94, "Verifying installation...");
     if !is_api_installed(settings, installed) {
         write_install_log(format!(
             "Modding API verification failed after extraction to {}.",
@@ -216,6 +248,7 @@ pub async fn install_api(
     installed.db.has_vanilla = !settings.game.is_silksong();
     installed.save(settings).await?;
     write_install_log(format!("Modding API installed successfully in {}.", settings.managed_folder));
+    emit_api_progress(app, 100, "Installation complete");
 
     Ok(())
 }

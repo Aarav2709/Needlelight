@@ -298,28 +298,10 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Keep the page structure visible, but obscure stale content completely when no path exists. -->
-    <div v-if="!hasGameFolder" class="relative min-h-[56vh] overflow-hidden rounded-2xl border border-solid border-surface-5 bg-bg-raised">
-      <div class="absolute inset-0 opacity-30 blur-md pointer-events-none select-none">
-        <div class="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          <div v-for="n in 6" :key="n" class="h-40 rounded-xl bg-button-bg border border-solid border-surface-5" />
-        </div>
-      </div>
-      <div class="absolute inset-0 flex items-center justify-center bg-bg/55 backdrop-blur-[2px] p-6 text-center">
-        <div class="max-w-md">
-          <div class="mx-auto mb-4 w-11 h-11 rounded-full bg-button-bg border border-solid border-surface-5 flex items-center justify-center text-secondary">
-            <FolderSearchIcon class="w-5 h-5" />
-          </div>
-          <h2 class="m-0 text-xl font-bold text-contrast">Please select a directory to continue</h2>
-          <p class="m-0 mt-2 text-sm text-secondary leading-relaxed">Select the {{ gameName }} Managed folder to browse and manage mods.</p>
-          <ButtonStyled class="mt-5" color="brand">
-            <button @click="chooseManagedFolder(true)" :disabled="promptingForFolder">
-              <FolderSearchIcon />
-              {{ promptingForFolder ? 'Waiting for folder...' : 'Select directory' }}
-            </button>
-          </ButtonStyled>
-        </div>
-      </div>
+    <div v-if="!hasGameFolder" class="min-h-[56vh] flex items-center justify-center px-6 text-center">
+      <p class="m-0 max-w-lg text-base font-medium text-secondary">
+        Please select a directory by clicking <span class="text-contrast font-semibold">Browse</span> on the top left to continue.
+      </p>
     </div>
 
     <Transition v-else enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150" enter-from-class="opacity-0" leave-to-class="opacity-0" mode="out-in">

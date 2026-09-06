@@ -770,6 +770,10 @@ onMounted(() => {
 
 .launch-action {
   --launch-stroke: rgba(255,255,255,.64);
+  width: 2.5rem !important;
+  min-width: 2.5rem !important;
+  height: 2.5rem !important;
+  border-radius: 0.65rem !important;
 }
 
 .launch-action.launch-modded {

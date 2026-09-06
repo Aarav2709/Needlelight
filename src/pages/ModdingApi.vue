@@ -1,9 +1,10 @@
 <script setup>
-import { DownloadIcon, FolderSearchIcon, RefreshCwIcon, ShieldIcon, SpinnerIcon } from '@modrinth/assets'
+import { DownloadIcon, RefreshCwIcon, ShieldIcon, SpinnerIcon } from '@modrinth/assets'
 import { ButtonStyled, injectNotificationManager } from '@modrinth/ui'
+import ProgressBar from '@/components/ui/ProgressBar.vue'
 import { invoke } from '@tauri-apps/api/core'
-import { open } from '@tauri-apps/plugin-dialog'
-import { computed, onMounted, ref } from 'vue'
+import { listen } from '@tauri-apps/api/event'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
 
@@ -19,6 +20,9 @@ const apiInstalled = ref(false)
 const apiEnabled = ref(false)
 const managedFolder = ref('')
 const error = ref(null)
+const installProgress = ref(0)
+const installStage = ref('Preparing download...')
+let unlistenProgress = null
 
 const hasFolder = computed(() => managedFolder.value.trim().length > 0)
 const apiVersion = computed(() => apiInfo.value?.version ? `v${apiInfo.value.version}` : 'Version unavailable')
@@ -42,29 +46,15 @@ async function loadState() {
   }
 }
 
-async function chooseFolder() {
-  try {
-    const folder = await open({ directory: true, title: "Select Hollow Knight's Managed Folder" })
-    if (!folder) return
-    const settings = await invoke('load_settings')
-    settings.managed_folder = folder
-    settings.managed_folders = settings.managed_folders || {}
-    settings.managed_folders[settings.game] = folder
-    await invoke('save_settings', { settings })
-    await loadState()
-  } catch (err) {
-    handleError(err)
-  }
-}
-
 async function installApi() {
-  if (!hasFolder.value) {
-    await chooseFolder()
-    if (!hasFolder.value) return
-  }
+  if (!hasFolder.value) return
   installing.value = true
+  installProgress.value = 0
+  installStage.value = 'Preparing download...'
   try {
     await invoke('install_api')
+    installProgress.value = 100
+    installStage.value = 'Installation complete'
     await loadState()
   } catch (err) {
     handleError(err)
@@ -73,29 +63,37 @@ async function installApi() {
   }
 }
 
-onMounted(loadState)
+onMounted(async () => {
+  unlistenProgress = await listen('api-install-progress', (event) => {
+    const payload = event.payload || {}
+    installProgress.value = Math.max(0, Math.min(100, Number(payload.progress ?? 0)))
+    if (payload.stage) installStage.value = payload.stage
+  })
+  await loadState()
+})
+
+onUnmounted(() => {
+  unlistenProgress?.()
+})
 </script>
 
 <template>
-  <div class="min-h-full p-6 flex items-center justify-center">
-    <div v-if="loading" class="w-full max-w-3xl min-h-[58vh] flex flex-col items-center justify-center text-secondary gap-3">
-      <div class="w-12 h-12 rounded-2xl bg-bg-raised border border-solid border-surface-5 flex items-center justify-center"><SpinnerIcon class="w-5 h-5 animate-spin" /></div>
+  <div class="min-h-full p-8">
+    <div v-if="loading" class="min-h-[70vh] flex flex-col items-center justify-center text-secondary gap-3">
+      <SpinnerIcon class="w-5 h-5 animate-spin" />
       <span class="text-sm">Loading Modding API...</span>
     </div>
 
-    <div v-else class="w-full max-w-4xl rounded-2xl bg-bg-raised border border-solid border-surface-5 overflow-hidden shadow-lg shadow-black/10">
-      <div class="px-6 py-5 border-b border-solid border-surface-5 flex items-center justify-between gap-4 flex-wrap">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl bg-brand/10 border border-solid border-brand/20 flex items-center justify-center text-brand shrink-0"><ShieldIcon class="w-5 h-5" /></div>
+    <div v-else class="max-w-4xl mx-auto">
+      <header class="flex items-start justify-between gap-6 pb-6 border-b border-solid border-surface-5">
+        <div class="flex items-start gap-4 min-w-0">
+          <div class="text-brand pt-1 shrink-0"><ShieldIcon class="w-6 h-6" /></div>
           <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-              <h1 class="m-0 text-xl font-extrabold text-contrast">Modding API</h1>
-              <span class="px-2 py-1 rounded-md bg-button-bg text-secondary text-xs font-bold">{{ apiVersion }}</span>
+              <h1 class="m-0 text-2xl font-extrabold text-contrast">Modding API</h1>
+              <span class="text-sm font-bold text-secondary">{{ apiVersion }}</span>
             </div>
-            <div class="flex items-center gap-2 mt-1 text-xs text-secondary">
-              <span class="w-1.5 h-1.5 rounded-full" :class="apiInstalled && apiEnabled ? 'bg-green-500' : 'bg-secondary'" />
-              {{ statusText }}
-            </div>
+            <p class="m-0 mt-2 text-sm text-secondary">{{ statusText }}</p>
           </div>
         </div>
         <ButtonStyled color="brand" :disabled="installing || !hasFolder">
@@ -105,29 +103,41 @@ onMounted(loadState)
             {{ installing ? 'Installing...' : ctaLabel }}
           </button>
         </ButtonStyled>
-      </div>
+      </header>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
-        <section class="rounded-xl border border-solid border-surface-5 bg-bg p-4">
-          <p class="m-0 text-[11px] font-semibold uppercase tracking-wider text-secondary">What it does</p>
-          <p class="m-0 mt-2 text-sm text-secondary leading-relaxed">The Modding API provides the runtime Hollow Knight and its mods use to load together. Install it before installing mods, and reinstall it whenever you need to refresh the API files.</p>
-        </section>
-        <section class="rounded-xl border border-solid border-surface-5 bg-bg p-4">
-          <div class="flex items-center justify-between gap-3">
-            <p class="m-0 text-[11px] font-semibold uppercase tracking-wider text-secondary">Managed folder</p>
-            <ButtonStyled type="transparent" size="small"><button @click="chooseFolder"><FolderSearchIcon /> Change</button></ButtonStyled>
+      <section class="pt-7">
+        <p class="m-0 text-sm text-secondary leading-relaxed max-w-3xl">The Modding API provides the runtime that lets Hollow Knight load mods together. Needlelight currently supports the official v77 API for the legacy Hollow Knight build.</p>
+
+        <div v-if="!hasFolder" class="mt-4 text-sm text-secondary">Select a game directory from <span class="text-contrast font-semibold">Browse</span> before installing the API.</div>
+
+        <div v-if="installing" class="mt-7 max-w-3xl">
+          <div class="flex items-center justify-between gap-4 mb-2">
+            <span class="text-sm font-semibold text-contrast">{{ installStage }}</span>
+            <span class="text-xs text-secondary tabular-nums">{{ installProgress }}%</span>
           </div>
-          <p v-if="hasFolder" class="m-0 mt-2 text-xs text-contrast break-all leading-relaxed">{{ managedFolder }}</p>
-          <p v-else class="m-0 mt-2 text-sm text-secondary">No directory selected yet.</p>
-        </section>
-      </div>
+          <ProgressBar :progress="installProgress" />
+        </div>
+      </section>
 
-      <div v-if="!hasFolder" class="mx-6 mb-6 rounded-xl border border-solid border-brand/25 bg-brand/5 p-4 flex items-center justify-between gap-4 flex-wrap">
-        <div><p class="m-0 text-sm font-semibold text-contrast">Select a Managed folder to continue</p><p class="m-0 mt-1 text-xs text-secondary">Needlelight can detect it automatically or you can choose it manually.</p></div>
-        <ButtonStyled color="brand"><button @click="chooseFolder"><FolderSearchIcon /> Select directory</button></ButtonStyled>
-      </div>
+      <section class="pt-9 mt-9 border-t border-solid border-surface-5">
+        <h2 class="m-0 text-lg font-bold text-contrast">Hollow Knight version compatibility</h2>
+        <p class="m-0 mt-3 text-sm text-secondary leading-relaxed max-w-3xl">The current Hollow Knight release is <span class="text-contrast font-semibold">1.5.12620</span>, which moved the game to Unity 6. The official Modding API v77 is for <span class="text-contrast font-semibold">1.5.78.11833</span>, so it cannot be used with the Unity 6 build. Unity 6 support and compatible mod ports are still being worked on by the modding community.</p>
 
-      <div v-if="error" class="mx-6 mb-6 rounded-xl border border-solid border-red-500/20 bg-red-500/5 p-4 text-sm text-secondary">
+        <div class="mt-6">
+          <h3 class="m-0 text-sm font-bold text-contrast">Use the supported legacy build</h3>
+          <ol class="m-0 mt-3 pl-5 text-sm text-secondary leading-7 max-w-3xl">
+            <li>Open <span class="text-contrast font-semibold">Steam</span> and right-click Hollow Knight.</li>
+            <li>Select <span class="text-contrast font-semibold">Properties</span>.</li>
+            <li>Open <span class="text-contrast font-semibold">Betas</span> / <span class="text-contrast font-semibold">Game Versions and Betas</span>.</li>
+            <li>Select <span class="text-contrast font-semibold">1.5.78.11833</span>, the previous game build.</li>
+            <li>Let Steam finish the download, then launch Hollow Knight through Needlelight.</li>
+          </ol>
+        </div>
+
+        <p class="m-0 mt-5 text-xs text-secondary leading-relaxed max-w-3xl">Until the official Modding API has a Unity 6 release, Needlelight stays on v77 and the supported pre-Unity 6 game build to avoid installing an incompatible API.</p>
+      </section>
+
+      <div v-if="error" class="pt-7 mt-7 border-t border-solid border-surface-5 text-sm text-secondary">
         <p class="m-0 font-semibold text-contrast">Could not load Modding API information.</p>
         <p class="m-0 mt-1">You can retry without changing your installation.</p>
         <ButtonStyled size="small" class="mt-3"><button @click="loadState">Retry</button></ButtonStyled>

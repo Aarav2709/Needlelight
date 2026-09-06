@@ -11,7 +11,7 @@ use crate::{
 };
 use std::collections::BTreeMap;
 use std::process::Command;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
     result.map_err(|e| e.to_string())
@@ -143,12 +143,12 @@ pub async fn refresh_catalog(
 }
 
 #[tauri::command]
-pub async fn install_mod(state: State<'_, AppState>, name: String) -> Result<(), String> {
+pub async fn install_mod(app: AppHandle, state: State<'_, AppState>, name: String) -> Result<(), String> {
     let settings = state.settings.read().await.clone();
     let mut installed = state.installed.write().await;
     let catalog = map_err(CatalogCache::build(&settings, &installed, !settings.use_custom_modlinks).await)?;
 
-    let result = installer::install_mod(&settings, &mut installed, &catalog.response, &name).await;
+    let result = installer::install_mod(&app, &settings, &mut installed, &catalog.response, &name).await;
     if let Err(error) = &result {
         installer::write_install_log(format!("Mod install failed for {name}: {error}"));
     }
@@ -170,12 +170,12 @@ pub async fn toggle_mod(state: State<'_, AppState>, name: String, enable: bool) 
 }
 
 #[tauri::command]
-pub async fn install_api(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn install_api(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let settings = state.settings.read().await.clone();
     let mut installed = state.installed.write().await;
     let catalog = map_err(CatalogCache::build(&settings, &installed, !settings.use_custom_modlinks).await)?;
 
-    let result = installer::install_api(&settings, &mut installed, &catalog.response).await;
+    let result = installer::install_api(&app, &settings, &mut installed, &catalog.response).await;
     if let Err(error) = &result {
         installer::write_install_log(format!("Modding API install failed: {error}"));
     }
