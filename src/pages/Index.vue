@@ -1,8 +1,7 @@
 <script setup>
 import { LibraryIcon, ShieldIcon } from '@modrinth/assets'
-import { injectNotificationManager } from '@modrinth/ui'
+import { ButtonStyled, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
-import { open } from '@tauri-apps/plugin-dialog'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -18,51 +17,34 @@ breadcrumbs.setRootContext({ name: 'Home', link: route.path })
 const settings = ref(null)
 const stats = ref({ total: 0, installed: 0, enabled: 0 })
 const loading = ref(true)
-const gameName = ref('Hollow Knight')
-const gameConfigured = ref(false)
-
-async function ensureGameFolder() {
-  const current = await invoke('load_settings')
-  if (current.managed_folder) return current
-
-  const game = current.game || 'hollow_knight'
-  const detected = await invoke('auto_detect_managed_folder', { game }).catch(() => null)
-  if (detected) {
-    current.managed_folder = detected
-    await invoke('save_settings', { settings: current })
-    return await invoke('load_settings')
-  }
-
-  const selected = await open({
-    directory: true,
-    title: `Select ${game === 'silksong' ? 'Hollow Knight Silksong' : 'Hollow Knight'}'s Managed Folder`,
-  })
-  if (!selected) return current
-
-  current.managed_folder = selected
-  await invoke('save_settings', { settings: current })
-  return await invoke('load_settings')
-}
 
 onMounted(async () => {
   try {
-    settings.value = await ensureGameFolder()
-    gameName.value = settings.value.game === 'silksong' ? 'Hollow Knight: Silksong' : 'Hollow Knight'
-    gameConfigured.value = !!settings.value.managed_folder
-
-    if (gameConfigured.value) {
-      const catalog = await invoke('refresh_catalog', { fetchOfficial: true })
-      const items = catalog?.items ?? []
-      stats.value = {
-        total: items.length,
-        installed: items.filter((m) => m.state?.kind === 'installed' || m.state?.kind === 'not_in_modlinks').length,
-        enabled: items.filter((m) => (m.state?.kind === 'installed' || m.state?.kind === 'not_in_modlinks') && m.state?.enabled !== false).length,
-      }
+    settings.value = await invoke('load_settings')
+    const catalog = await invoke('refresh_catalog', { fetchOfficial: true })
+    const items = catalog?.items ?? []
+    stats.value = {
+      total: items.length,
+      installed: items.filter((m) => m.state?.kind === 'Installed' || m.state?.kind === 'NotInModlinks').length,
+      enabled: items.filter((m) => (m.state?.kind === 'Installed' || m.state?.kind === 'NotInModlinks') && m.state?.enabled !== false).length,
     }
   } catch (err) {
-    handleError(err)
+    console.warn('Failed to load dashboard data:', err)
   } finally {
     loading.value = false
+  }
+})
+
+const gameName = ref('')
+const gameConfigured = ref(false)
+
+onMounted(async () => {
+  try {
+    const s = await invoke('load_settings')
+    gameName.value = s.game === 'silksong' ? 'Hollow Knight: Silksong' : 'Hollow Knight'
+    gameConfigured.value = !!s.managed_folder
+  } catch {
+    gameName.value = 'Hollow Knight'
   }
 })
 </script>
@@ -79,7 +61,7 @@ onMounted(async () => {
         Browse, install, and toggle mods from the modlinks repository.
       </p>
       <div v-if="!gameConfigured && !loading" class="mt-4 p-3 rounded-lg bg-orange-500/10 border border-solid border-orange-500/30 text-orange-400 text-sm">
-        Game folder not configured. Select the game's Managed folder to continue.
+        ⚠ Game folder not configured. Go to <strong>Settings → Game</strong> to set up your game path.
       </div>
     </div>
 

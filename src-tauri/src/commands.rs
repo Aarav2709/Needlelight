@@ -35,7 +35,23 @@ fn sync_managed_folder(mut settings: AppSettings) -> AppSettings {
 
 #[tauri::command]
 pub async fn load_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
-    Ok(sync_managed_folder(state.settings.read().await.clone()))
+    let mut settings = sync_managed_folder(state.settings.read().await.clone());
+
+    // Auto-detect the selected game's Managed folder on every cold load when no
+    // usable path is configured. This avoids requiring a game switch just to
+    // initialize Hollow Knight. Persist a successful detection so later refreshes
+    // see the same path immediately.
+    if settings.managed_folder.trim().is_empty() {
+        if let Some(path) = map_err(AppSettings::auto_detect(&settings.game).await)? {
+            settings.managed_folder = AppSettings::normalize_managed_folder(&path, &settings.game);
+            settings.set_managed_folder_for(&settings.game, settings.managed_folder.clone());
+            map_err(settings.save().await)?;
+            let mut shared = state.settings.write().await;
+            *shared = settings.clone();
+        }
+    }
+
+    Ok(settings)
 }
 
 #[tauri::command]
@@ -112,7 +128,11 @@ pub async fn refresh_catalog(
     let mut cache = map_err(CatalogCache::build(&settings, &installed, fetch_official).await)?;
     let api_installed = installer::is_api_installed(&settings, &installed);
     cache.response.api_installed = api_installed;
-    cache.response.api_enabled = installer::is_api_enabled(&settings, &installed);
+    cache.response.api_enabled = if settings.game.is_silksong() {
+        api_installed
+    } else {
+        installer::is_hk_api_enabled(&settings)
+    };
     if !api_installed {
         cache.response.api.url = String::new();
     }
@@ -200,8 +220,8 @@ pub async fn import_pack(state: State<'_, AppState>, code: String) -> Result<Opt
 
 #[tauri::command]
 pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<String, String> {
-    let settings = state.settings.read().await.clone();
-    if settings.managed_folder.is_empty() {
+    let settings = sync_managed_folder(state.settings.read().await.clone());
+    if settings.managed_folder.trim().is_empty() {
         installer::write_install_log("Game launch failed: no managed folder is configured.");
         return Err("Game folder not configured. Go to Settings > Game to set it up.".to_string());
     }
@@ -212,7 +232,6 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
         return Err(format!("Game folder is invalid: {}", game_root.display()));
     }
 
-    // Find executable
     let exe_candidates: Vec<std::path::PathBuf> = match settings.game {
         GameKey::HollowKnight => vec![
             game_root.join("hollow_knight.x86_64"),
@@ -233,32 +252,27 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
         ],
     };
 
-    let exe = exe_candidates
-        .iter()
-        .find(|p| p.exists())
-        .ok_or_else(|| {
-            let message = format!("Could not find game executable in {}", game_root.display());
-            installer::write_install_log(format!("Game launch failed: {message}"));
-            message
-        })?;
-
-    let mode = if modded { "modded" } else { "vanilla" };
+    let exe = exe_candidates.iter().find(|p| p.is_file()).ok_or_else(|| {
+        let message = format!("Could not find game executable in {}", game_root.display());
+        installer::write_install_log(format!("Game launch failed: {message}"));
+        message
+    })?.clone();
 
     if settings.game == GameKey::HollowKnight {
+        // The modded launcher requires the API to be in Current. The vanilla
+        // launcher swaps Current with the pristine backup for the lifetime of the
+        // game process, then restores the API state after the process exits.
         if modded {
-            if !installer::is_api_installed(&settings, &state.installed.read().await) {
-                let message = "Modded launch requires the Modding API. Install the API first.";
-                installer::write_install_log(format!("Game launch failed: {message}"));
-                return Err(message.to_string());
-            }
-            map_err(installer::set_hk_api_enabled(&settings, true))?;
-        } else if installer::is_api_installed(&settings, &state.installed.read().await) {
-            map_err(installer::set_hk_api_enabled(&settings, false))?;
+            installer::ensure_hk_api_enabled(&settings).await.map_err(|e| e.to_string())?;
+            installer::write_install_log("Prepared Hollow Knight in modded/API-enabled state.");
+        } else {
+            installer::ensure_hk_api_disabled(&settings).await.map_err(|e| e.to_string())?;
+            installer::write_install_log("Prepared Hollow Knight in vanilla state.");
         }
     }
 
-    installer::write_install_log(format!("Launching {} from {} ({mode}).", exe.display(), game_root.display(), if modded { "modded" } else { "vanilla" }));
-    let child = Command::new(exe.as_os_str())
+    installer::write_install_log(format!("Launching {} from {} (modded={modded}).", exe.display(), game_root.display()));
+    let child = Command::new(&exe)
         .current_dir(&game_root)
         .spawn()
         .map_err(|e| {
@@ -267,5 +281,24 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
             message
         })?;
 
-    Ok(format!("Launched {} ({mode}, process {}).", exe.file_name().unwrap_or_default().to_string_lossy(), child.id()))
+    let pid = child.id();
+    if settings.game == GameKey::HollowKnight && !modded {
+        let restore_settings = settings.clone();
+        tokio::spawn(async move {
+            let mut child = child;
+            let _ = tokio::task::spawn_blocking(move || child.wait()).await;
+            if let Err(error) = installer::ensure_hk_api_enabled(&restore_settings).await {
+                installer::write_install_log(format!("Failed to restore Hollow Knight API state after vanilla launch: {error}"));
+            } else {
+                installer::write_install_log("Restored Hollow Knight to modded/API-enabled state after vanilla launch.");
+            }
+        });
+    } else if settings.game == GameKey::HollowKnight {
+        // Dropping the Child handle does not terminate the process; the API stays
+        // enabled so subsequent modded launches are deterministic.
+        drop(child);
+    }
+
+    let mode = if modded { "modded" } else { "vanilla" };
+    Ok(format!("Launched {} ({mode}, process {pid}).", exe.file_name().unwrap_or_default().to_string_lossy()))
 }

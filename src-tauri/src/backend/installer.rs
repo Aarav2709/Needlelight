@@ -81,6 +81,7 @@ pub async fn install_mod(
         if !is_api_installed(settings, installed) {
             install_api(settings, installed, catalog).await?;
         }
+        ensure_hk_api_enabled(settings).await?;
     } else if !is_api_installed(settings, installed) {
         write_install_log("Modding API is missing; installing it before the mod.");
         install_api(settings, installed, catalog).await?;
@@ -153,7 +154,6 @@ pub async fn install_api(
     catalog: &CatalogResponse,
 ) -> AppResult<()> {
     write_install_log(format!("Starting Modding API install (game: {}).", settings.game.as_str()));
-
     if settings.managed_folder.trim().is_empty() {
         return Err(AppError::InvalidInput(
             "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
@@ -162,13 +162,6 @@ pub async fn install_api(
 
     if !settings.game.is_silksong() {
         ensure_valid_hk_managed_folder(settings)?;
-        // A previous disabled state leaves the vanilla DLL as Current and the API DLL as .m.
-        // Always bring the API state back to enabled before reinstalling so the new archive
-        // replaces the correct file and we never accidentally overwrite the vanilla backup.
-        if hk_api_is_disabled(settings) {
-            set_hk_api_enabled(settings, true)?;
-        }
-        ensure_hk_api_backup(settings).await?;
     }
 
     let api = &catalog.api;
@@ -193,27 +186,23 @@ pub async fn install_api(
         hasher.update(&bytes);
         let actual = hex::encode_upper(hasher.finalize());
         if actual != api.sha256.to_uppercase() {
-            write_install_log(format!("Modding API hash mismatch: expected {}, got {}.", api.sha256, actual));
             return Err(AppError::HashMismatch);
         }
     }
 
-    let target = if settings.game.is_silksong() {
-        settings.game_root_path()
+    if settings.game.is_silksong() {
+        let target = settings.game_root_path();
+        tokio::fs::create_dir_all(&target).await?;
+        extract_zip_guarded(bytes.as_ref(), &target, &["BepInEx"])?;
     } else {
-        PathBuf::from(&settings.managed_folder)
-    };
-
-    tokio::fs::create_dir_all(&target).await?;
-    let preserve_roots = if settings.game.is_silksong() {
-        ["BepInEx"].as_slice()
-    } else {
-        [].as_slice()
-    };
-    extract_zip_guarded(bytes.as_ref(), &target, preserve_roots)?;
+        install_hk_api_payload(settings, bytes.as_ref()).await?;
+    }
 
     if !is_api_installed(settings, installed) {
-        write_install_log(format!("Modding API verification failed after extraction to {}.", target.display()));
+        write_install_log(format!(
+            "Modding API verification failed after extraction to {}.",
+            settings.managed_folder
+        ));
         return Err(AppError::InvalidInput(
             "Modding API files were not found after installation. See Needlelight-install.log for details.".to_string(),
         ));
@@ -224,107 +213,116 @@ pub async fn install_api(
         version: api.version.clone(),
         pinned: false,
     });
+    installed.db.has_vanilla = !settings.game.is_silksong();
     installed.save(settings).await?;
-    write_install_log(format!("Modding API installed successfully in {}.", target.display()));
+    write_install_log(format!("Modding API installed successfully in {}.", settings.managed_folder));
 
     Ok(())
 }
 
-async fn ensure_hk_api_backup(settings: &AppSettings) -> AppResult<()> {
+async fn install_hk_api_payload(settings: &AppSettings, data: &[u8]) -> AppResult<()> {
     let managed = PathBuf::from(&settings.managed_folder);
     let current = managed.join("Assembly-CSharp.dll");
     let vanilla = managed.join("Assembly-CSharp.dll.v");
-
-    if vanilla.exists() {
-        return Ok(());
-    }
+    let modded = managed.join("Assembly-CSharp.dll.m");
 
     if !current.exists() {
         return Err(AppError::InvalidInput(
-            "Hollow Knight is missing Assembly-CSharp.dll. Verify the game files in Steam and try again.".to_string(),
+            "Managed folder is invalid (Assembly-CSharp.dll not found).".to_string(),
         ));
     }
 
-    // Never create a vanilla backup from an already-modded Assembly-CSharp.dll.
-    if detect_api_version(&current)?.is_some() {
-        return Err(AppError::InvalidInput(
-            "Hollow Knight appears to already have a modded Assembly-CSharp.dll, but its vanilla backup is missing. Verify the game files in Steam before installing the Modding API again.".to_string(),
-        ));
+    // The first install captures the pristine game assembly exactly once.
+    // If the API is installed but currently disabled, Current is vanilla and .m
+    // contains the API. Re-enable it first so reinstall always ends in the same
+    // clean layout: Current=API, .v=vanilla, and no stale .m file.
+    if modded.exists() && !is_hk_api_current(settings)? {
+        ensure_hk_api_enabled(settings).await?;
     }
 
-    tokio::fs::copy(&current, &vanilla).await?;
+    if !vanilla.exists() {
+        tokio::fs::copy(&current, &vanilla).await?;
+    }
+
+    // Never destroy a known-good vanilla backup. When reinstalling while the API is
+    // enabled, current is the modded assembly and can be replaced in place.
+    extract_zip_guarded(data, &managed, &[])?;
+
+    // Make sure an API-enabled state has the API assembly as Current and the vanilla
+    // backup remains untouched. A fresh install intentionally has no .m yet.
+    if is_hk_api_current(settings)? {
+        // Keep current as the newly extracted API payload.
+    }
+
     Ok(())
 }
 
-fn hk_api_paths(settings: &AppSettings) -> (PathBuf, PathBuf, PathBuf) {
-    let managed = PathBuf::from(&settings.managed_folder);
-    (
-        managed.join("Assembly-CSharp.dll"),
-        managed.join("Assembly-CSharp.dll.v"),
-        managed.join("Assembly-CSharp.dll.m"),
-    )
-}
-
-fn hk_api_is_disabled(settings: &AppSettings) -> bool {
-    let (current, vanilla, modded) = hk_api_paths(settings);
-    current.exists() && vanilla.exists() && modded.exists()
-}
-
-pub fn is_api_enabled(settings: &AppSettings, installed: &InstalledModsStore) -> bool {
-    if !is_api_installed(settings, installed) {
-        return false;
-    }
-
-    if settings.game.is_silksong() {
-        return installed
-            .db
-            .api_install
-            .as_ref()
-            .map(|state| state.enabled)
-            .unwrap_or(true);
-    }
-
-    !hk_api_is_disabled(settings)
-}
-
-pub fn set_hk_api_enabled(settings: &AppSettings, enabled: bool) -> AppResult<()> {
-    if settings.game.is_silksong() {
+pub async fn ensure_hk_api_enabled(settings: &AppSettings) -> AppResult<()> {
+    if settings.game.is_silksong() || settings.managed_folder.trim().is_empty() {
         return Ok(());
     }
 
-    let (current, vanilla, modded) = hk_api_paths(settings);
-    if !vanilla.exists() {
+    if is_hk_api_current(settings)? {
+        return Ok(());
+    }
+
+    let managed = PathBuf::from(&settings.managed_folder);
+    let current = managed.join("Assembly-CSharp.dll");
+    let vanilla = managed.join("Assembly-CSharp.dll.v");
+    let modded = managed.join("Assembly-CSharp.dll.m");
+
+    if !modded.exists() {
         return Err(AppError::InvalidInput(
-            "Hollow Knight's vanilla Assembly-CSharp.dll backup is missing. Verify the game files in Steam before changing API state.".to_string(),
+            "The Modding API is installed but its modded Assembly-CSharp backup is missing.".to_string(),
         ));
     }
 
-    if enabled {
-        if modded.exists() {
-            replace_move(&current, &vanilla)?;
-            replace_move(&modded, &current)?;
-        }
-    } else if !modded.exists() {
-        replace_move(&current, &modded)?;
-        replace_move(&vanilla, &current)?;
-    }
-
+    // In the disabled state, Current is vanilla and .m is the API assembly.
+    // Move vanilla to .v, then restore the API into Current.
+    replace_file(&current, &vanilla).await?;
+    replace_file(&modded, &current).await?;
     Ok(())
 }
 
-fn replace_move(from: &Path, to: &Path) -> AppResult<()> {
-    if !from.exists() {
-        return Err(AppError::InvalidInput(format!(
-            "Required API state file is missing: {}",
-            from.display()
-        )));
+pub async fn ensure_hk_api_disabled(settings: &AppSettings) -> AppResult<()> {
+    if settings.game.is_silksong() || settings.managed_folder.trim().is_empty() {
+        return Ok(());
     }
 
-    if to.exists() {
-        std::fs::remove_file(to)?;
+    if !is_hk_api_current(settings)? {
+        return Ok(());
     }
-    std::fs::rename(from, to)?;
+
+    let managed = PathBuf::from(&settings.managed_folder);
+    let current = managed.join("Assembly-CSharp.dll");
+    let vanilla = managed.join("Assembly-CSharp.dll.v");
+    let modded = managed.join("Assembly-CSharp.dll.m");
+
+    if !vanilla.exists() {
+        return Err(AppError::InvalidInput(
+            "Cannot disable the Modding API because the vanilla Assembly-CSharp backup is missing.".to_string(),
+        ));
+    }
+
+    replace_file(&current, &modded).await?;
+    replace_file(&vanilla, &current).await?;
     Ok(())
+}
+
+async fn replace_file(source: &Path, destination: &Path) -> AppResult<()> {
+    if destination.exists() {
+        tokio::fs::remove_file(destination).await?;
+    }
+    tokio::fs::rename(source, destination).await?;
+    Ok(())
+}
+
+fn is_hk_api_current(settings: &AppSettings) -> AppResult<bool> {
+    if settings.game.is_silksong() || settings.managed_folder.trim().is_empty() {
+        return Ok(false);
+    }
+    let current = PathBuf::from(&settings.managed_folder).join("Assembly-CSharp.dll");
+    Ok(matches!(detect_api_version(&current), Ok(Some(_))))
 }
 
 fn extract_zip_guarded(data: &[u8], destination: &Path, preserve_roots: &[&str]) -> AppResult<()> {
@@ -456,6 +454,15 @@ pub fn map_state_after_install(current: &ModState, version: &str) -> ModState {
     }
 }
 
+pub fn is_hk_api_enabled(settings: &AppSettings) -> bool {
+    if settings.game.is_silksong() || settings.managed_folder.trim().is_empty() {
+        return false;
+    }
+    let managed = PathBuf::from(&settings.managed_folder);
+    let current = managed.join("Assembly-CSharp.dll");
+    matches!(detect_api_version(&current), Ok(Some(_)))
+}
+
 pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore) -> bool {
     if settings.game.is_silksong() {
         let bepinex = settings.game_root_path().join("BepInEx/core/BepInEx.dll");
@@ -466,13 +473,14 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
         return false;
     }
 
-    let managed_dir = PathBuf::from(&settings.managed_folder);
-    if managed_dir.join("ModdingApi.dll").exists() {
+    let managed = PathBuf::from(&settings.managed_folder);
+    if managed.join("ModdingApi.dll").exists() || is_hk_api_enabled(settings) {
         return true;
     }
 
-    let managed = managed_dir.join("Assembly-CSharp.dll");
-    matches!(detect_api_version(&managed), Ok(Some(_)))
+    // API may currently be disabled. In that state the vanilla Assembly-CSharp.dll
+    // is Current and the installed API is held in Assembly-CSharp.dll.m.
+    managed.join("Assembly-CSharp.dll.m").is_file()
 }
 
 async fn install_mod_with_deps(

@@ -26,8 +26,40 @@ A modern desktop mod manager for Hollow Knight and Hollow Knight: Silksong, buil
 - The current codebase is a fresh rewrite built around Tauri and Rust. It does not use the legacy Lumafly implementation as runtime code.
 - The project was inspired by the work that came before it.
 
-## Credits
-### Modrinth
+
+### Reference and Investigation Sources
+
+The following projects and repositories were referred to during Needlelight development, debugging, and implementation research. They are credited here as references and sources of ideas or implementation patterns. This does not mean their code is included wholesale in Needlelight.
+
+#### Scarab
+- Repository: https://github.com/fifty-six/Scarab
+- Referred to for Hollow Knight API installation, API state handling, vanilla/modded `Assembly-CSharp.dll` swapping, mod installation, and extraction behavior.
+- Scarab is licensed under GPL-3.0.
+
+#### Lumafly
+- Repository: https://github.com/themulhima/Lumafly
+- Referred to for Hollow Knight mod manager behavior, installation flows, API handling, update handling, and related reference implementation details.
+
+#### Cogfly
+- Repository: https://github.com/Nix-main/Cogfly
+- Referred to for Hollow Knight: Silksong game path handling and Silksong mod management implementation patterns.
+
+#### Hollow Knight Modding API
+- Repository: https://github.com/hk-modding/api
+- Referred to as the upstream Hollow Knight Modding API source.
+- Needlelight uses API release information supplied through the modlinks ecosystem rather than treating arbitrary repository commits as releases.
+
+#### Hollow Knight ModLinks
+- Repository: https://github.com/hk-modding/modlinks
+- Referred to as the source of official mod and API distribution metadata used by the launcher.
+
+#### ItemChanger Unity 6 Port
+- Repository: https://github.com/bibobonking/ItemChanger-port
+- Referred to during investigation of Hollow Knight 1.5.12620 / Unity 6 compatibility and the community API work around that game version.
+- This repository is an external community project and is not a Needlelight dependency.
+
+#### Modrinth / Theseus
+- Repository: https://github.com/modrinth/code
 - The Needlelight frontend is built using parts of Modrinth's open source Theseus launcher project.
 - This includes the Vue.js frontend, `@modrinth/ui` component library, and `@modrinth/assets` icon set.
 - Modrinth's code is licensed under the GNU General Public License v3.
@@ -35,8 +67,9 @@ A modern desktop mod manager for Hollow Knight and Hollow Knight: Silksong, buil
 - I personally e-mailed the team as well, for permission, they allowed me to do so.
 > I have used the base, and iterated it accordingly, so it doesn't comes off as a rip-off of modrinth. Several features were stripped off, which were not required for my project.
 
-### hk-modding
-- Big thanks for hk-modding team, Needlelight uses the official mod data provided by [modlinks](https://github.com/hk-modding/modlinks) and installs the [Modding API](https://github.com/hk-modding/api) when required.
+#### Lucide
+- Website: https://lucide.dev/
+- Referred to for iconography through the Modrinth assets ecosystem.
 
 ## Usage
 - Download the latest version from the [Releases](https://github.com/Aarav2709/Needlelight/releases) page and launch Needlelight.

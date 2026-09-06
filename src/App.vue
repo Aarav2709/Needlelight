@@ -14,7 +14,6 @@ import {
   XIcon,
 } from "@modrinth/assets";
 import {
-  Button,
   ButtonStyled,
   commonMessages,
   defineMessages,
@@ -453,11 +452,11 @@ onMounted(() => {
         <ShieldIcon class="text-contrast" />
       </NavButton>
       <div class="flex flex-grow"></div>
-      <NavButton v-tooltip.right="'Launch Vanilla'" class="launch-button launch-button-vanilla" :to="() => launchGame(false)">
-        <PlayIcon />
+      <NavButton v-tooltip.right="'Launch Vanilla'" class="launch-action launch-vanilla" :to="() => launchGame(false)">
+        <span class="launch-glyph"><PlayIcon /></span>
       </NavButton>
-      <NavButton v-tooltip.right="'Launch Modded'" class="launch-button launch-button-modded" :to="() => launchGame(true)">
-        <svg class="modded-launch-icon" xmlns="http://www.w3.org/2000/svg" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/><path d="M15 3v18" stroke-dasharray="2.5 2.5"/></svg>
+      <NavButton v-tooltip.right="'Launch Modded'" class="launch-action launch-modded" :to="() => launchGame(true)">
+        <span class="launch-glyph"><PlayIcon /><span class="modded-mark"></span></span>
       </NavButton>
       <Transition name="nav-button-animated">
         <div
@@ -538,24 +537,9 @@ onMounted(() => {
           </Suspense>
         </div>
         <section class="window-controls" data-tauri-drag-region-exclude>
-          <Button
-            class="titlebar-button"
-            icon-only
-            @click="() => getCurrentWindow().minimize()"
-          >
-            <MinimizeIcon />
-          </Button>
-          <Button
-            class="titlebar-button"
-            icon-only
-            @click="() => getCurrentWindow().toggleMaximize()"
-          >
-            <RestoreIcon v-if="isMaximized" />
-            <MaximizeIcon v-else />
-          </Button>
-          <Button class="titlebar-button close" icon-only @click="handleClose">
-            <XIcon />
-          </Button>
+          <button class="titlebar-button" aria-label="Minimize" @click="() => getCurrentWindow().minimize()"><MinimizeIcon /></button>
+          <button class="titlebar-button" aria-label="Maximize" @click="() => getCurrentWindow().toggleMaximize()"><RestoreIcon v-if="isMaximized" /><MaximizeIcon v-else /></button>
+          <button class="titlebar-button close" aria-label="Close" @click="handleClose"><XIcon /></button>
         </section>
       </section>
     </div>
@@ -598,9 +582,9 @@ onMounted(() => {
     transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
     background-color: transparent;
     color: var(--color-base);
-    height: 2rem;
-    width: 2rem;
-    min-width: 2rem;
+    height: 1.55rem;
+    width: 1.7rem;
+    min-width: 1.7rem;
     padding: 0 !important;
     margin: 0;
     position: relative;
@@ -610,14 +594,14 @@ onMounted(() => {
     border-radius: 9999px;
 
     &:last-child {
-      width: 2rem;
-      min-width: 2rem;
+      width: 1.7rem;
+      min-width: 1.7rem;
       padding: 0 !important;
     }
 
     svg {
-      width: 1rem;
-      height: 1rem;
+      width: 0.72rem;
+      height: 0.72rem;
     }
 
     &.close {
@@ -715,18 +699,6 @@ onMounted(() => {
   opacity: 0;
 }
 
-
-.launch-button-vanilla {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
-}
-
-.launch-button-modded {
-  box-shadow: inset 0 0 0 1px rgba(210, 190, 255, 0.42);
-}
-
-.launch-button-modded .modded-launch-icon {
-  filter: drop-shadow(0 0 5px rgba(210, 190, 255, 0.16));
-}
 @media (prefers-reduced-motion: no-preference) {
   .toast-enter-active,
   .nav-button-animated-enter-active {
@@ -794,6 +766,43 @@ onMounted(() => {
   .fade-enter-from {
     opacity: 0;
   }
+}
+
+.launch-action {
+  --launch-stroke: rgba(255,255,255,.64);
+}
+
+.launch-action.launch-modded {
+  --launch-stroke: rgba(214,206,255,.82);
+}
+
+.launch-action {
+  border: 1px solid var(--launch-stroke) !important;
+}
+
+.launch-glyph {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.launch-glyph > svg {
+  width: 15px;
+  height: 15px;
+}
+
+.modded-mark {
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(214,206,255,.95);
+  box-shadow: 0 0 0 1px rgba(214,206,255,.25);
 }
 </style>
 <style>

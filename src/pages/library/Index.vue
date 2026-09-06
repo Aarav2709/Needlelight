@@ -5,6 +5,7 @@ import {
   SearchIcon,
   SpinnerIcon,
   XIcon,
+  FolderSearchIcon,
 } from '@modrinth/assets'
 import { ButtonStyled, Toggle, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
@@ -18,7 +19,6 @@ import { useBreadcrumbs } from '@/store/breadcrumbs'
 const { handleError } = injectNotificationManager()
 const route = useRoute()
 const breadcrumbs = useBreadcrumbs()
-
 breadcrumbs.setRootContext({ name: 'Library', link: route.path })
 
 const catalog = ref(null)
@@ -30,9 +30,18 @@ const busyMods = ref(new Set())
 const activeGame = ref('hollow_knight')
 const switchingGame = ref(false)
 const managedFolder = ref('')
+const promptingForFolder = ref(false)
 
 const isSilksong = computed(() => activeGame.value === 'silksong')
 const hasGameFolder = computed(() => managedFolder.value.trim().length > 0)
+const gameName = computed(() => isSilksong.value ? 'Hollow Knight Silksong' : 'Hollow Knight')
+
+function setBusy(name, busy) {
+  const next = new Set(busyMods.value)
+  if (busy) next.add(name)
+  else next.delete(name)
+  busyMods.value = next
+}
 
 async function loadGame() {
   try {
@@ -40,51 +49,43 @@ async function loadGame() {
     activeGame.value = settings.game || 'hollow_knight'
     managedFolder.value = settings.managed_folder || ''
     applyGameTheme(activeGame.value)
-  } catch {
+    return settings
+  } catch (err) {
     activeGame.value = 'hollow_knight'
     managedFolder.value = ''
     applyGameTheme('hollow_knight')
+    throw err
   }
 }
 
-function gameDisplayName(game = activeGame.value) {
-  return game === 'silksong' ? 'Hollow Knight Silksong' : 'Hollow Knight'
-}
-
-async function selectManagedFolder(game = activeGame.value) {
+async function chooseManagedFolder(force = false) {
+  if (promptingForFolder.value) return false
+  promptingForFolder.value = true
   try {
-    const detected = await invoke('auto_detect_managed_folder', { game }).catch(() => null)
-    if (detected) {
-      const settings = await invoke('load_settings')
-      settings.game = game
-      settings.managed_folder = detected
-      await invoke('save_settings', { settings })
-      await loadGame()
-      return true
-    }
-
+    if (!force && hasGameFolder.value) return true
     const folder = await open({
       directory: true,
-      title: `Select ${gameDisplayName(game)}'s Managed Folder`,
+      title: `Select ${gameName.value}'s Managed Folder`,
     })
-
     if (!folder) return false
 
     const settings = await invoke('load_settings')
-    settings.game = game
     settings.managed_folder = folder
+    settings.managed_folders = settings.managed_folders || {}
+    settings.managed_folders[activeGame.value] = folder
     await invoke('save_settings', { settings })
-    await loadGame()
+
+    managedFolder.value = folder
+    catalog.value = null
+    catalogError.value = null
+    await fetchCatalog()
     return true
   } catch (err) {
     handleError(err)
     return false
+  } finally {
+    promptingForFolder.value = false
   }
-}
-
-async function ensureGameFolder(game = activeGame.value) {
-  if (hasGameFolder.value) return true
-  return selectManagedFolder(game)
 }
 
 async function switchGame(game) {
@@ -93,16 +94,18 @@ async function switchGame(game) {
   try {
     const settings = await invoke('load_settings')
     settings.game = game
+    settings.managed_folder = settings.managed_folders?.[game] || ''
     await invoke('save_settings', { settings })
     await loadGame()
 
-    if (!managedFolder.value && !(await selectManagedFolder(game))) {
-      catalog.value = null
-      catalogLoading.value = false
-      catalogError.value = null
+    // Let backend auto-detection win before showing the picker.
+    if (!hasGameFolder.value) {
+      await loadGame()
+    }
+    if (!hasGameFolder.value) {
+      await chooseManagedFolder(true)
       return
     }
-
     await fetchCatalog()
   } catch (err) {
     handleError(err)
@@ -111,15 +114,13 @@ async function switchGame(game) {
   }
 }
 
-async function fetchCatalog({ promptForFolder = true } = {}) {
+async function fetchCatalog() {
+  // Never render stale mods while the current game has no configured path.
   if (!hasGameFolder.value) {
-    if (promptForFolder && !(await ensureGameFolder())) {
-      catalog.value = null
-      catalogLoading.value = false
-      catalogError.value = null
-      return
-    }
-    if (!hasGameFolder.value) return
+    catalog.value = null
+    catalogLoading.value = false
+    catalogError.value = null
+    return
   }
 
   catalogLoading.value = true
@@ -127,335 +128,248 @@ async function fetchCatalog({ promptForFolder = true } = {}) {
   try {
     catalog.value = await invoke('refresh_catalog', { fetchOfficial: true })
   } catch (err) {
+    catalog.value = null
     catalogError.value = err
-    console.warn('Failed to fetch mod catalog:', err)
   } finally {
     catalogLoading.value = false
   }
 }
 
 const allMods = computed(() => catalog.value?.items ?? [])
-
-const installedMods = computed(() =>
-  allMods.value.filter(
-    (m) => m.state?.kind === 'installed' || m.state?.kind === 'not_in_modlinks',
-  ),
-)
-
-const availableMods = computed(() =>
-  allMods.value.filter((m) => m.state?.kind === 'not_installed'),
-)
-
+const installedMods = computed(() => allMods.value.filter(m => m.state?.kind === 'installed' || m.state?.kind === 'not_in_modlinks'))
+const availableMods = computed(() => allMods.value.filter(m => m.state?.kind === 'not_installed'))
 const filteredMods = computed(() => {
-  let list
-  switch (activeFilter.value) {
-    case 'installed':
-      list = installedMods.value
-      break
-    case 'available':
-      list = availableMods.value
-      break
-    default:
-      list = allMods.value
-  }
+  let list = activeFilter.value === 'installed'
+    ? installedMods.value
+    : activeFilter.value === 'available'
+      ? availableMods.value
+      : allMods.value
 
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase().trim()
-    list = list.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.description?.toLowerCase().includes(q) ||
-        m.authors?.some((a) => a.toLowerCase().includes(q)) ||
-        m.tags?.some((t) => t.toLowerCase().includes(q)),
+    list = list.filter(m =>
+      m.name.toLowerCase().includes(q) ||
+      m.description?.toLowerCase().includes(q) ||
+      m.authors?.some(a => a.toLowerCase().includes(q)) ||
+      m.tags?.some(t => t.toLowerCase().includes(q)),
     )
   }
-
   return list
 })
 
 function isInstalled(mod) {
   return mod.state?.kind === 'installed' || mod.state?.kind === 'not_in_modlinks'
 }
-
 function isEnabled(mod) {
   return mod.state?.enabled !== false
 }
-
 function needsUpdate(mod) {
   return mod.state?.kind === 'installed' && mod.state?.updated === false
 }
-
 function formatModName(name) {
   if (!isSilksong.value) return name
   const parts = name.split('-')
-  if (parts.length <= 1) return name
-  return parts.slice(1).join('-')
+  return parts.length <= 1 ? name : parts.slice(1).join('-')
 }
-
 function formatDependency(name) {
-  if (!isSilksong.value) return name
-  return formatModName(name)
+  return isSilksong.value ? formatModName(name) : name
 }
 
 async function installMod(modName) {
-  if (!(await ensureGameFolder())) return
-  busyMods.value.add(modName)
+  if (!hasGameFolder.value) {
+    await chooseManagedFolder(true)
+    if (!hasGameFolder.value) return
+  }
+  setBusy(modName, true)
   try {
     await invoke('install_mod', { name: modName })
     await fetchCatalog()
   } catch (err) {
     handleError(err)
   } finally {
-    busyMods.value.delete(modName)
+    setBusy(modName, false)
+  }
+}
+
+async function updateMod(modName) {
+  if (!hasGameFolder.value) return
+  setBusy(modName, true)
+  try {
+    await invoke('install_mod', { name: modName })
+    await fetchCatalog()
+  } catch (err) {
+    handleError(err)
+  } finally {
+    setBusy(modName, false)
   }
 }
 
 async function uninstallMod(modName) {
-  if (!(await ensureGameFolder())) return
-  busyMods.value.add(modName)
+  if (!hasGameFolder.value) return
+  setBusy(modName, true)
   try {
     await invoke('uninstall_mod', { name: modName })
     await fetchCatalog()
   } catch (err) {
     handleError(err)
   } finally {
-    busyMods.value.delete(modName)
+    setBusy(modName, false)
   }
 }
 
 async function toggleMod(modName, enable) {
-  if (!(await ensureGameFolder())) return
-  busyMods.value.add(modName)
+  if (!hasGameFolder.value) return
+  setBusy(modName, true)
   try {
     await invoke('toggle_mod', { name: modName, enable })
     await fetchCatalog()
   } catch (err) {
     handleError(err)
   } finally {
-    busyMods.value.delete(modName)
+    setBusy(modName, false)
   }
 }
 
 onMounted(async () => {
-  await loadGame()
-  await fetchCatalog()
+  try {
+    await loadGame()
+  } catch (err) {
+    console.warn(err)
+  }
+  if (!hasGameFolder.value) {
+    // Backend auto-detection has a chance first; otherwise prompt immediately.
+    await chooseManagedFolder(true)
+  } else {
+    await fetchCatalog()
+  }
 })
 </script>
 
 <template>
   <div class="p-6 flex flex-col gap-5">
-    <!-- Game Toggle Header -->
     <div class="flex items-center justify-between gap-4 flex-wrap">
       <div class="flex items-center gap-3">
         <div class="flex rounded-xl bg-bg-raised border border-solid border-surface-5 p-1">
           <button
+            v-for="game in [{ key: 'hollow_knight', label: 'Hollow Knight' }, { key: 'silksong', label: 'Silksong' }]"
+            :key="game.key"
             class="px-4 py-2 text-sm font-semibold rounded-lg border-none cursor-pointer transition-all"
-            :class="
-              activeGame === 'hollow_knight'
-                ? 'bg-brand text-white'
-                : 'bg-transparent text-secondary hover:text-contrast hover:bg-button-bg'
-            "
+            :class="activeGame === game.key ? 'bg-brand text-white' : 'bg-transparent text-secondary hover:text-contrast hover:bg-button-bg'"
             :disabled="switchingGame"
-            @click="switchGame('hollow_knight')"
-          >
-            Hollow Knight
-          </button>
-          <button
-            class="px-4 py-2 text-sm font-semibold rounded-lg border-none cursor-pointer transition-all"
-            :class="
-              activeGame === 'silksong'
-                ? 'bg-brand text-white'
-                : 'bg-transparent text-secondary hover:text-contrast hover:bg-button-bg'
-            "
-            :disabled="switchingGame"
-            @click="switchGame('silksong')"
-          >
-            Silksong
-          </button>
+            @click="switchGame(game.key)"
+          >{{ game.label }}</button>
         </div>
-        <p class="text-secondary text-sm m-0">
-          {{ allMods.length }} mods &middot; {{ installedMods.length }} installed
+        <p v-if="hasGameFolder" class="text-secondary text-sm m-0">
+          {{ allMods.length }} mods · {{ installedMods.length }} installed
         </p>
       </div>
-      <ButtonStyled type="transparent" size="small">
-        <button @click="fetchCatalog" :disabled="catalogLoading">
-          <RefreshCwIcon :class="{ 'animate-spin': catalogLoading }" />
-          Refresh
-        </button>
-      </ButtonStyled>
+      <div class="flex items-center gap-2">
+        <ButtonStyled type="transparent" size="small">
+          <button @click="fetchCatalog" :disabled="catalogLoading || !hasGameFolder">
+            <RefreshCwIcon :class="{ 'animate-spin': catalogLoading }" />
+            Refresh
+          </button>
+        </ButtonStyled>
+        <ButtonStyled type="transparent" size="small">
+          <button @click="chooseManagedFolder(true)">
+            <FolderSearchIcon />
+            Change folder
+          </button>
+        </ButtonStyled>
+      </div>
     </div>
 
-    <!-- Search + Filter bar -->
     <div class="flex gap-3 items-center flex-wrap">
-      <div
-        class="flex items-center gap-2 flex-1 min-w-[200px] bg-bg-raised rounded-xl border border-solid border-surface-5 px-3 py-2"
-      >
+      <div class="flex items-center gap-2 flex-1 min-w-[200px] bg-bg-raised rounded-xl border border-solid border-surface-5 px-3 py-2">
         <SearchIcon class="w-4 h-4 text-secondary shrink-0" />
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Search mods by name, author, or tag..."
-          class="bg-transparent border-none outline-none text-contrast text-sm w-full placeholder:text-secondary"
-        />
-        <button
-          v-if="searchQuery"
-          class="bg-transparent border-none p-0 cursor-pointer text-secondary hover:text-contrast transition-colors"
-          @click="searchQuery = ''"
-        >
+        <input v-model="searchQuery" type="text" placeholder="Search mods by name, author, or tag..." class="bg-transparent border-none outline-none text-contrast text-sm w-full placeholder:text-secondary" />
+        <button v-if="searchQuery" class="bg-transparent border-none p-0 cursor-pointer text-secondary hover:text-contrast transition-colors" @click="searchQuery = ''">
           <XIcon class="w-4 h-4" />
         </button>
       </div>
       <div class="flex gap-1 rounded-xl bg-bg-raised border border-solid border-surface-5 p-1">
         <button
-          v-for="f in [
-            { key: 'all', label: 'All' },
-            { key: 'installed', label: 'Installed' },
-            { key: 'available', label: 'Available' },
-          ]"
+          v-for="f in [{ key: 'all', label: 'All' }, { key: 'installed', label: 'Installed' }, { key: 'available', label: 'Available' }]"
           :key="f.key"
           class="px-3 py-1.5 text-xs font-medium rounded-lg border-none cursor-pointer transition-all"
-          :class="
-            activeFilter === f.key
-              ? 'bg-brand text-white'
-              : 'bg-transparent text-secondary hover:text-contrast hover:bg-button-bg'
-          "
+          :class="activeFilter === f.key ? 'bg-brand text-white' : 'bg-transparent text-secondary hover:text-contrast hover:bg-button-bg'"
           @click="activeFilter = f.key"
-        >
-          {{ f.label }}
-          <template v-if="f.key === 'installed'">({{ installedMods.length }})</template>
-          <template v-else-if="f.key === 'available'">({{ availableMods.length }})</template>
-        </button>
+        >{{ f.label }}<template v-if="f.key === 'installed'"> ({{ installedMods.length }})</template><template v-else-if="f.key === 'available'"> ({{ availableMods.length }})</template></button>
       </div>
     </div>
 
-    <div
-      v-if="!hasGameFolder"
-      class="rounded-2xl bg-bg-raised border border-solid border-surface-5 p-8 min-h-[48vh] flex flex-col items-center justify-center text-center"
-    >
-      <h2 class="m-0 text-xl font-bold text-contrast">Please select a directory to continue</h2>
-      <p class="m-0 mt-2 max-w-lg text-sm text-secondary leading-relaxed">
-        Select the {{ isSilksong ? 'Hollow Knight Silksong' : 'Hollow Knight' }} Managed folder to browse and manage mods.
-      </p>
-      <ButtonStyled size="small" class="mt-4">
-        <button @click="selectManagedFolder().then((selected) => selected && fetchCatalog())">
-          Select directory
-        </button>
-      </ButtonStyled>
-    </div>
-
-    <Transition v-else
-      enter-active-class="transition-opacity duration-200"
-      leave-active-class="transition-opacity duration-150"
-      enter-from-class="opacity-0"
-      leave-to-class="opacity-0"
-      mode="out-in"
-    >
-      <div :key="activeGame">
-        <!-- Loading state -->
-        <div v-if="catalogLoading" class="flex min-h-[60vh] w-full items-center justify-center text-center">
-          <div class="inline-flex flex-col items-center gap-3 text-secondary">
-            <span class="w-12 h-12 rounded-full bg-bg-raised border border-solid border-surface-5 flex items-center justify-center">
-              <SpinnerIcon class="w-5 h-5 animate-spin" />
-            </span>
-            <span class="text-sm">
-              Loading mod catalog...
-            </span>
-          </div>
+    <!-- Keep the page structure visible, but obscure stale content completely when no path exists. -->
+    <div v-if="!hasGameFolder" class="relative min-h-[56vh] overflow-hidden rounded-2xl border border-solid border-surface-5 bg-bg-raised">
+      <div class="absolute inset-0 opacity-30 blur-md pointer-events-none select-none">
+        <div class="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div v-for="n in 6" :key="n" class="h-40 rounded-xl bg-button-bg border border-solid border-surface-5" />
         </div>
-
-        <!-- Error state -->
-        <div v-else-if="catalogError" class="text-secondary text-sm py-8 text-center">
-          <p class="m-0 mb-2">Could not load the mod catalog. You may be offline.</p>
-          <ButtonStyled size="small">
-            <button @click="fetchCatalog">Retry</button>
+      </div>
+      <div class="absolute inset-0 flex items-center justify-center bg-bg/55 backdrop-blur-[2px] p-6 text-center">
+        <div class="max-w-md">
+          <div class="mx-auto mb-4 w-11 h-11 rounded-full bg-button-bg border border-solid border-surface-5 flex items-center justify-center text-secondary">
+            <FolderSearchIcon class="w-5 h-5" />
+          </div>
+          <h2 class="m-0 text-xl font-bold text-contrast">Please select a directory to continue</h2>
+          <p class="m-0 mt-2 text-sm text-secondary leading-relaxed">Select the {{ gameName }} Managed folder to browse and manage mods.</p>
+          <ButtonStyled class="mt-5" color="brand">
+            <button @click="chooseManagedFolder(true)" :disabled="promptingForFolder">
+              <FolderSearchIcon />
+              {{ promptingForFolder ? 'Waiting for folder...' : 'Select directory' }}
+            </button>
           </ButtonStyled>
         </div>
+      </div>
+    </div>
 
-        <!-- Empty search results -->
-        <div
-          v-else-if="filteredMods.length === 0"
-          class="text-secondary text-sm py-8 text-center"
-        >
-          <template v-if="searchQuery">
-            No mods match "<strong class="text-contrast">{{ searchQuery }}</strong>"
-          </template>
-          <template v-else-if="activeFilter === 'installed'">
-            No mods installed yet. Switch to "Available" to browse the catalog.
-          </template>
-          <template v-else> No mods available for this game. </template>
+    <Transition v-else enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150" enter-from-class="opacity-0" leave-to-class="opacity-0" mode="out-in">
+      <div :key="`${activeGame}-${managedFolder}`">
+        <div v-if="catalogLoading" class="flex min-h-[56vh] w-full items-center justify-center text-center">
+          <div class="inline-flex flex-col items-center gap-3 text-secondary"><span class="w-12 h-12 rounded-full bg-bg-raised border border-solid border-surface-5 flex items-center justify-center"><SpinnerIcon class="w-5 h-5 animate-spin" /></span><span class="text-sm">Loading mod catalog...</span></div>
         </div>
 
-        <!-- Mod grid -->
+        <div v-else-if="catalogError" class="rounded-2xl bg-bg-raised border border-solid border-surface-5 p-8 min-h-[40vh] flex flex-col items-center justify-center text-center">
+          <h2 class="m-0 text-lg font-bold text-contrast">Could not load the mod catalog</h2>
+          <p class="m-0 mt-2 max-w-lg text-sm text-secondary">Check your connection or change the configured game directory.</p>
+          <ButtonStyled class="mt-4" color="brand"><button @click="fetchCatalog">Retry</button></ButtonStyled>
+        </div>
+
+        <div v-else-if="filteredMods.length === 0" class="text-secondary text-sm py-12 text-center">
+          <template v-if="searchQuery">No mods match "<strong class="text-contrast">{{ searchQuery }}</strong>"</template>
+          <template v-else-if="activeFilter === 'installed'">No mods installed yet. Switch to Available to browse the catalog.</template>
+          <template v-else>No mods available for this game.</template>
+        </div>
+
         <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          <div
-            v-for="mod in filteredMods"
-            :key="mod.name"
-            class="rounded-xl bg-bg-raised border border-solid border-surface-5 p-4 flex flex-col gap-2 transition-all hover:border-brand/30"
-          >
+          <div v-for="mod in filteredMods" :key="mod.name" class="rounded-xl bg-bg-raised border border-solid border-surface-5 p-4 flex flex-col gap-2 transition-all hover:border-brand/30">
             <div class="flex items-start justify-between gap-2">
               <div class="flex-1 min-w-0">
-                <h4 class="m-0 font-semibold text-contrast text-sm truncate">
-                  {{ formatModName(mod.name) }}
-                </h4>
-                <p class="text-secondary text-xs mt-1 mb-0 line-clamp-2 leading-relaxed">
-                  {{ mod.description || 'No description' }}
-                </p>
+                <h4 class="m-0 font-semibold text-contrast text-sm truncate">{{ formatModName(mod.name) }}</h4>
+                <p class="text-secondary text-xs mt-1 mb-0 line-clamp-2 leading-relaxed">{{ mod.description || 'No description' }}</p>
               </div>
             </div>
-
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-xs text-secondary">v{{ mod.version }}</span>
-              <span v-if="mod.authors?.length" class="text-xs text-secondary">
-                by {{ mod.authors.join(', ') }}
-              </span>
-              <span
-                v-for="tag in (mod.tags || []).slice(0, 3)"
-                :key="tag"
-                class="text-xs text-secondary bg-button-bg px-1.5 py-0.5 rounded"
-              >
-                {{ tag }}
-              </span>
+              <span v-if="mod.authors?.length" class="text-xs text-secondary">by {{ mod.authors.join(', ') }}</span>
+              <span v-for="tag in (mod.tags || []).slice(0, 3)" :key="tag" class="text-xs text-secondary bg-button-bg px-1.5 py-0.5 rounded">{{ tag }}</span>
             </div>
-
-            <div v-if="mod.dependencies?.length" class="text-xs text-secondary italic">
-              Requires: {{ mod.dependencies.map(formatDependency).join(', ') }}
-            </div>
-
-            <div class="flex items-center gap-3 mt-auto pt-1">
+            <div v-if="mod.dependencies?.length" class="text-xs text-secondary italic">Requires: {{ mod.dependencies.map(formatDependency).join(', ') }}</div>
+            <div class="flex items-center gap-3 mt-auto pt-2">
               <template v-if="isInstalled(mod)">
                 <div class="flex items-center gap-2">
-                  <Toggle
-                    :model-value="isEnabled(mod)"
-                    :disabled="busyMods.has(mod.name)"
-                    @update:model-value="(v) => toggleMod(mod.name, v)"
-                  />
+                  <Toggle :model-value="isEnabled(mod)" :disabled="busyMods.has(mod.name)" @update:model-value="(v) => toggleMod(mod.name, v)" />
                   <span class="text-xs text-secondary">{{ isEnabled(mod) ? 'Enabled' : 'Disabled' }}</span>
                 </div>
-                <div class="ml-auto flex items-center gap-2">
-                  <button
-                    v-if="needsUpdate(mod)"
-                    class="appearance-none px-3 py-1.5 text-xs rounded-lg border border-brand/40 outline-none text-brand bg-brand/10 cursor-pointer hover:bg-brand/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    :disabled="busyMods.has(mod.name)"
-                    @click="installMod(mod.name)"
-                  >
-                    {{ busyMods.has(mod.name) ? 'Updating...' : 'Update' }}
-                  </button>
-                  <button
-                    class="appearance-none px-3 py-1.5 text-xs rounded-lg border border-red-500/20 outline-none text-red-500 bg-red-500/10 cursor-pointer hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    :disabled="busyMods.has(mod.name)"
-                    @click="uninstallMod(mod.name)"
-                  >
-                    Uninstall
-                  </button>
-                </div>
+                <span v-if="needsUpdate(mod)" class="ml-auto text-[11px] font-semibold text-brand bg-brand/10 px-2 py-1 rounded-md">Update available</span>
+                <button v-if="needsUpdate(mod)" class="px-3 py-1.5 text-xs rounded-lg border-none bg-brand text-white cursor-pointer hover:brightness-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-1" :disabled="busyMods.has(mod.name)" @click="updateMod(mod.name)">
+                  <RefreshCwIcon class="w-3.5 h-3.5" :class="{ 'animate-spin': busyMods.has(mod.name) }" />
+                  {{ busyMods.has(mod.name) ? 'Updating...' : 'Update' }}
+                </button>
+                <button class="ml-auto px-3 py-1.5 text-xs rounded-lg border-0 outline-none text-red-500 bg-red-500/10 cursor-pointer hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed" :class="{ 'ml-0': needsUpdate(mod) }" :disabled="busyMods.has(mod.name)" @click="uninstallMod(mod.name)">Uninstall</button>
               </template>
               <template v-else>
-                <button
-                  class="px-3 py-1.5 text-xs rounded-lg border-none bg-brand text-white cursor-pointer hover:brightness-90 transition-all font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                  :disabled="busyMods.has(mod.name)"
-                  @click="installMod(mod.name)"
-                >
-                  <DownloadIcon class="w-3.5 h-3.5" />
+                <button class="px-3 py-1.5 text-xs rounded-lg border-none bg-brand text-white cursor-pointer hover:brightness-95 transition-all font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed" :disabled="busyMods.has(mod.name)" @click="installMod(mod.name)">
+                  <DownloadIcon class="w-3.5 h-3.5" :class="{ 'animate-pulse': busyMods.has(mod.name) }" />
                   {{ busyMods.has(mod.name) ? 'Installing...' : 'Install' }}
                 </button>
               </template>

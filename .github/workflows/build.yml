@@ -142,11 +142,14 @@ jobs:
               cp "$source" "Needlelight-Windows.exe"
               ;;
             Linux)
-              source=$(find "$root" -type f -name '*.AppImage' -print -quit)
+              echo "Looking for AppImage bundles under $root"
+              source=$(find "$root" -type f \( -name '*.AppImage' -o -name '*.appimage' \) -print | head -n 1)
               if [ -z "$source" ]; then
                 echo "Linux AppImage not found under $root" >&2
+                find "$root" -maxdepth 3 -type f -print >&2 || true
                 exit 1
               fi
+              echo "Using bundle: $source"
               cp "$source" "Needlelight-Linux.AppImage"
               ;;
             macOS)
