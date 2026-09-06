@@ -91,7 +91,7 @@ pub async fn install_mod<R: tauri::Runtime>(
     }
 
     let mut visited = HashSet::new();
-    install_mod_with_deps(settings, installed, catalog, mod_name, &mut visited).await
+    install_mod_with_deps(app, settings, installed, catalog, mod_name, &mut visited).await
 }
 
 pub async fn uninstall_mod(
@@ -690,7 +690,8 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
     managed.join("Assembly-CSharp.dll.m").is_file()
 }
 
-async fn install_mod_with_deps(
+async fn install_mod_with_deps<R: tauri::Runtime>(
+    app: &AppHandle<R>,
     settings: &AppSettings,
     installed: &mut InstalledModsStore,
     catalog: &CatalogResponse,
