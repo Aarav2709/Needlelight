@@ -4,6 +4,7 @@ use super::{
     models::{CatalogResponse, ModState},
     settings::AppSettings,
 };
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::HashSet, fs::{File, OpenOptions}, io::{Read, Write}, path::{Path, PathBuf}};
 use tauri::{AppHandle, Emitter};
@@ -156,6 +157,31 @@ struct ApiInstallProgress {
     stage: String,
 }
 
+#[derive(Clone, serde::Serialize)]
+struct ModInstallProgress {
+    item_name: String,
+    progress: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct HkApiBackupFile {
+    relative_path: String,
+    vanilla_existed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct HkApiBackupManifest {
+    version: String,
+    files: Vec<HkApiBackupFile>,
+}
+
+fn emit_mod_progress<R: tauri::Runtime>(app: &AppHandle<R>, item_name: &str, progress: u8) {
+    let _ = app.emit("mod-install-progress", ModInstallProgress {
+        item_name: item_name.to_string(),
+        progress: progress.min(100),
+    });
+}
+
 fn emit_api_progress<R: tauri::Runtime>(app: &AppHandle<R>, progress: u8, stage: impl Into<String>) {
     let _ = app.emit("api-install-progress", ApiInstallProgress {
         progress: progress.min(100),
@@ -226,7 +252,7 @@ pub async fn install_api<R: tauri::Runtime>(
         tokio::fs::create_dir_all(&target).await?;
         extract_zip_guarded(bytes.as_ref(), &target, &["BepInEx"])?;
     } else {
-        install_hk_api_payload(settings, bytes.as_ref()).await?;
+        install_hk_api_payload(settings, bytes.as_ref(), &api.version).await?;
     }
 
     emit_api_progress(app, 94, "Verifying installation...");
@@ -253,38 +279,180 @@ pub async fn install_api<R: tauri::Runtime>(
     Ok(())
 }
 
-async fn install_hk_api_payload(settings: &AppSettings, data: &[u8]) -> AppResult<()> {
+async fn install_hk_api_payload(settings: &AppSettings, data: &[u8], api_version: &str) -> AppResult<()> {
     let managed = PathBuf::from(&settings.managed_folder);
     let current = managed.join("Assembly-CSharp.dll");
-    let vanilla = managed.join("Assembly-CSharp.dll.v");
-    let modded = managed.join("Assembly-CSharp.dll.m");
-
     if !current.exists() {
         return Err(AppError::InvalidInput(
             "Managed folder is invalid (Assembly-CSharp.dll not found).".to_string(),
         ));
     }
 
-    // The first install captures the pristine game assembly exactly once.
-    // If the API is installed but currently disabled, Current is vanilla and .m
-    // contains the API. Re-enable it first so reinstall always ends in the same
-    // clean layout: Current=API, .v=vanilla, and no stale .m file.
-    if modded.exists() && !is_hk_api_current(settings)? {
-        ensure_hk_api_enabled(settings).await?;
+    let state_dir = hk_api_state_dir(settings);
+    let manifest_path = state_dir.join("manifest.json");
+
+    // A manifest-backed installation can be safely refreshed because every file
+    // touched by the API has a pristine vanilla copy and a modded copy.
+    if manifest_path.is_file() {
+        restore_hk_vanilla(settings).await?;
+        tokio::fs::remove_dir_all(&state_dir).await?;
+    } else if managed.join("Assembly-CSharp.dll.m").exists() {
+        return Err(AppError::InvalidInput(
+            "An older API installation without a complete backup was found. Verify Hollow Knight's files in Steam, then reinstall the Modding API.".to_string(),
+        ));
     }
 
-    if !vanilla.exists() {
-        tokio::fs::copy(&current, &vanilla).await?;
+    let relative_files = collect_api_archive_files(data)?;
+    if relative_files.is_empty() {
+        return Err(AppError::InvalidInput(
+            "The Modding API archive contains no installable files.".to_string(),
+        ));
     }
 
-    // Never destroy a known-good vanilla backup. When reinstalling while the API is
-    // enabled, current is the modded assembly and can be replaced in place.
+    let vanilla_dir = state_dir.join("vanilla");
+    let modded_dir = state_dir.join("modded");
+    tokio::fs::create_dir_all(&vanilla_dir).await?;
+    tokio::fs::create_dir_all(&modded_dir).await?;
+
+    let mut manifest = HkApiBackupManifest {
+        version: api_version.to_string(),
+        files: Vec::with_capacity(relative_files.len()),
+    };
+
+    for relative in &relative_files {
+        let current_path = managed.join(relative);
+        let vanilla_path = vanilla_dir.join(relative);
+        if let Some(parent) = vanilla_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+
+        let vanilla_existed = current_path.is_file();
+        if vanilla_existed {
+            tokio::fs::copy(&current_path, &vanilla_path).await?;
+        }
+
+        manifest.files.push(HkApiBackupFile {
+            relative_path: relative.to_string_lossy().replace('\\', "/"),
+            vanilla_existed,
+        });
+    }
+
     extract_zip_guarded(data, &managed, &[])?;
 
-    // Make sure an API-enabled state has the API assembly as Current and the vanilla
-    // backup remains untouched. A fresh install intentionally has no .m yet.
-    if is_hk_api_current(settings)? {
-        // Keep current as the newly extracted API payload.
+    for file in &manifest.files {
+        let relative = PathBuf::from(&file.relative_path);
+        let installed_path = managed.join(&relative);
+        if !installed_path.is_file() {
+            return Err(AppError::InvalidInput(format!(
+                "Modding API installation is missing {}.",
+                file.relative_path
+            )));
+        }
+        let modded_path = modded_dir.join(&relative);
+        if let Some(parent) = modded_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::copy(&installed_path, &modded_path).await?;
+    }
+
+    let manifest_bytes = serde_json::to_vec_pretty(&manifest)
+        .map_err(|e| AppError::InvalidInput(format!("could not write API backup manifest: {e}")))?;
+    tokio::fs::write(&manifest_path, manifest_bytes).await?;
+
+    Ok(())
+}
+
+fn hk_api_state_dir(settings: &AppSettings) -> PathBuf {
+    PathBuf::from(&settings.managed_folder).join(".needlelight-api")
+}
+
+fn hk_api_manifest(settings: &AppSettings) -> PathBuf {
+    hk_api_state_dir(settings).join("manifest.json")
+}
+
+fn collect_api_archive_files(data: &[u8]) -> AppResult<Vec<PathBuf>> {
+    let reader = std::io::Cursor::new(data);
+    let mut archive = ZipArchive::new(reader)?;
+    let mut files = Vec::new();
+
+    for i in 0..archive.len() {
+        let entry = archive.by_index(i)?;
+        if entry.name().ends_with('/') {
+            continue;
+        }
+        let path = entry
+            .enclosed_name()
+            .ok_or_else(|| AppError::InvalidInput("zip entry path traversal blocked".to_string()))?
+            .to_path_buf();
+        if path.components().count() > 0 {
+            files.push(path);
+        }
+    }
+
+    Ok(files)
+}
+
+async fn restore_hk_vanilla(settings: &AppSettings) -> AppResult<()> {
+    let manifest_path = hk_api_manifest(settings);
+    if !manifest_path.is_file() {
+        return Err(AppError::InvalidInput("Hollow Knight API backup manifest is missing.".to_string()));
+    }
+
+    let manifest_bytes = tokio::fs::read(&manifest_path).await?;
+    let manifest: HkApiBackupManifest = serde_json::from_slice(&manifest_bytes)
+        .map_err(|e| AppError::InvalidInput(format!("could not read API backup manifest: {e}")))?;
+    let managed = PathBuf::from(&settings.managed_folder);
+    let vanilla_dir = hk_api_state_dir(settings).join("vanilla");
+
+    for file in manifest.files {
+        let relative = PathBuf::from(file.relative_path);
+        let current = managed.join(&relative);
+        if file.vanilla_existed {
+            let backup = vanilla_dir.join(&relative);
+            if !backup.is_file() {
+                return Err(AppError::InvalidInput(format!(
+                    "Missing vanilla API backup for {}.",
+                    relative.display()
+                )));
+            }
+            if let Some(parent) = current.parent() {
+                tokio::fs::create_dir_all(parent).await?;
+            }
+            tokio::fs::copy(backup, current).await?;
+        } else if current.exists() {
+            tokio::fs::remove_file(current).await?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn restore_hk_modded(settings: &AppSettings) -> AppResult<()> {
+    let manifest_path = hk_api_manifest(settings);
+    if !manifest_path.is_file() {
+        return Err(AppError::InvalidInput("Hollow Knight API backup manifest is missing.".to_string()));
+    }
+
+    let manifest_bytes = tokio::fs::read(&manifest_path).await?;
+    let manifest: HkApiBackupManifest = serde_json::from_slice(&manifest_bytes)
+        .map_err(|e| AppError::InvalidInput(format!("could not read API backup manifest: {e}")))?;
+    let managed = PathBuf::from(&settings.managed_folder);
+    let modded_dir = hk_api_state_dir(settings).join("modded");
+
+    for file in manifest.files {
+        let relative = PathBuf::from(file.relative_path);
+        let backup = modded_dir.join(&relative);
+        let current = managed.join(&relative);
+        if !backup.is_file() {
+            return Err(AppError::InvalidInput(format!(
+                "Missing Modding API backup for {}.",
+                relative.display()
+            )));
+        }
+        if let Some(parent) = current.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::copy(backup, current).await?;
     }
 
     Ok(())
@@ -299,19 +467,22 @@ pub async fn ensure_hk_api_enabled(settings: &AppSettings) -> AppResult<()> {
         return Ok(());
     }
 
+    if hk_api_manifest(settings).is_file() {
+        restore_hk_modded(settings).await?;
+        return Ok(());
+    }
+
+    // Backwards-compatible path for the older single-file backup layout. New
+    // installs use the complete manifest-backed restore above.
     let managed = PathBuf::from(&settings.managed_folder);
     let current = managed.join("Assembly-CSharp.dll");
     let vanilla = managed.join("Assembly-CSharp.dll.v");
     let modded = managed.join("Assembly-CSharp.dll.m");
-
     if !modded.exists() {
         return Err(AppError::InvalidInput(
-            "The Modding API is installed but its modded Assembly-CSharp backup is missing.".to_string(),
+            "The Modding API is installed but its API backup is missing.".to_string(),
         ));
     }
-
-    // In the disabled state, Current is vanilla and .m is the API assembly.
-    // Move vanilla to .v, then restore the API into Current.
     replace_file(&current, &vanilla).await?;
     replace_file(&modded, &current).await?;
     Ok(())
@@ -326,17 +497,20 @@ pub async fn ensure_hk_api_disabled(settings: &AppSettings) -> AppResult<()> {
         return Ok(());
     }
 
+    if hk_api_manifest(settings).is_file() {
+        restore_hk_vanilla(settings).await?;
+        return Ok(());
+    }
+
     let managed = PathBuf::from(&settings.managed_folder);
     let current = managed.join("Assembly-CSharp.dll");
     let vanilla = managed.join("Assembly-CSharp.dll.v");
     let modded = managed.join("Assembly-CSharp.dll.m");
-
     if !vanilla.exists() {
         return Err(AppError::InvalidInput(
             "Cannot disable the Modding API because the vanilla Assembly-CSharp backup is missing.".to_string(),
         ));
     }
-
     replace_file(&current, &modded).await?;
     replace_file(&vanilla, &current).await?;
     Ok(())
@@ -553,7 +727,7 @@ async fn install_mod_with_deps(
                 return Err(AppError::InvalidInput("mod has no download link".to_string()));
             }
 
-            let bytes = download_mod_bytes(&item_link, &item_sha256).await?;
+            let bytes = download_mod_bytes(app, &item_name, &item_link, &item_sha256).await?;
             write_install_log(format!("Downloaded mod {item_name} ({} bytes).", bytes.len()));
 
             if is_silksong {
@@ -640,20 +814,45 @@ fn installed_mod_exists_on_disk(settings: &AppSettings, mod_name: &str) -> bool 
         || InstalledModsStore::mod_folder(settings, mod_name, false).exists()
 }
 
-async fn download_mod_bytes(url: &str, sha256: &str) -> AppResult<Vec<u8>> {
+async fn download_mod_bytes<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    item_name: &str,
+    url: &str,
+    sha256: &str,
+) -> AppResult<Vec<u8>> {
+    emit_mod_progress(app, item_name, 0);
     let client = reqwest::Client::builder().user_agent("Needlelight").build()?;
-    let bytes = client.get(url).send().await?.error_for_status()?.bytes().await?;
+    let mut response = client.get(url).send().await?.error_for_status()?;
+    let total = response.content_length();
+    let mut downloaded = 0u64;
+    let mut bytes = Vec::new();
+
+    while let Some(chunk) = response.chunk().await? {
+        downloaded += chunk.len() as u64;
+        bytes.extend_from_slice(&chunk);
+        let progress = total
+            .filter(|size| *size > 0)
+            .map(|size| ((downloaded.saturating_mul(92) / size).min(92)) as u8)
+            .unwrap_or(0);
+        if total.is_some() {
+            emit_mod_progress(app, item_name, progress);
+        }
+    }
+
+    emit_mod_progress(app, item_name, 96);
 
     if !sha256.trim().is_empty() {
         let mut hasher = Sha256::new();
         hasher.update(&bytes);
         let actual = hex::encode_upper(hasher.finalize());
         if actual != sha256.to_uppercase() {
+            emit_mod_progress(app, item_name, 0);
             return Err(AppError::HashMismatch);
         }
     }
 
-    Ok(bytes.to_vec())
+    emit_mod_progress(app, item_name, 100);
+    Ok(bytes)
 }
 
 async fn install_silksong_mod_archive(

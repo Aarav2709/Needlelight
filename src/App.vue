@@ -452,11 +452,11 @@ onMounted(() => {
         <ShieldIcon class="text-contrast" />
       </NavButton>
       <div class="flex flex-grow"></div>
-      <NavButton v-tooltip.right="'Launch Vanilla'" class="launch-action launch-vanilla" :to="() => launchGame(false)">
-        <span class="launch-glyph"><PlayIcon /></span>
+      <NavButton v-tooltip.right="'Launch Vanilla'" :to="() => launchGame(false)">
+        <PlayIcon />
       </NavButton>
-      <NavButton v-tooltip.right="'Launch Modded'" class="launch-action launch-modded" :to="() => launchGame(true)">
-        <span class="launch-glyph"><PlayIcon /><span class="modded-mark"></span></span>
+      <NavButton v-tooltip.right="'Launch Modded'" :to="() => launchGame(true)">
+        <PlayIcon />
       </NavButton>
       <Transition name="nav-button-animated">
         <div
@@ -768,46 +768,6 @@ onMounted(() => {
   }
 }
 
-.launch-action {
-  --launch-stroke: rgba(255,255,255,.64);
-  width: 2.5rem !important;
-  min-width: 2.5rem !important;
-  height: 2.5rem !important;
-  border-radius: 0.65rem !important;
-}
-
-.launch-action.launch-modded {
-  --launch-stroke: rgba(214,206,255,.82);
-}
-
-.launch-action {
-  border: 1px solid var(--launch-stroke) !important;
-}
-
-.launch-glyph {
-  position: relative;
-  width: 15px;
-  height: 15px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.launch-glyph > svg {
-  width: 15px;
-  height: 15px;
-}
-
-.modded-mark {
-  position: absolute;
-  right: -2px;
-  top: -2px;
-  width: 4px;
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(214,206,255,.95);
-  box-shadow: 0 0 0 1px rgba(214,206,255,.25);
-}
 </style>
 <style>
 :root {

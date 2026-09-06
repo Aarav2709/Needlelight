@@ -9,8 +9,9 @@ import {
 } from '@modrinth/assets'
 import { ButtonStyled, Toggle, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { applyGameTheme } from '@/helpers/game-theme'
@@ -31,6 +32,8 @@ const activeGame = ref('hollow_knight')
 const switchingGame = ref(false)
 const managedFolder = ref('')
 const promptingForFolder = ref(false)
+const modProgress = ref(new Map())
+let unlistenModProgress = null
 
 const isSilksong = computed(() => activeGame.value === 'silksong')
 const hasGameFolder = computed(() => managedFolder.value.trim().length > 0)
@@ -182,7 +185,13 @@ async function installMod(modName) {
   }
   setBusy(modName, true)
   try {
+    const started = new Map(modProgress.value)
+    started.set(modName, 0)
+    modProgress.value = started
     await invoke('install_mod', { name: modName })
+    const finished = new Map(modProgress.value)
+    finished.delete(modName)
+    modProgress.value = finished
     await fetchCatalog()
   } catch (err) {
     handleError(err)
@@ -195,7 +204,13 @@ async function updateMod(modName) {
   if (!hasGameFolder.value) return
   setBusy(modName, true)
   try {
+    const started = new Map(modProgress.value)
+    started.set(modName, 0)
+    modProgress.value = started
     await invoke('install_mod', { name: modName })
+    const finished = new Map(modProgress.value)
+    finished.delete(modName)
+    modProgress.value = finished
     await fetchCatalog()
   } catch (err) {
     handleError(err)
@@ -231,6 +246,16 @@ async function toggleMod(modName, enable) {
 }
 
 onMounted(async () => {
+  unlistenModProgress = await listen('mod-install-progress', (event) => {
+    const payload = event.payload || {}
+    const name = payload.item_name
+    if (!name) return
+    const progress = Number(payload.progress ?? 0)
+    const next = new Map(modProgress.value)
+    if (progress >= 100) next.delete(name)
+    else next.set(name, Math.max(0, Math.min(100, progress)))
+    modProgress.value = next
+  })
   try {
     await loadGame()
   } catch (err) {
@@ -242,6 +267,10 @@ onMounted(async () => {
   } else {
     await fetchCatalog()
   }
+})
+
+onUnmounted(() => {
+  unlistenModProgress?.()
 })
 </script>
 
@@ -273,7 +302,7 @@ onMounted(async () => {
         <ButtonStyled type="transparent" size="small">
           <button @click="chooseManagedFolder(true)">
             <FolderSearchIcon />
-            Change folder
+            {{ hasGameFolder ? 'Change folder' : 'Browse' }}
           </button>
         </ButtonStyled>
       </div>
@@ -323,20 +352,30 @@ onMounted(async () => {
         </div>
 
         <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          <div v-for="mod in filteredMods" :key="mod.name" class="rounded-xl bg-bg-raised border border-solid border-surface-5 p-4 flex flex-col gap-2 transition-all hover:border-brand/30">
-            <div class="flex items-start justify-between gap-2">
+          <div
+            v-for="mod in filteredMods"
+            :key="mod.name"
+            class="mod-card rounded-xl border border-solid border-surface-5 p-4 flex flex-col gap-2 transition-all hover:border-brand/30 relative overflow-hidden"
+            :style="{ '--download-progress': `${modProgress.get(mod.name) ?? 0}%` }"
+          >
+            <div
+              v-if="modProgress.has(mod.name)"
+              class="mod-download-fill"
+              aria-hidden="true"
+            ></div>
+            <div class="relative z-[1] flex items-start justify-between gap-2">
               <div class="flex-1 min-w-0">
                 <h4 class="m-0 font-semibold text-contrast text-sm truncate">{{ formatModName(mod.name) }}</h4>
                 <p class="text-secondary text-xs mt-1 mb-0 line-clamp-2 leading-relaxed">{{ mod.description || 'No description' }}</p>
               </div>
             </div>
-            <div class="flex items-center gap-2 flex-wrap">
+            <div class="relative z-[1] flex items-center gap-2 flex-wrap">
               <span class="text-xs text-secondary">v{{ mod.version }}</span>
               <span v-if="mod.authors?.length" class="text-xs text-secondary">by {{ mod.authors.join(', ') }}</span>
               <span v-for="tag in (mod.tags || []).slice(0, 3)" :key="tag" class="text-xs text-secondary bg-button-bg px-1.5 py-0.5 rounded">{{ tag }}</span>
             </div>
-            <div v-if="mod.dependencies?.length" class="text-xs text-secondary italic">Requires: {{ mod.dependencies.map(formatDependency).join(', ') }}</div>
-            <div class="flex items-center gap-3 mt-auto pt-2">
+            <div v-if="mod.dependencies?.length" class="relative z-[1] text-xs text-secondary italic">Requires: {{ mod.dependencies.map(formatDependency).join(', ') }}</div>
+            <div class="relative z-[1] flex items-center gap-3 mt-auto pt-2">
               <template v-if="isInstalled(mod)">
                 <div class="flex items-center gap-2">
                   <Toggle :model-value="isEnabled(mod)" :disabled="busyMods.has(mod.name)" @update:model-value="(v) => toggleMod(mod.name, v)" />
@@ -362,3 +401,18 @@ onMounted(async () => {
     </Transition>
   </div>
 </template>
+
+<style scoped>
+.mod-card {
+  background: var(--color-bg-raised);
+}
+
+.mod-download-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--download-progress);
+  background: color-mix(in srgb, var(--color-brand) 18%, transparent);
+  pointer-events: none;
+  transition: width 120ms ease-out;
+}
+</style>
