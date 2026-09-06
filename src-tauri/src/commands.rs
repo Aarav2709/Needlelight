@@ -44,7 +44,9 @@ pub async fn load_settings(state: State<'_, AppState>) -> Result<AppSettings, St
     if settings.managed_folder.trim().is_empty() {
         if let Some(path) = map_err(AppSettings::auto_detect(&settings.game).await)? {
             settings.managed_folder = AppSettings::normalize_managed_folder(&path, &settings.game);
-            settings.set_managed_folder_for(&settings.game, settings.managed_folder.clone());
+            let game = settings.game.clone();
+            let folder = settings.managed_folder.clone();
+            settings.set_managed_folder_for(&game, folder);
             map_err(settings.save().await)?;
             let mut shared = state.settings.write().await;
             *shared = settings.clone();
