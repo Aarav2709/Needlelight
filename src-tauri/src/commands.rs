@@ -17,18 +17,12 @@ fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
     result.map_err(|e| e.to_string())
 }
 
+/// Thin wrapper around `AppSettings::sync_managed_folder` for call sites that
+/// work with an owned value rather than a `&mut` binding. The folder- and
+/// modlinks-sync rules live on `AppSettings` itself (see settings.rs) so
+/// there's exactly one implementation to keep correct.
 fn sync_managed_folder(mut settings: AppSettings) -> AppSettings {
-    if settings.managed_folders.is_empty() && !settings.managed_folder.is_empty() {
-        let game = settings.game.clone();
-        let folder = settings.managed_folder.clone();
-        settings.set_managed_folder_for(&game, folder);
-    }
-
-    let stored = settings.managed_folder_for(&settings.game);
-    if !stored.is_empty() {
-        settings.managed_folder = stored;
-    }
-
+    settings.sync_managed_folder();
     settings.sync_custom_modlinks();
     settings
 }

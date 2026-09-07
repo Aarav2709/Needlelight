@@ -1,7 +1,6 @@
 <script setup>
-import { DownloadIcon, RefreshCwIcon, ShieldIcon, SpinnerIcon } from '@modrinth/assets'
-import { ButtonStyled, injectNotificationManager } from '@modrinth/ui'
-import ProgressBar from '@/components/ui/ProgressBar.vue'
+import { DownloadIcon, PlugIcon, RefreshCwIcon, ShieldIcon, SpinnerIcon, SteamColorIcon } from '@modrinth/assets'
+import { Admonition, Badge, ButtonStyled, ProgressBar, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
@@ -97,21 +96,34 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-full px-8 py-7">
-    <div v-if="loading" class="min-h-[70vh] flex items-center justify-center text-secondary">
-      <SpinnerIcon class="w-5 h-5 animate-spin" />
+  <div class="p-6 flex flex-col gap-5">
+    <div v-if="loading" class="min-h-[56vh] w-full flex items-center justify-center text-center">
+      <div class="inline-flex flex-col items-center gap-3 text-secondary">
+        <span class="w-12 h-12 rounded-full bg-bg-raised border border-solid border-surface-5 flex items-center justify-center">
+          <SpinnerIcon class="w-5 h-5 animate-spin" />
+        </span>
+        <span class="text-sm">Loading API information...</span>
+      </div>
     </div>
 
-    <main v-else class="max-w-5xl mx-auto">
-      <header class="flex items-center justify-between gap-6 pb-5 border-b border-solid border-surface-5">
-        <div class="flex items-center gap-3 min-w-0">
-          <ShieldIcon class="w-6 h-6 text-brand shrink-0" />
+    <main v-else class="max-w-3xl w-full mx-auto flex flex-col gap-5">
+      <!-- Status + install header -->
+      <div class="flex items-center justify-between gap-6 flex-wrap pb-5 border-b border-solid border-surface-5">
+        <div class="flex items-center gap-3.5 min-w-0">
+          <span class="shrink-0 w-11 h-11 rounded-xl bg-brand/10 flex items-center justify-center">
+            <PlugIcon v-if="isSilksong" class="w-5 h-5 text-brand" />
+            <ShieldIcon v-else class="w-5 h-5 text-brand" />
+          </span>
           <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-              <h1 class="m-0 text-2xl font-extrabold text-contrast">{{ apiName }}</h1>
-              <span class="text-sm font-semibold text-secondary">{{ apiVersion }}</span>
+              <h1 class="m-0 text-xl font-extrabold text-contrast">{{ apiName }}</h1>
+              <span class="text-xs font-semibold text-secondary bg-button-bg px-2 py-0.5 rounded-full">{{ apiVersion }}</span>
             </div>
-            <p class="m-0 mt-1 text-sm text-secondary">{{ statusText }}</p>
+            <Badge
+              class="mt-1.5"
+              :type="statusText"
+              :color="!apiInstalled ? 'gray' : (apiEnabled ? 'green' : 'orange')"
+            />
           </div>
         </div>
 
@@ -122,53 +134,66 @@ onUnmounted(() => {
             {{ installing ? 'Installing...' : ctaLabel }}
           </button>
         </ButtonStyled>
-      </header>
+      </div>
 
-      <section class="pt-6">
-        <p v-if="isSilksong" class="m-0 max-w-4xl text-sm text-secondary leading-relaxed">
+      <!-- Description + progress -->
+      <div class="flex flex-col gap-3">
+        <p v-if="isSilksong" class="m-0 text-sm text-secondary leading-relaxed">
           Silksong uses <span class="text-contrast font-semibold">BepInEx</span> as its mod loader. Needlelight installs and manages the maintained Silksong BepInEx pack separately from Hollow Knight's legacy Modding API.
         </p>
-        <p v-else class="m-0 max-w-4xl text-sm text-secondary leading-relaxed">
+        <p v-else class="m-0 text-sm text-secondary leading-relaxed">
           The Modding API provides the runtime that lets Hollow Knight load mods together. Needlelight currently supports the official <span class="text-contrast font-semibold">v77</span> API for the legacy Hollow Knight build.
         </p>
 
-        <p v-if="!hasFolder" class="m-0 mt-4 text-sm text-secondary">
+        <p v-if="!hasFolder" class="m-0 text-sm text-secondary">
           Select a game directory from <span class="text-contrast font-semibold">Browse</span> before installing.
         </p>
 
-        <div v-if="installing" class="mt-6 max-w-4xl">
-          <div class="flex items-center gap-3 mb-2">
-            <span class="text-sm font-semibold text-contrast">{{ installStage }}</span>
+        <div v-if="installing" class="max-w-sm mt-1">
+          <ProgressBar
+            :progress="installProgress"
+            :max="100"
+            color="brand"
+            :label="installStage"
+            label-class="text-sm font-semibold text-contrast"
+            show-progress
+            full-width
+          />
+        </div>
+      </div>
+
+      <!-- Hollow Knight version compatibility -->
+      <Admonition v-if="!isSilksong" type="warning">
+        <template #header>Hollow Knight version compatibility</template>
+
+        <div class="flex flex-col gap-4">
+          <p class="m-0 text-sm leading-relaxed">
+            Hollow Knight <span class="font-semibold">1.5.12620</span>, released March 27, 2026, moved the game to Unity 6. The official Modding API <span class="font-semibold">v77</span> targets <span class="font-semibold">1.5.78.11833</span>, the last pre-Unity 6 build. Unity 6 API support and compatible mod ports are still in development.
+          </p>
+
+          <div>
+            <h3 class="m-0 flex items-center gap-1.5 text-sm font-bold">
+              <SteamColorIcon class="w-4 h-4 shrink-0" />
+              Use the supported version
+            </h3>
+            <ol class="m-0 mt-2.5 pl-5 text-sm leading-7 marker:font-semibold">
+              <li>Open <span class="font-semibold">Steam</span> and right-click <span class="font-semibold">Hollow Knight</span>.</li>
+              <li>Select <span class="font-semibold">Properties</span>.</li>
+              <li>Open <span class="font-semibold">Betas</span> or <span class="font-semibold">Game Versions and Betas</span>.</li>
+              <li>Select <span class="font-semibold">1.5.78.11833</span> (Previous version).</li>
+              <li>Wait for Steam to finish updating, then launch Hollow Knight through Needlelight.</li>
+            </ol>
           </div>
-          <ProgressBar :progress="installProgress" />
+
+          <p class="m-0 text-xs leading-relaxed opacity-80">
+            Until the Modding API has an official Unity 6 release, Needlelight stays on <span class="font-semibold">v77</span> for the supported pre-Unity 6 game build.
+          </p>
         </div>
-      </section>
+      </Admonition>
 
-      <section v-if="!isSilksong" class="pt-8 mt-8 border-t border-solid border-surface-5">
-        <h2 class="m-0 text-lg font-bold text-contrast">Hollow Knight version compatibility</h2>
-        <p class="m-0 mt-3 max-w-4xl text-sm text-secondary leading-relaxed">
-          Hollow Knight <span class="text-contrast font-semibold">1.5.12620</span>, released March 27, 2026, moved the game to Unity 6. The official Modding API <span class="text-contrast font-semibold">v77</span> targets <span class="text-contrast font-semibold">1.5.78.11833</span>, the last pre-Unity 6 build. Unity 6 API support and compatible mod ports are still in development.
-        </p>
-
-        <div class="mt-6">
-          <h3 class="m-0 text-sm font-bold text-contrast">Use the supported version</h3>
-          <ol class="m-0 mt-3 pl-5 max-w-4xl text-sm text-secondary leading-7 marker:text-brand">
-            <li>Open <span class="text-contrast font-semibold">Steam</span> and right-click <span class="text-contrast font-semibold">Hollow Knight</span>.</li>
-            <li>Select <span class="text-contrast font-semibold">Properties</span>.</li>
-            <li>Open <span class="text-contrast font-semibold">Betas</span> or <span class="text-contrast font-semibold">Game Versions and Betas</span>.</li>
-            <li>Select <span class="text-contrast font-semibold">1.5.78.11833</span> (Previous version).</li>
-            <li>Wait for Steam to finish updating, then launch Hollow Knight through Needlelight.</li>
-          </ol>
-        </div>
-
-        <p class="m-0 mt-4 max-w-4xl text-xs text-secondary leading-relaxed">
-          Until the Modding API has an official Unity 6 release, Needlelight stays on <span class="text-contrast font-semibold">v77</span> for the supported pre-Unity 6 game build.
-        </p>
-      </section>
-
-      <div v-if="error" class="pt-6 mt-6 border-t border-solid border-surface-5 text-sm text-secondary">
+      <div v-if="error" class="pt-5 border-t border-solid border-surface-5 flex items-center gap-3 text-sm text-secondary">
         <span class="text-contrast font-semibold">Could not load API information.</span>
-        <ButtonStyled size="small" class="ml-3"><button @click="loadState">Retry</button></ButtonStyled>
+        <ButtonStyled size="small"><button @click="loadState">Retry</button></ButtonStyled>
       </div>
     </main>
   </div>

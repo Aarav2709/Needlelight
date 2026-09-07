@@ -279,6 +279,67 @@ pub async fn install_api<R: tauri::Runtime>(
     Ok(())
 }
 
+/// Unity ships its player/runtime version as a short readable string near the
+/// start of `globalgamemanagers` (the same trick tools like UnityPy and
+/// AssetStudio use to identify engine version without a full asset parse).
+/// We only use this for one thing: refusing to install the legacy Modding
+/// API onto a Unity 6 build of the game. That combination is the confirmed
+/// cause of the "works vanilla, crashes modded" reports - the patched
+/// Assembly-CSharp.dll no longer matches the type layout serialized into the
+/// Unity 6 build's scene/asset files, and the game dies inside Mono during
+/// `MonoManager::ReloadAssembly` instead of failing safely.
+fn detect_unity_major_version(settings: &AppSettings) -> Option<u32> {
+    let managed = PathBuf::from(&settings.managed_folder);
+    let data_dir = managed.parent()?;
+
+    let mut candidate = data_dir.join("globalgamemanagers");
+    if !candidate.is_file() {
+        candidate = data_dir.join("data.unity3d");
+    }
+    if !candidate.is_file() {
+        return None;
+    }
+
+    let mut file = File::open(&candidate).ok()?;
+    let mut buf = vec![0u8; 65536];
+    let read = file.read(&mut buf).ok()?;
+    buf.truncate(read);
+
+    // Unity version strings look like "2020.2.2f1" or "6000.0.61f1". They sit
+    // in plain ASCII near the start of the file, so a lossy UTF-8 decode plus
+    // a regex search over the first 64 KiB is enough to find one.
+    let text = String::from_utf8_lossy(&buf);
+    let pattern = regex::Regex::new(r"(\d{1,4})\.\d+\.\d+[a-z]\d+").ok()?;
+    let major: u32 = pattern.captures(&text)?.get(1)?.as_str().parse().ok()?;
+    Some(major)
+}
+
+/// Blocks Modding API installation onto an incompatible (Unity 6) game
+/// build. Fails open (allows the install) if the engine version can't be
+/// determined at all, since a missed detection should never be able to
+/// break an install that would otherwise have worked.
+fn ensure_hk_build_compatible_with_api(settings: &AppSettings) -> AppResult<()> {
+    match detect_unity_major_version(settings) {
+        Some(major) => {
+            write_install_log(format!("Detected Hollow Knight Unity engine major version: {major}."));
+            if major >= 6000 {
+                return Err(AppError::InvalidInput(
+                    "This Hollow Knight installation is running the Unity 6 build (1.5.12620+). \
+                     The Modding API v77 only supports the legacy pre-Unity 6 build 1.5.78.11833. \
+                     In Steam, right-click Hollow Knight > Properties > Betas, select the previous \
+                     version, then try installing the Modding API again.".to_string(),
+                ));
+            }
+        }
+        None => {
+            write_install_log(
+                "Could not determine the Hollow Knight Unity engine version from globalgamemanagers; skipping build compatibility check.",
+            );
+        }
+    }
+    Ok(())
+}
+
 async fn install_hk_api_payload(settings: &AppSettings, data: &[u8], api_version: &str) -> AppResult<()> {
     let managed = PathBuf::from(&settings.managed_folder);
     let current = managed.join("Assembly-CSharp.dll");
@@ -287,6 +348,8 @@ async fn install_hk_api_payload(settings: &AppSettings, data: &[u8], api_version
             "Managed folder is invalid (Assembly-CSharp.dll not found).".to_string(),
         ));
     }
+
+    ensure_hk_build_compatible_with_api(settings)?;
 
     let state_dir = hk_api_state_dir(settings);
     let manifest_path = state_dir.join("manifest.json");
@@ -370,7 +433,26 @@ fn hk_api_manifest(settings: &AppSettings) -> PathBuf {
     hk_api_state_dir(settings).join("manifest.json")
 }
 
+/// Lists the files a Modding API archive will place under the managed
+/// folder. This must resolve to the *exact same relative paths* that
+/// `extract_zip_guarded` writes to disk, including its wrapped-root
+/// stripping (e.g. if the archive wraps everything in a single top-level
+/// folder). If these two ever disagreed, the backup manifest would record
+/// the wrong paths and the vanilla/modded restore would silently miss
+/// files.
 fn collect_api_archive_files(data: &[u8]) -> AppResult<Vec<PathBuf>> {
+    let names = {
+        let reader = std::io::Cursor::new(data);
+        let mut archive = ZipArchive::new(reader)?;
+        let mut collected = Vec::new();
+        for i in 0..archive.len() {
+            collected.push(archive.by_index(i)?.name().to_string());
+        }
+        collected
+    };
+
+    let wrapped_root = detect_wrapped_root(&names, &[]);
+
     let reader = std::io::Cursor::new(data);
     let mut archive = ZipArchive::new(reader)?;
     let mut files = Vec::new();
@@ -380,12 +462,17 @@ fn collect_api_archive_files(data: &[u8]) -> AppResult<Vec<PathBuf>> {
         if entry.name().ends_with('/') {
             continue;
         }
-        let path = entry
+        let enclosed = entry
             .enclosed_name()
             .ok_or_else(|| AppError::InvalidInput("zip entry path traversal blocked".to_string()))?
             .to_path_buf();
-        if path.components().count() > 0 {
-            files.push(path);
+        let relative = if let Some(root) = wrapped_root.as_ref() {
+            strip_wrapped_root(&enclosed, root)
+        } else {
+            enclosed
+        };
+        if relative.components().count() > 0 {
+            files.push(relative);
         }
     }
 
@@ -680,14 +767,16 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
         return false;
     }
 
-    let managed = PathBuf::from(&settings.managed_folder);
-    if managed.join("ModdingApi.dll").exists() || is_hk_api_enabled(settings) {
+    if is_hk_api_enabled(settings) {
         return true;
     }
 
-    // API may currently be disabled. In that state the vanilla Assembly-CSharp.dll
-    // is Current and the installed API is held in Assembly-CSharp.dll.m.
-    managed.join("Assembly-CSharp.dll.m").is_file()
+    // The API can be installed but currently disabled: the vanilla
+    // Assembly-CSharp.dll is Current while the modded files live in the
+    // manifest-backed state dir (or, for older installs, in the single-file
+    // Assembly-CSharp.dll.m backup).
+    hk_api_manifest(settings).is_file()
+        || PathBuf::from(&settings.managed_folder).join("Assembly-CSharp.dll.m").is_file()
 }
 
 async fn install_mod_with_deps<R: tauri::Runtime>(
