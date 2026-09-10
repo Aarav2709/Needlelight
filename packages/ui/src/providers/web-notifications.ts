@@ -14,7 +14,7 @@ export interface WebNotification {
 export type NotificationPanelLocation = 'left' | 'right'
 
 export abstract class AbstractWebNotificationManager {
-	protected readonly AUTO_DISMISS_DELAY_MS = 30 * 1000
+	protected readonly AUTO_DISMISS_DELAY_MS = 3 * 1000
 
 	abstract getNotifications(): WebNotification[]
 	abstract getNotificationLocation(): NotificationPanelLocation

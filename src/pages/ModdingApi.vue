@@ -105,8 +105,8 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <main v-else class="max-w-3xl w-full mx-auto flex flex-col gap-6">
-      <div class="flex items-center justify-between gap-6 flex-wrap pb-6 border-b border-solid border-surface-5">
+    <main v-else class="max-w-3xl w-full mx-auto flex flex-col gap-8">
+      <div class="flex items-center justify-between gap-6 flex-wrap">
         <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
             <h1 class="m-0 text-xl font-extrabold text-contrast">{{ apiName }}</h1>
@@ -124,7 +124,7 @@ onUnmounted(() => {
         </ButtonStyled>
       </div>
 
-      <p class="m-0 -mt-2 text-sm text-secondary leading-relaxed">
+      <p class="m-0 -mt-4 text-sm text-secondary leading-relaxed">
         <template v-if="isSilksong">Silksong uses <span class="text-contrast font-semibold">BepInEx</span> as its mod loader. Needlelight installs and manages the maintained Silksong BepInEx pack separately from Hollow Knight's legacy Modding API.</template>
         <template v-else>The Modding API provides the runtime that lets Hollow Knight load mods together. Needlelight currently supports the official <span class="text-contrast font-semibold">v77</span> API for the legacy Hollow Knight build.</template>
       </p>

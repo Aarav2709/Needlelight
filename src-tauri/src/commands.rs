@@ -290,6 +290,12 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
     installer::write_install_log(format!("Launching {} from {} (modded={modded}).", exe.display(), game_root.display()));
     let child = Command::new(&exe)
         .current_dir(&game_root)
+        // the game checks for this before falling back to "not launched
+        // through Steam" self-restart behavior when its exe is run directly
+        // instead of through the Steam client; this is the standard
+        // Steamworks workaround for launchers that spawn the exe themselves
+        .env("SteamAppId", settings.game.steam_app_id())
+        .env("SteamGameId", settings.game.steam_app_id())
         .spawn()
         .map_err(|e| {
             let message = format!("Failed to launch game: {e}");

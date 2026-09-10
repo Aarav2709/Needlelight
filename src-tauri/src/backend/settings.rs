@@ -34,6 +34,13 @@ impl GameKey {
             GameKey::Silksong => "Silksong",
         }
     }
+
+    pub fn steam_app_id(&self) -> &'static str {
+        match self {
+            GameKey::HollowKnight => "367520",
+            GameKey::Silksong => "1030300",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
