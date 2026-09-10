@@ -1,6 +1,6 @@
 <script setup>
-import { DownloadIcon, PlugIcon, RefreshCwIcon, ShieldIcon, SpinnerIcon, SteamColorIcon } from '@modrinth/assets'
-import { Admonition, Badge, ButtonStyled, ContentPageHeader, ProgressBar, injectNotificationManager } from '@modrinth/ui'
+import { BlocksIcon, DownloadIcon, RefreshCwIcon, SpinnerIcon, SteamColorIcon } from '@modrinth/assets'
+import { Admonition, Badge, ButtonStyled, ProgressBar, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
@@ -55,8 +55,7 @@ async function installApi() {
   if (installing.value) return
 
   try {
-    // Refresh the selected game/folder state at click time. The API action
-    // must never silently no-op because the page has stale state.
+    // re-check folder state at click time, not just on page load
     const settings = await invoke('load_settings')
     game.value = settings.game || game.value
     hasFolder.value = !!settings.managed_folder?.trim()
@@ -107,41 +106,33 @@ onUnmounted(() => {
     </div>
 
     <main v-else class="max-w-3xl w-full mx-auto flex flex-col gap-6">
-      <ContentPageHeader>
-        <template #icon>
-          <span
-            class="flex items-center justify-center w-16 h-16 rounded-2xl shrink-0"
-            :class="isSilksong ? 'bg-blue/10' : 'bg-brand/10'"
-          >
-            <PlugIcon v-if="isSilksong" class="w-7 h-7 text-blue" />
-            <ShieldIcon v-else class="w-7 h-7 text-brand" />
+      <div class="flex items-center justify-between gap-6 flex-wrap pb-6 border-b border-solid border-surface-5">
+        <div class="flex items-center gap-3.5 min-w-0">
+          <span class="shrink-0 w-11 h-11 rounded-xl bg-brand/10 flex items-center justify-center">
+            <BlocksIcon class="w-5 h-5 text-brand" />
           </span>
-        </template>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="m-0 text-xl font-extrabold text-contrast">{{ apiName }}</h1>
+              <span class="text-xs font-semibold text-secondary bg-button-bg px-2.5 py-1 rounded-full">{{ apiVersion }}</span>
+            </div>
+            <Badge class="mt-1.5" :type="statusText" :color="!apiInstalled ? 'gray' : (apiEnabled ? 'green' : 'orange')" />
+          </div>
+        </div>
 
-        <template #title>{{ apiName }}</template>
-        <template #title-suffix>
-          <span class="text-xs font-semibold text-secondary bg-button-bg px-2.5 py-1 rounded-full">{{ apiVersion }}</span>
-        </template>
+        <ButtonStyled color="brand" size="large" :disabled="installing">
+          <button @click="installApi">
+            <RefreshCwIcon v-if="installing" class="animate-spin" />
+            <DownloadIcon v-else />
+            {{ installing ? 'Installing...' : ctaLabel }}
+          </button>
+        </ButtonStyled>
+      </div>
 
-        <template #summary>
-          <span v-if="isSilksong">Silksong uses <span class="text-contrast font-semibold">BepInEx</span> as its mod loader. Needlelight installs and manages the maintained Silksong BepInEx pack separately from Hollow Knight's legacy Modding API.</span>
-          <span v-else>The Modding API provides the runtime that lets Hollow Knight load mods together. Needlelight currently supports the official <span class="text-contrast font-semibold">v77</span> API for the legacy Hollow Knight build.</span>
-        </template>
-
-        <template #stats>
-          <Badge :type="statusText" :color="!apiInstalled ? 'gray' : (apiEnabled ? 'green' : 'orange')" />
-        </template>
-
-        <template #actions>
-          <ButtonStyled color="brand" size="large" :disabled="installing">
-            <button @click="installApi">
-              <RefreshCwIcon v-if="installing" class="animate-spin" />
-              <DownloadIcon v-else />
-              {{ installing ? 'Installing...' : ctaLabel }}
-            </button>
-          </ButtonStyled>
-        </template>
-      </ContentPageHeader>
+      <p class="m-0 -mt-2 text-sm text-secondary leading-relaxed">
+        <template v-if="isSilksong">Silksong uses <span class="text-contrast font-semibold">BepInEx</span> as its mod loader. Needlelight installs and manages the maintained Silksong BepInEx pack separately from Hollow Knight's legacy Modding API.</template>
+        <template v-else>The Modding API provides the runtime that lets Hollow Knight load mods together. Needlelight currently supports the official <span class="text-contrast font-semibold">v77</span> API for the legacy Hollow Knight build.</template>
+      </p>
 
       <p v-if="!hasFolder" class="m-0 -mt-3 text-sm text-secondary">
         Select a game directory from <span class="text-contrast font-semibold">Browse</span> before installing.
@@ -159,7 +150,7 @@ onUnmounted(() => {
         />
       </div>
 
-      <!-- Hollow Knight version compatibility -->
+      <!-- hollow knight version compatibility -->
       <div v-if="!isSilksong" class="flex flex-col gap-4">
         <Admonition type="warning">
           <template #header>Hollow Knight version compatibility</template>
@@ -201,10 +192,6 @@ onUnmounted(() => {
             </li>
           </ol>
         </div>
-
-        <p class="m-0 text-xs text-secondary leading-relaxed">
-          Until the Modding API has an official Unity 6 release, Needlelight stays on <span class="text-contrast font-semibold">v77</span> for the supported pre-Unity 6 game build.
-        </p>
       </div>
 
       <div v-if="error" class="pt-5 border-t border-solid border-surface-5 flex items-center gap-3 text-sm text-secondary">

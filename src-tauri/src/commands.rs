@@ -17,10 +17,7 @@ fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
     result.map_err(|e| e.to_string())
 }
 
-/// Thin wrapper around `AppSettings::sync_managed_folder` for call sites that
-/// work with an owned value rather than a `&mut` binding. The folder- and
-/// modlinks-sync rules live on `AppSettings` itself (see settings.rs) so
-/// there's exactly one implementation to keep correct.
+// delegates to AppSettings::sync_managed_folder, single source of truth
 fn sync_managed_folder(mut settings: AppSettings) -> AppSettings {
     settings.sync_managed_folder();
     settings.sync_custom_modlinks();

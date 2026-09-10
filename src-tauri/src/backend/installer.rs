@@ -291,8 +291,7 @@ async fn install_hk_api_payload(settings: &AppSettings, data: &[u8], api_version
     let state_dir = hk_api_state_dir(settings);
     let manifest_path = state_dir.join("manifest.json");
 
-    // A manifest-backed installation can be safely refreshed because every file
-    // touched by the API has a pristine vanilla copy and a modded copy.
+    // manifest-backed installs can always be safely refreshed
     if manifest_path.is_file() {
         restore_hk_vanilla(settings).await?;
         tokio::fs::remove_dir_all(&state_dir).await?;
@@ -370,13 +369,8 @@ fn hk_api_manifest(settings: &AppSettings) -> PathBuf {
     hk_api_state_dir(settings).join("manifest.json")
 }
 
-/// Lists the files a Modding API archive will place under the managed
-/// folder. This must resolve to the *exact same relative paths* that
-/// `extract_zip_guarded` writes to disk, including its wrapped-root
-/// stripping (e.g. if the archive wraps everything in a single top-level
-/// folder). If these two ever disagreed, the backup manifest would record
-/// the wrong paths and the vanilla/modded restore would silently miss
-/// files.
+// must match extract_zip_guarded's wrapped-root stripping, or the manifest
+// paths won't match what actually lands on disk
 fn collect_api_archive_files(data: &[u8]) -> AppResult<Vec<PathBuf>> {
     let names = {
         let reader = std::io::Cursor::new(data);
@@ -496,8 +490,7 @@ pub async fn ensure_hk_api_enabled(settings: &AppSettings) -> AppResult<()> {
         return Ok(());
     }
 
-    // Backwards-compatible path for the older single-file backup layout. New
-    // installs use the complete manifest-backed restore above.
+    // legacy single-file backup, kept for old installs
     let managed = PathBuf::from(&settings.managed_folder);
     let current = managed.join("Assembly-CSharp.dll");
     let vanilla = managed.join("Assembly-CSharp.dll.v");
@@ -708,13 +701,8 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
         return true;
     }
 
-    // The API can be installed but currently disabled: the vanilla
-    // Assembly-CSharp.dll is Current while a modded copy sits in the backup.
-    // Mirrors Lumafly's CheckAPI(): re-derive this from the backup file's
-    // actual content rather than trusting that a manifest/backup file merely
-    // exists on disk, which can go stale after interrupted installs and would
-    // otherwise make Needlelight think a broken backup is good, skip a fresh
-    // reinstall, and fail later when it tries to restore from it.
+    // installed-but-disabled: check the backup's real content, not just
+    // that a manifest file exists, so a stale backup can't be trusted
     let managed = PathBuf::from(&settings.managed_folder);
     let manifest_modded = hk_api_state_dir(settings).join("modded").join("Assembly-CSharp.dll");
     let legacy_modded = managed.join("Assembly-CSharp.dll.m");

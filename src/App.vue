@@ -17,6 +17,7 @@ import {
   ButtonStyled,
   commonMessages,
   defineMessages,
+  NotificationPanel,
   OverflowMenu,
   ProgressSpinner,
   provideNotificationManager,
@@ -563,6 +564,7 @@ onMounted(() => {
     </div>
   </div>
   <ErrorModal ref="errorModal" />
+  <NotificationPanel />
 </template>
 
 <style lang="scss" scoped>
