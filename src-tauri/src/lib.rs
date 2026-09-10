@@ -5,13 +5,16 @@ mod process_plugin;
 mod profile_create_plugin;
 mod profile_plugin;
 
-use backend::{installed_mods::InstalledModsStore, settings::AppSettings};
+use backend::{installed_mods::InstalledModsStore, settings::{AppSettings, GameKey}};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub struct AppState {
     pub settings: Arc<RwLock<AppSettings>>,
     pub installed: Arc<RwLock<InstalledModsStore>>,
+    // tracks the game Needlelight itself last spawned, so a second launch
+    // click can't stack another process on top of one still running
+    pub running_game: Arc<RwLock<Option<GameKey>>>,
 }
 
 impl AppState {
@@ -23,6 +26,7 @@ impl AppState {
         Self {
             settings: Arc::new(RwLock::new(settings)),
             installed: Arc::new(RwLock::new(installed)),
+            running_game: Arc::new(RwLock::new(None)),
         }
     }
 }

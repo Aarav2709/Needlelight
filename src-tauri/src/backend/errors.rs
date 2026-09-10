@@ -2,23 +2,23 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("io error: {0}")]
+    #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("network error: {0}")]
+    #[error("Network error: {0}")]
     Network(#[from] reqwest::Error),
-    #[error("json error: {0}")]
+    #[error("Failed to parse JSON: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("xml parse error: {0}")]
+    #[error("Failed to parse XML: {0}")]
     Xml(#[from] quick_xml::de::DeError),
-    #[error("zip error: {0}")]
+    #[error("Zip error: {0}")]
     Zip(#[from] zip::result::ZipError),
-    #[error("hash mismatch")]
+    #[error("Hash mismatch - the downloaded file may be corrupted.")]
     HashMismatch,
-    #[error("invalid custom modlinks")]
+    #[error("Custom ModLinks configuration is invalid.")]
     InvalidModlinks,
-    #[error("not found: {0}")]
+    #[error("{0}")]
     NotFound(String),
-    #[error("invalid input: {0}")]
+    #[error("{0}")]
     InvalidInput(String),
 }
 

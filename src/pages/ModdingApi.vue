@@ -1,5 +1,5 @@
 <script setup>
-import { BlocksIcon, DownloadIcon, RefreshCwIcon, SpinnerIcon, SteamColorIcon } from '@modrinth/assets'
+import { DownloadIcon, RefreshCwIcon, SpinnerIcon, SteamColorIcon } from '@modrinth/assets'
 import { Admonition, Badge, ButtonStyled, ProgressBar, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
@@ -107,20 +107,15 @@ onUnmounted(() => {
 
     <main v-else class="max-w-3xl w-full mx-auto flex flex-col gap-6">
       <div class="flex items-center justify-between gap-6 flex-wrap pb-6 border-b border-solid border-surface-5">
-        <div class="flex items-center gap-3.5 min-w-0">
-          <span class="shrink-0 w-11 h-11 rounded-xl bg-brand/10 flex items-center justify-center">
-            <BlocksIcon class="w-5 h-5 text-brand" />
-          </span>
-          <div class="min-w-0">
-            <div class="flex items-center gap-2 flex-wrap">
-              <h1 class="m-0 text-xl font-extrabold text-contrast">{{ apiName }}</h1>
-              <span class="text-xs font-semibold text-secondary bg-button-bg px-2.5 py-1 rounded-full">{{ apiVersion }}</span>
-            </div>
-            <Badge class="mt-1.5" :type="statusText" :color="!apiInstalled ? 'gray' : (apiEnabled ? 'green' : 'orange')" />
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="m-0 text-xl font-extrabold text-contrast">{{ apiName }}</h1>
+            <span class="text-xs font-semibold text-secondary bg-button-bg px-2.5 py-1 rounded-full">{{ apiVersion }}</span>
           </div>
+          <Badge class="mt-1.5" :type="statusText" :color="!apiInstalled ? 'gray' : (apiEnabled ? 'green' : 'orange')" />
         </div>
 
-        <ButtonStyled color="brand" size="large" :disabled="installing">
+        <ButtonStyled color="brand" :disabled="installing">
           <button @click="installApi">
             <RefreshCwIcon v-if="installing" class="animate-spin" />
             <DownloadIcon v-else />

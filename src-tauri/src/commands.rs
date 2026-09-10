@@ -14,7 +14,23 @@ use std::process::Command;
 use tauri::{AppHandle, State};
 
 fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
-    result.map_err(|e| e.to_string())
+    result.map_err(|e| format_user_error(&e.to_string()))
+}
+
+// most AppError messages are lowercase fragments meant for logs, not people;
+// capitalize the first letter and make sure it ends with punctuation
+fn format_user_error(message: &str) -> String {
+    let trimmed = message.trim();
+    if trimmed.is_empty() {
+        return "Something went wrong.".to_string();
+    }
+    let mut chars = trimmed.chars();
+    let mut out: String = chars.next().map(|c| c.to_uppercase().collect::<String>()).unwrap_or_default();
+    out.push_str(chars.as_str());
+    if !out.ends_with(['.', '!', '?', ':']) {
+        out.push('.');
+    }
+    out
 }
 
 // delegates to AppSettings::sync_managed_folder, single source of truth
@@ -28,10 +44,7 @@ fn sync_managed_folder(mut settings: AppSettings) -> AppSettings {
 pub async fn load_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
     let mut settings = sync_managed_folder(state.settings.read().await.clone());
 
-    // Auto-detect the selected game's Managed folder on every cold load when no
-    // usable path is configured. This avoids requiring a game switch just to
-    // initialize Hollow Knight. Persist a successful detection so later refreshes
-    // see the same path immediately.
+    // auto-detect the managed folder on cold load if nothing is configured
     if settings.managed_folder.trim().is_empty() {
         if let Some(path) = map_err(AppSettings::auto_detect(&settings.game).await)? {
             settings.managed_folder = AppSettings::normalize_managed_folder(&path, &settings.game);
@@ -63,14 +76,13 @@ pub async fn save_settings(state: State<'_, AppState>, settings: AppSettings) ->
     let prev_path = previous.managed_folder;
     let incoming_game = incoming.game.clone();
     if incoming.game != previous.game && incoming.managed_folder == prev_path {
-        // Switching games without updating the path: restore saved path for new game.
+        // switching games without updating the path: restore saved path for new game
         let stored = incoming.managed_folder_for(&incoming_game);
         incoming.managed_folder = stored;
     }
 
     if incoming.game != previous.game {
-        // The form was loaded for the previous game, so preserve its catalog
-        // values before exposing the selected game's independent values.
+        // form was loaded for the previous game; preserve its catalog values first
         incoming.custom_modlinks_by_game.insert(
             previous.game.as_str().to_string(),
             crate::backend::settings::CustomModlinksConfig {
@@ -219,6 +231,18 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
         return Err("Game folder not configured. Go to Settings > Game to set it up.".to_string());
     }
 
+    // refuse a second launch of the same game instead of letting the OS/game
+    // handle it, since that just surfaces a confusing native dialog
+    {
+        let running = state.running_game.read().await;
+        if running.as_ref() == Some(&settings.game) {
+            return Err(format!(
+                "{} is already running. Close it before launching again.",
+                settings.game.display_name()
+            ));
+        }
+    }
+
     let game_root = settings.game_root_path();
     if !game_root.is_dir() {
         installer::write_install_log(format!("Game launch failed: game root is not a directory: {}", game_root.display()));
@@ -252,14 +276,13 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
     })?.clone();
 
     if settings.game == GameKey::HollowKnight {
-        // The modded launcher requires the API to be in Current. The vanilla
-        // launcher swaps Current with the pristine backup for the lifetime of the
-        // game process, then restores the API state after the process exits.
+        // vanilla launch swaps Current for the pristine backup for the
+        // process lifetime, then restores modded state after it exits
         if modded {
-            installer::ensure_hk_api_enabled(&settings).await.map_err(|e| e.to_string())?;
+            installer::ensure_hk_api_enabled(&settings).await.map_err(|e| format_user_error(&e.to_string()))?;
             installer::write_install_log("Prepared Hollow Knight in modded/API-enabled state.");
         } else {
-            installer::ensure_hk_api_disabled(&settings).await.map_err(|e| e.to_string())?;
+            installer::ensure_hk_api_disabled(&settings).await.map_err(|e| format_user_error(&e.to_string()))?;
             installer::write_install_log("Prepared Hollow Knight in vanilla state.");
         }
     }
@@ -275,22 +298,29 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
         })?;
 
     let pid = child.id();
-    if settings.game == GameKey::HollowKnight && !modded {
-        let restore_settings = settings.clone();
-        tokio::spawn(async move {
-            let mut child = child;
-            let _ = tokio::task::spawn_blocking(move || child.wait()).await;
+    {
+        let mut running = state.running_game.write().await;
+        *running = Some(settings.game.clone());
+    }
+
+    let restore_settings = settings.clone();
+    let is_vanilla_hk = settings.game == GameKey::HollowKnight && !modded;
+    let running_game = state.running_game.clone();
+    tokio::spawn(async move {
+        let mut child = child;
+        let _ = tokio::task::spawn_blocking(move || child.wait()).await;
+
+        if is_vanilla_hk {
             if let Err(error) = installer::ensure_hk_api_enabled(&restore_settings).await {
                 installer::write_install_log(format!("Failed to restore Hollow Knight API state after vanilla launch: {error}"));
             } else {
                 installer::write_install_log("Restored Hollow Knight to modded/API-enabled state after vanilla launch.");
             }
-        });
-    } else if settings.game == GameKey::HollowKnight {
-        // Dropping the Child handle does not terminate the process; the API stays
-        // enabled so subsequent modded launches are deterministic.
-        drop(child);
-    }
+        }
+
+        let mut running = running_game.write().await;
+        *running = None;
+    });
 
     let mode = if modded { "modded" } else { "vanilla" };
     Ok(format!("Launched {} ({mode}, process {pid}).", exe.file_name().unwrap_or_default().to_string_lossy()))

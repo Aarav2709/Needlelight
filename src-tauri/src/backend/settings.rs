@@ -27,6 +27,13 @@ impl GameKey {
     pub fn is_silksong(&self) -> bool {
         matches!(self, GameKey::Silksong)
     }
+
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            GameKey::HollowKnight => "Hollow Knight",
+            GameKey::Silksong => "Silksong",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
