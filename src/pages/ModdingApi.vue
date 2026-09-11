@@ -1,6 +1,6 @@
 <script setup>
 import { DownloadIcon, RefreshCwIcon, SpinnerIcon, SteamColorIcon } from '@modrinth/assets'
-import { Admonition, Badge, ButtonStyled, ProgressBar, injectNotificationManager } from '@modrinth/ui'
+import { Admonition, ButtonStyled, ProgressBar, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
@@ -16,7 +16,6 @@ const loading = ref(true)
 const installing = ref(false)
 const apiInfo = ref(null)
 const apiInstalled = ref(false)
-const apiEnabled = ref(false)
 const hasFolder = ref(false)
 const error = ref(null)
 const installProgress = ref(0)
@@ -28,10 +27,7 @@ const isSilksong = computed(() => game.value === 'silksong')
 const apiName = computed(() => isSilksong.value ? 'BepInEx' : 'Modding API')
 const apiVersion = computed(() => apiInfo.value?.version ? `v${apiInfo.value.version}` : 'Version unavailable')
 const ctaLabel = computed(() => apiInstalled.value ? (isSilksong.value ? 'Reinstall BepInEx' : 'Reinstall API') : (isSilksong.value ? 'Install BepInEx' : 'Install API'))
-const statusText = computed(() => {
-  if (!apiInstalled.value) return 'Not installed'
-  return apiEnabled.value ? 'Installed and ready' : 'Installed, currently disabled'
-})
+const titleColorClass = computed(() => apiInstalled.value ? 'text-green' : 'text-red')
 
 async function loadState() {
   loading.value = true
@@ -43,7 +39,6 @@ async function loadState() {
     const catalog = await invoke('refresh_catalog', { fetchOfficial: true })
     apiInfo.value = catalog?.api || null
     apiInstalled.value = !!catalog?.api_installed
-    apiEnabled.value = catalog?.api_enabled !== false && apiInstalled.value
   } catch (err) {
     error.value = err
   } finally {
@@ -95,24 +90,21 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
-    <div v-if="loading" class="min-h-[56vh] w-full flex items-center justify-center text-center">
-      <div class="inline-flex flex-col items-center gap-3 text-secondary">
-        <span class="w-12 h-12 rounded-full bg-bg-raised border border-solid border-surface-5 flex items-center justify-center">
-          <SpinnerIcon class="w-5 h-5 animate-spin" />
-        </span>
-        <span class="text-sm">Loading API information...</span>
-      </div>
+  <div class="p-6 min-h-full flex items-center justify-center">
+    <div v-if="loading" class="inline-flex flex-col items-center gap-3 text-secondary">
+      <span class="w-12 h-12 rounded-full bg-bg-raised border border-solid border-surface-5 flex items-center justify-center">
+        <SpinnerIcon class="w-5 h-5 animate-spin" />
+      </span>
+      <span class="text-sm">Loading API information...</span>
     </div>
 
-    <main v-else class="max-w-3xl w-full mx-auto flex flex-col gap-8">
+    <main v-else class="max-w-3xl w-full flex flex-col gap-8">
       <div class="flex items-center justify-between gap-6 flex-wrap">
         <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
-            <h1 class="m-0 text-xl font-extrabold text-contrast">{{ apiName }}</h1>
+            <h1 class="m-0 text-xl font-extrabold" :class="titleColorClass">{{ apiName }}</h1>
             <span class="text-xs font-semibold text-secondary bg-button-bg px-2.5 py-1 rounded-full">{{ apiVersion }}</span>
           </div>
-          <Badge class="mt-1.5" :type="statusText" :color="!apiInstalled ? 'gray' : (apiEnabled ? 'green' : 'orange')" />
         </div>
 
         <ButtonStyled color="brand" :disabled="installing">
@@ -123,15 +115,6 @@ onUnmounted(() => {
           </button>
         </ButtonStyled>
       </div>
-
-      <p class="m-0 -mt-4 text-sm text-secondary leading-relaxed">
-        <template v-if="isSilksong">Silksong uses <span class="text-contrast font-semibold">BepInEx</span> as its mod loader. Needlelight installs and manages the maintained Silksong BepInEx pack separately from Hollow Knight's legacy Modding API.</template>
-        <template v-else>The Modding API provides the runtime that lets Hollow Knight load mods together. Needlelight currently supports the official <span class="text-contrast font-semibold">v77</span> API for the legacy Hollow Knight build.</template>
-      </p>
-
-      <p v-if="!hasFolder" class="m-0 -mt-3 text-sm text-secondary">
-        Select a game directory from <span class="text-contrast font-semibold">Browse</span> before installing.
-      </p>
 
       <div v-if="installing" class="max-w-sm">
         <ProgressBar
@@ -183,10 +166,45 @@ onUnmounted(() => {
             </li>
             <li class="relative pl-8">
               <span class="absolute left-0 top-0.5 w-5 h-5 rounded-full bg-brand text-white text-[11px] font-bold flex items-center justify-center">5</span>
-              <p class="m-0 text-sm leading-5">Wait for Steam to finish updating, then launch Hollow Knight through Needlelight.</p>
+              <span class="absolute left-[9px] top-6 bottom-[-1.25rem] w-px bg-surface-5"></span>
+              <p class="m-0 text-sm leading-5">Wait for Steam to finish updating.</p>
+            </li>
+            <li class="relative pl-8">
+              <span class="absolute left-0 top-0.5 w-5 h-5 rounded-full bg-brand text-white text-[11px] font-bold flex items-center justify-center">6</span>
+              <p class="m-0 text-sm leading-5">Install the Modding API, install your mods, then launch Hollow Knight through Needlelight.</p>
             </li>
           </ol>
         </div>
+      </div>
+
+      <!-- silksong getting started -->
+      <div v-else class="rounded-2xl border border-solid border-surface-5 bg-bg-raised p-5">
+        <h3 class="m-0 flex items-center gap-2 text-sm font-bold text-contrast">
+          <SteamColorIcon class="w-4 h-4 shrink-0" />
+          Getting started
+        </h3>
+
+        <ol class="relative m-0 mt-5 p-0 list-none flex flex-col gap-5">
+          <li class="relative pl-8">
+            <span class="absolute left-0 top-0.5 w-5 h-5 rounded-full bg-brand text-white text-[11px] font-bold flex items-center justify-center">1</span>
+            <span class="absolute left-[9px] top-6 bottom-[-1.25rem] w-px bg-surface-5"></span>
+            <p class="m-0 text-sm leading-5">Install <span class="font-semibold text-contrast">Hollow Knight: Silksong</span> from Steam.</p>
+          </li>
+          <li class="relative pl-8">
+            <span class="absolute left-0 top-0.5 w-5 h-5 rounded-full bg-brand text-white text-[11px] font-bold flex items-center justify-center">2</span>
+            <span class="absolute left-[9px] top-6 bottom-[-1.25rem] w-px bg-surface-5"></span>
+            <p class="m-0 text-sm leading-5">Install <span class="font-semibold text-contrast">BepInEx</span>.</p>
+          </li>
+          <li class="relative pl-8">
+            <span class="absolute left-0 top-0.5 w-5 h-5 rounded-full bg-brand text-white text-[11px] font-bold flex items-center justify-center">3</span>
+            <span class="absolute left-[9px] top-6 bottom-[-1.25rem] w-px bg-surface-5"></span>
+            <p class="m-0 text-sm leading-5">Install your mods.</p>
+          </li>
+          <li class="relative pl-8">
+            <span class="absolute left-0 top-0.5 w-5 h-5 rounded-full bg-brand text-white text-[11px] font-bold flex items-center justify-center">4</span>
+            <p class="m-0 text-sm leading-5">Launch Hollow Knight: Silksong through Needlelight.</p>
+          </li>
+        </ol>
       </div>
 
       <div v-if="error" class="pt-5 border-t border-solid border-surface-5 flex items-center gap-3 text-sm text-secondary">
