@@ -173,7 +173,7 @@ NEEDLELIGHT_HK_APILINKS_URLS="https://your.backend/ApiLinks.xml"
 - Install the project dependencies and use the project's development commands to start the desktop application.
 - The Rust backend is located in the Tauri application and handles native functionality such as filesystem access, game detection, mod installation, and configuration.
 > Though there is no estimation on when I will be done with v8.0.0.0, due to other projects and school life, I plan to finish it super soon, and if everything goes as planned, v8.0.0.0 will be the last Major Update to the launcher, and bugs (if any reported) will be fixed too!
-> If there are any suggestions, which y'all wanna suggest, then go ahead. If multiple people think the launcher needs it, then I will surely add it, maybe as a minor update if I am constantly updating the launcher, or as a major update if I am not updating it, with additional bug fixes.
+> If there are any suggestions, which y'all wanna suggest, then go ahead. If multiple people think the launcher needs it, then I will surely add it, maybe as a minor update if I am constantly updating the launcher, or as a major update if I am not updating it, with additional bug fixes. Also, since v8.0.0.0 was tested only on Steam + Windows, you can try it on other platforms + other OSes, and report bugs, because I *think* there might be some! Enjoy!
 
 ## Contributing
 - Contributions are welcome.
