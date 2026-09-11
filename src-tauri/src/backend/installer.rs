@@ -623,14 +623,32 @@ fn extract_zip_guarded(data: &[u8], destination: &Path, preserve_roots: &[&str])
 
 fn detect_wrapped_root(names: &[String], preserve_roots: &[&str]) -> Option<String> {
     let mut first_root: Option<String> = None;
+    let mut found_nested_entry = false;
 
     for name in names {
+        let name = name.trim_end_matches('/');
+
+        if name.is_empty() {
+            continue;
+        }
+
         let path = Path::new(name);
         let mut components = path.components();
-        let root = components.next()?.as_os_str().to_str()?;
+
+        let Some(root) = components.next() else {
+            continue;
+        };
+
+        // Ignore top-level directory entries like "BepInExPack/".
         if components.next().is_none() {
-            return None;
+            continue;
         }
+
+        found_nested_entry = true;
+
+        let Some(root) = root.as_os_str().to_str() else {
+            return None;
+        };
 
         if let Some(existing) = &first_root {
             if !existing.eq_ignore_ascii_case(root) {
@@ -641,8 +659,16 @@ fn detect_wrapped_root(names: &[String], preserve_roots: &[&str]) -> Option<Stri
         }
     }
 
+    if !found_nested_entry {
+        return None;
+    }
+
     let root = first_root?;
-    if preserve_roots.iter().any(|candidate| candidate.eq_ignore_ascii_case(&root)) {
+
+    if preserve_roots
+        .iter()
+        .any(|candidate| candidate.eq_ignore_ascii_case(&root))
+    {
         None
     } else {
         Some(root)
