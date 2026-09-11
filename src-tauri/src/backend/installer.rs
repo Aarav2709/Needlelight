@@ -6,7 +6,12 @@ use super::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::HashSet, fs::{File, OpenOptions}, io::{Read, Write}, path::{Path, PathBuf}};
+use std::{
+    collections::HashSet,
+    fs::{File, OpenOptions},
+    io::{Read, Write},
+    path::{Path, PathBuf},
+};
 use tauri::{AppHandle, Emitter};
 use walkdir::WalkDir;
 use zip::ZipArchive;
@@ -56,8 +61,15 @@ pub(crate) fn write_install_log(message: impl AsRef<str>) {
         if let Some(parent) = log_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let mut file = OpenOptions::new().create(true).append(true).open(log_path)?;
-        writeln!(file, "{} {message}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"))
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_path)?;
+        writeln!(
+            file,
+            "{} {message}",
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+        )
     })();
 
     if let Err(error) = result {
@@ -72,7 +84,10 @@ pub async fn install_mod<R: tauri::Runtime>(
     catalog: &CatalogResponse,
     mod_name: &str,
 ) -> AppResult<()> {
-    write_install_log(format!("Starting mod install: {mod_name} (game: {})", settings.game.as_str()));
+    write_install_log(format!(
+        "Starting mod install: {mod_name} (game: {})",
+        settings.game.as_str()
+    ));
     if settings.managed_folder.trim().is_empty() {
         return Err(AppError::InvalidInput(
             "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
@@ -99,7 +114,10 @@ pub async fn uninstall_mod(
     installed: &mut InstalledModsStore,
     mod_name: &str,
 ) -> AppResult<()> {
-    write_install_log(format!("Starting mod uninstall: {mod_name} (game: {})", settings.game.as_str()));
+    write_install_log(format!(
+        "Starting mod uninstall: {mod_name} (game: {})",
+        settings.game.as_str()
+    ));
     if settings.managed_folder.trim().is_empty() {
         return Err(AppError::InvalidInput(
             "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
@@ -176,17 +194,35 @@ struct HkApiBackupManifest {
 }
 
 fn emit_mod_progress<R: tauri::Runtime>(app: &AppHandle<R>, item_name: &str, progress: u8) {
-    let _ = app.emit("mod-install-progress", ModInstallProgress {
-        item_name: item_name.to_string(),
-        progress: progress.min(100),
-    });
+    let _ = app.emit(
+        "mod-install-progress",
+        ModInstallProgress {
+            item_name: item_name.to_string(),
+            progress: progress.min(100),
+        },
+    );
 }
 
-fn emit_api_progress<R: tauri::Runtime>(app: &AppHandle<R>, progress: u8, stage: impl Into<String>) {
-    let _ = app.emit("api-install-progress", ApiInstallProgress {
-        progress: progress.min(100),
-        stage: stage.into(),
-    });
+fn emit_api_progress<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    progress: u8,
+    stage: impl Into<String>,
+) {
+    let _ = app.emit(
+        "api-install-progress",
+        ApiInstallProgress {
+            progress: progress.min(100),
+            stage: stage.into(),
+        },
+    );
+}
+
+fn api_runtime_name(settings: &AppSettings) -> &'static str {
+    if settings.game.is_silksong() {
+        "BepInEx"
+    } else {
+        "Modding API"
+    }
 }
 
 pub async fn install_api<R: tauri::Runtime>(
@@ -195,7 +231,10 @@ pub async fn install_api<R: tauri::Runtime>(
     installed: &mut InstalledModsStore,
     catalog: &CatalogResponse,
 ) -> AppResult<()> {
-    write_install_log(format!("Starting Modding API install (game: {}).", settings.game.as_str()));
+    write_install_log(format!(
+        "Starting Modding API install (game: {}).",
+        settings.game.as_str()
+    ));
     if settings.managed_folder.trim().is_empty() {
         return Err(AppError::InvalidInput(
             "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
@@ -213,13 +252,12 @@ pub async fn install_api<R: tauri::Runtime>(
         ));
     }
 
-    emit_api_progress(app, 0, "Downloading Modding API...");
-    let client = reqwest::Client::builder().user_agent("Needlelight").build()?;
-    let mut response = client
-        .get(&api.url)
-        .send()
-        .await?
-        .error_for_status()?;
+    let runtime_name = api_runtime_name(settings);
+    emit_api_progress(app, 0, format!("Downloading {runtime_name}..."));
+    let client = reqwest::Client::builder()
+        .user_agent("Needlelight")
+        .build()?;
+    let mut response = client.get(&api.url).send().await?.error_for_status()?;
     let total = response.content_length();
     let mut downloaded = 0u64;
     let mut bytes = Vec::new();
@@ -231,10 +269,13 @@ pub async fn install_api<R: tauri::Runtime>(
             .filter(|size| *size > 0)
             .map(|size| ((downloaded.saturating_mul(70) / size).min(70)) as u8)
             .unwrap_or(35);
-        emit_api_progress(app, progress, "Downloading Modding API...");
+        emit_api_progress(app, progress, format!("Downloading {runtime_name}..."));
     }
 
-    write_install_log(format!("Downloaded Modding API archive ({} bytes).", bytes.len()));
+    write_install_log(format!(
+        "Downloaded Modding API archive ({} bytes).",
+        bytes.len()
+    ));
     emit_api_progress(app, 72, "Verifying download...");
 
     if !api.sha256.trim().is_empty() {
@@ -246,7 +287,7 @@ pub async fn install_api<R: tauri::Runtime>(
         }
     }
 
-    emit_api_progress(app, 82, "Installing API files...");
+    emit_api_progress(app, 82, format!("Installing {runtime_name} files..."));
     if settings.game.is_silksong() {
         let target = settings.game_root_path();
         tokio::fs::create_dir_all(&target).await?;
@@ -278,7 +319,10 @@ pub async fn install_api<R: tauri::Runtime>(
     });
     installed.db.has_vanilla = !settings.game.is_silksong();
     installed.save(settings).await?;
-    write_install_log(format!("Modding API installed successfully in {}.", settings.managed_folder));
+    write_install_log(format!(
+        "Modding API installed successfully in {}.",
+        settings.managed_folder
+    ));
     emit_api_progress(app, 100, "Installation complete");
 
     Ok(())
@@ -288,11 +332,18 @@ pub async fn install_api<R: tauri::Runtime>(
 // failure shows exactly what actually landed on disk instead of a guess
 fn log_extracted_tree(root: &Path, max_depth: usize) {
     if !root.is_dir() {
-        write_install_log(format!("Extraction check: {} does not exist.", root.display()));
+        write_install_log(format!(
+            "Extraction check: {} does not exist.",
+            root.display()
+        ));
         return;
     }
     let mut lines = vec![format!("Extracted tree under {}:", root.display())];
-    for entry in WalkDir::new(root).max_depth(max_depth).into_iter().flatten() {
+    for entry in WalkDir::new(root)
+        .max_depth(max_depth)
+        .into_iter()
+        .flatten()
+    {
         if let Ok(relative) = entry.path().strip_prefix(root) {
             if !relative.as_os_str().is_empty() {
                 lines.push(format!("  {}", relative.display()));
@@ -302,7 +353,11 @@ fn log_extracted_tree(root: &Path, max_depth: usize) {
     write_install_log(lines.join("\n"));
 }
 
-async fn install_hk_api_payload(settings: &AppSettings, data: &[u8], api_version: &str) -> AppResult<()> {
+async fn install_hk_api_payload(
+    settings: &AppSettings,
+    data: &[u8],
+    api_version: &str,
+) -> AppResult<()> {
     let managed = PathBuf::from(&settings.managed_folder);
     let current = managed.join("Assembly-CSharp.dll");
     if !current.exists() {
@@ -313,11 +368,12 @@ async fn install_hk_api_payload(settings: &AppSettings, data: &[u8], api_version
 
     let state_dir = hk_api_state_dir(settings);
     let manifest_path = state_dir.join("manifest.json");
+    let staged_state_dir = managed.join(".needlelight-api-staging");
+    let staged_manifest_path = staged_state_dir.join("manifest.json");
 
     // manifest-backed installs can always be safely refreshed
     if manifest_path.is_file() {
         restore_hk_vanilla(settings).await?;
-        tokio::fs::remove_dir_all(&state_dir).await?;
     } else if managed.join("Assembly-CSharp.dll.m").exists() {
         return Err(AppError::InvalidInput(
             "An older API installation without a complete backup was found. Verify Hollow Knight's files in Steam, then reinstall the Modding API.".to_string(),
@@ -331,8 +387,12 @@ async fn install_hk_api_payload(settings: &AppSettings, data: &[u8], api_version
         ));
     }
 
-    let vanilla_dir = state_dir.join("vanilla");
-    let modded_dir = state_dir.join("modded");
+    if staged_state_dir.exists() {
+        tokio::fs::remove_dir_all(&staged_state_dir).await?;
+    }
+
+    let vanilla_dir = staged_state_dir.join("vanilla");
+    let modded_dir = staged_state_dir.join("modded");
     tokio::fs::create_dir_all(&vanilla_dir).await?;
     tokio::fs::create_dir_all(&modded_dir).await?;
 
@@ -379,7 +439,12 @@ async fn install_hk_api_payload(settings: &AppSettings, data: &[u8], api_version
 
     let manifest_bytes = serde_json::to_vec_pretty(&manifest)
         .map_err(|e| AppError::InvalidInput(format!("could not write API backup manifest: {e}")))?;
-    tokio::fs::write(&manifest_path, manifest_bytes).await?;
+    tokio::fs::write(&staged_manifest_path, manifest_bytes).await?;
+
+    if state_dir.exists() {
+        tokio::fs::remove_dir_all(&state_dir).await?;
+    }
+    tokio::fs::rename(&staged_state_dir, &state_dir).await?;
 
     Ok(())
 }
@@ -390,6 +455,47 @@ fn hk_api_state_dir(settings: &AppSettings) -> PathBuf {
 
 fn hk_api_manifest(settings: &AppSettings) -> PathBuf {
     hk_api_state_dir(settings).join("manifest.json")
+}
+
+fn hk_pending_restore_marker(settings: &AppSettings) -> PathBuf {
+    hk_api_state_dir(settings).join("pending-vanilla-restore")
+}
+
+pub async fn mark_pending_hk_api_restore(settings: &AppSettings) -> AppResult<()> {
+    if settings.game.is_silksong() || settings.managed_folder.trim().is_empty() {
+        return Ok(());
+    }
+    let marker = hk_pending_restore_marker(settings);
+    if let Some(parent) = marker.parent() {
+        tokio::fs::create_dir_all(parent).await?;
+    }
+    tokio::fs::write(marker, b"pending").await?;
+    Ok(())
+}
+
+pub async fn clear_pending_hk_api_restore(settings: &AppSettings) -> AppResult<()> {
+    if settings.game.is_silksong() || settings.managed_folder.trim().is_empty() {
+        return Ok(());
+    }
+    let marker = hk_pending_restore_marker(settings);
+    if marker.is_file() {
+        tokio::fs::remove_file(marker).await?;
+    }
+    Ok(())
+}
+
+pub async fn recover_pending_hk_api_restore(settings: &AppSettings) -> AppResult<()> {
+    if settings.managed_folder.trim().is_empty() {
+        return Ok(());
+    }
+    let marker = hk_pending_restore_marker(settings);
+    if !marker.is_file() {
+        return Ok(());
+    }
+    ensure_hk_api_enabled(settings).await?;
+    clear_pending_hk_api_restore(settings).await?;
+    write_install_log("Recovered pending Hollow Knight API restore state on startup.");
+    Ok(())
 }
 
 // must match extract_zip_guarded's wrapped-root stripping, or the manifest
@@ -436,7 +542,9 @@ fn collect_api_archive_files(data: &[u8]) -> AppResult<Vec<PathBuf>> {
 async fn restore_hk_vanilla(settings: &AppSettings) -> AppResult<()> {
     let manifest_path = hk_api_manifest(settings);
     if !manifest_path.is_file() {
-        return Err(AppError::InvalidInput("Hollow Knight API backup manifest is missing.".to_string()));
+        return Err(AppError::InvalidInput(
+            "Hollow Knight API backup manifest is missing.".to_string(),
+        ));
     }
 
     let manifest_bytes = tokio::fs::read(&manifest_path).await?;
@@ -471,7 +579,9 @@ async fn restore_hk_vanilla(settings: &AppSettings) -> AppResult<()> {
 async fn restore_hk_modded(settings: &AppSettings) -> AppResult<()> {
     let manifest_path = hk_api_manifest(settings);
     if !manifest_path.is_file() {
-        return Err(AppError::InvalidInput("Hollow Knight API backup manifest is missing.".to_string()));
+        return Err(AppError::InvalidInput(
+            "Hollow Knight API backup manifest is missing.".to_string(),
+        ));
     }
 
     let manifest_bytes = tokio::fs::read(&manifest_path).await?;
@@ -548,7 +658,8 @@ pub async fn ensure_hk_api_disabled(settings: &AppSettings) -> AppResult<()> {
     let modded = managed.join("Assembly-CSharp.dll.m");
     if !vanilla.exists() {
         return Err(AppError::InvalidInput(
-            "Cannot disable the Modding API because the vanilla Assembly-CSharp backup is missing.".to_string(),
+            "Cannot disable the Modding API because the vanilla Assembly-CSharp backup is missing."
+                .to_string(),
         ));
     }
     replace_file(&current, &modded).await?;
@@ -602,7 +713,9 @@ fn extract_zip_guarded(data: &[u8], destination: &Path, preserve_roots: &[&str])
         };
         let output = destination.join(relative);
         if !output.starts_with(destination) {
-            return Err(AppError::InvalidInput("zip entry path traversal blocked".to_string()));
+            return Err(AppError::InvalidInput(
+                "zip entry path traversal blocked".to_string(),
+            ));
         }
 
         if entry.name().ends_with('/') {
@@ -681,7 +794,11 @@ fn strip_wrapped_root(path: &Path, wrapped_root: &str) -> PathBuf {
         return path.to_path_buf();
     };
 
-    if first.as_os_str().to_str().is_some_and(|segment| segment.eq_ignore_ascii_case(wrapped_root)) {
+    if first
+        .as_os_str()
+        .to_str()
+        .is_some_and(|segment| segment.eq_ignore_ascii_case(wrapped_root))
+    {
         components.collect()
     } else {
         path.to_path_buf()
@@ -701,7 +818,11 @@ pub fn detect_api_version(path: &Path) -> AppResult<Option<i32>> {
     let marker = "_modVersion";
     if let Some(pos) = ascii.find(marker) {
         let rest = &ascii[pos..];
-        let digits: String = rest.chars().filter(|c| c.is_ascii_digit()).take(3).collect();
+        let digits: String = rest
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .take(3)
+            .collect();
         if let Ok(v) = digits.parse::<i32>() {
             return Ok(Some(v));
         }
@@ -743,13 +864,17 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
             return false;
         }
         // different BepInEx releases have shipped different core dll names;
-        // accept any of them, or fall back to "core has any file in it" so a
-        // successful extraction is never rejected over one hardcoded name
-        let known_markers = ["BepInEx.dll", "BepInEx.Core.dll", "BepInEx.Preloader.dll", "BepInEx.Unity.dll"];
-        if known_markers.iter().any(|name| core.join(name).is_file()) {
-            return true;
-        }
-        return std::fs::read_dir(&core).map(|mut entries| entries.next().is_some()).unwrap_or(false);
+        // accept known runtime markers only.
+        let known_markers = [
+            "BepInEx.dll",
+            "BepInEx.Core.dll",
+            "BepInEx.Preloader.dll",
+            "BepInEx.Unity.dll",
+            "0Harmony.dll",
+            "Mono.Cecil.dll",
+            "MonoMod.RuntimeDetour.dll",
+        ];
+        return known_markers.iter().any(|name| core.join(name).is_file());
     }
 
     if settings.managed_folder.trim().is_empty() {
@@ -763,7 +888,9 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
     // installed-but-disabled: check the backup's real content, not just
     // that a manifest file exists, so a stale backup can't be trusted
     let managed = PathBuf::from(&settings.managed_folder);
-    let manifest_modded = hk_api_state_dir(settings).join("modded").join("Assembly-CSharp.dll");
+    let manifest_modded = hk_api_state_dir(settings)
+        .join("modded")
+        .join("Assembly-CSharp.dll");
     let legacy_modded = managed.join("Assembly-CSharp.dll.m");
 
     matches!(detect_api_version(&manifest_modded), Ok(Some(_)))
@@ -790,7 +917,9 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
                     .ok_or_else(|| AppError::NotFound(format!("mod '{current}' not found")))?;
 
                 if let Some(state) = installed.db.mods.get(&item.name) {
-                    if state.version == item.version && installed_mod_exists_on_disk(settings, &item.name) {
+                    if state.version == item.version
+                        && installed_mod_exists_on_disk(settings, &item.name)
+                    {
                         continue;
                     }
                 }
@@ -805,11 +934,16 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
             };
 
             if item_link.trim().is_empty() {
-                return Err(AppError::InvalidInput("mod has no download link".to_string()));
+                return Err(AppError::InvalidInput(
+                    "mod has no download link".to_string(),
+                ));
             }
 
             let bytes = download_mod_bytes(app, &item_name, &item_link, &item_sha256).await?;
-            write_install_log(format!("Downloaded mod {item_name} ({} bytes).", bytes.len()));
+            write_install_log(format!(
+                "Downloaded mod {item_name} ({} bytes).",
+                bytes.len()
+            ));
 
             if is_silksong {
                 if looks_like_zip(bytes.as_ref()) {
@@ -831,8 +965,8 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
                 if looks_like_zip(bytes.as_ref()) {
                     extract_zip_guarded(bytes.as_ref(), &folder, &[])?;
                 } else {
-                    let mut file_name = filename_from_url(&item_link)
-                        .unwrap_or_else(|| format!("{item_name}.dll"));
+                    let mut file_name =
+                        filename_from_url(&item_link).unwrap_or_else(|| format!("{item_name}.dll"));
                     if !file_name.to_lowercase().ends_with(".dll") {
                         file_name = format!("{item_name}.dll");
                     }
@@ -844,7 +978,9 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
             installed.mark_installed(&item_name, &item_version, true);
             installed.save(settings).await?;
             if !installed_mod_exists_on_disk(settings, &item_name) {
-                write_install_log(format!("Mod verification failed: {item_name} is missing after extraction."));
+                write_install_log(format!(
+                    "Mod verification failed: {item_name} is missing after extraction."
+                ));
                 return Err(AppError::InvalidInput(format!("{item_name} was not found after installation. See Needlelight-install.log for details.")));
             }
             write_install_log(format!("Installed mod {item_name} version {item_version}."));
@@ -902,7 +1038,9 @@ async fn download_mod_bytes<R: tauri::Runtime>(
     sha256: &str,
 ) -> AppResult<Vec<u8>> {
     emit_mod_progress(app, item_name, 0);
-    let client = reqwest::Client::builder().user_agent("Needlelight").build()?;
+    let client = reqwest::Client::builder()
+        .user_agent("Needlelight")
+        .build()?;
     let mut response = client.get(url).send().await?.error_for_status()?;
     let total = response.content_length();
     let mut downloaded = 0u64;
@@ -965,7 +1103,11 @@ async fn install_silksong_mod_archive(
         }
 
         // Strip leading BepInEx folder if present
-        if let Some(first) = path.components().next().and_then(|c| c.as_os_str().to_str()) {
+        if let Some(first) = path
+            .components()
+            .next()
+            .and_then(|c| c.as_os_str().to_str())
+        {
             if first.eq_ignore_ascii_case("BepInEx") && path.components().count() > 1 {
                 path = path.components().skip(1).collect();
             }
@@ -975,7 +1117,11 @@ async fn install_silksong_mod_archive(
             continue;
         }
 
-        let root = path.components().next().and_then(|c| c.as_os_str().to_str()).unwrap_or("");
+        let root = path
+            .components()
+            .next()
+            .and_then(|c| c.as_os_str().to_str())
+            .unwrap_or("");
         let (target_base, relative) = match root {
             "plugins" | "patchers" | "core" | "monomod" => {
                 let rel = path.components().skip(1).collect::<PathBuf>();
@@ -989,7 +1135,9 @@ async fn install_silksong_mod_archive(
 
         let output = target_base.join(relative).to_path_buf();
         if !output.starts_with(&target_base) {
-            return Err(AppError::InvalidInput("zip entry path traversal blocked".to_string()));
+            return Err(AppError::InvalidInput(
+                "zip entry path traversal blocked".to_string(),
+            ));
         }
 
         if entry.name().ends_with('/') {
@@ -1008,7 +1156,11 @@ async fn install_silksong_mod_archive(
     Ok(())
 }
 
-fn set_silksong_mod_enabled(settings: &AppSettings, mod_name: &str, enabled: bool) -> AppResult<()> {
+fn set_silksong_mod_enabled(
+    settings: &AppSettings,
+    mod_name: &str,
+    enabled: bool,
+) -> AppResult<()> {
     let paths = silksong_mod_paths(settings, mod_name);
     for folder in paths {
         if !folder.exists() {

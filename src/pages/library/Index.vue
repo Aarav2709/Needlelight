@@ -197,6 +197,9 @@ async function installMod(modName) {
   } catch (err) {
     handleError(err)
   } finally {
+    const finished = new Map(modProgress.value)
+    finished.delete(modName)
+    modProgress.value = finished
     setBusy(modName, false)
   }
 }
@@ -216,6 +219,9 @@ async function updateMod(modName) {
   } catch (err) {
     handleError(err)
   } finally {
+    const finished = new Map(modProgress.value)
+    finished.delete(modName)
+    modProgress.value = finished
     setBusy(modName, false)
   }
 }

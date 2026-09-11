@@ -5,16 +5,19 @@ mod process_plugin;
 mod profile_create_plugin;
 mod profile_plugin;
 
-use backend::{installed_mods::InstalledModsStore, settings::{AppSettings, GameKey}};
-use std::sync::Arc;
+use backend::{
+    installed_mods::InstalledModsStore,
+    installer,
+    settings::{AppSettings, GameKey},
+};
+use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
 
 pub struct AppState {
     pub settings: Arc<RwLock<AppSettings>>,
     pub installed: Arc<RwLock<InstalledModsStore>>,
-    // tracks the game Needlelight itself last spawned, so a second launch
-    // click can't stack another process on top of one still running
-    pub running_game: Arc<RwLock<Option<GameKey>>>,
+    // tracks active launches by game key and process id
+    pub running_games: Arc<RwLock<BTreeMap<String, u32>>>,
 }
 
 impl AppState {
@@ -22,11 +25,20 @@ impl AppState {
         let mut settings = AppSettings::load().await.unwrap_or_default();
         settings.sync_managed_folder();
         settings.sync_custom_modlinks();
-        let installed = InstalledModsStore::load(&settings).await.unwrap_or_default();
+        let mut hk_settings = settings.clone();
+        hk_settings.game = GameKey::HollowKnight;
+        hk_settings.managed_folder =
+            AppSettings::normalize_managed_folder(&settings.managed_folder_for(&GameKey::HollowKnight), &GameKey::HollowKnight);
+        if let Err(error) = installer::recover_pending_hk_api_restore(&hk_settings).await {
+            log::warn!("Could not recover pending Hollow Knight API restore: {error}");
+        }
+        let installed = InstalledModsStore::load(&settings)
+            .await
+            .unwrap_or_default();
         Self {
             settings: Arc::new(RwLock::new(settings)),
             installed: Arc::new(RwLock::new(installed)),
-            running_game: Arc::new(RwLock::new(None)),
+            running_games: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 }

@@ -34,10 +34,17 @@
 					<div class="flex-1 min-w-0 flex flex-col gap-1">
 						<div class="text-sm font-bold text-contrast">{{ item.title }}</div>
 						<div v-if="item.text" class="text-sm text-secondary">{{ item.text }}</div>
+						<div v-if="item.count && item.count > 1" class="text-xs text-secondary">
+							{{ item.count }} occurrences
+						</div>
+						<div v-if="item.errorCode" class="text-xs font-mono text-secondary">
+							{{ item.errorCode }}
+						</div>
 					</div>
 
 					<button
 						class="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-secondary outline-none hover:bg-button-bg hover:text-contrast"
+						aria-label="Dismiss notification"
 						@click="dismissNotification(index)"
 					>
 						<XIcon class="h-4 w-4" />
