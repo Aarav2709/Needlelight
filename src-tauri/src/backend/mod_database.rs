@@ -235,7 +235,11 @@ impl CatalogCache {
                     pkg.owner, pkg.name
                 ),
                 issues: String::new(),
-                tags: pkg.categories.clone(),
+                tags: pkg
+                    .categories
+                    .iter()
+                    .map(|tag| strip_deprecated_category_prefix(tag))
+                    .collect(),
                 integrations: vec![],
                 authors: vec![pkg.owner.clone()],
                 state,
@@ -252,6 +256,18 @@ impl CatalogCache {
                 api_enabled: false,
             },
         })
+    }
+}
+
+// Thunderstore returns literal category names like "(Deprecated category) Misc"
+// for legacy categories; strip that prefix so tags just read "Misc"
+fn strip_deprecated_category_prefix(tag: &str) -> String {
+    const PREFIX: &str = "(Deprecated category)";
+    let trimmed = tag.trim();
+    if let Some(rest) = trimmed.strip_prefix(PREFIX) {
+        rest.trim().to_string()
+    } else {
+        trimmed.to_string()
     }
 }
 

@@ -9,7 +9,7 @@ import {
   RefreshCwIcon,
   RestoreIcon,
   RightArrowIcon,
-  ShieldIcon,
+  PackageIcon,
   SettingsIcon,
   XIcon,
 } from "@modrinth/assets";
@@ -450,7 +450,7 @@ onMounted(() => {
         <LibraryIcon class="text-contrast" />
       </NavButton>
       <NavButton v-tooltip.right="'Modding API'" to="/modding-api">
-        <ShieldIcon class="text-contrast" />
+        <PackageIcon class="text-contrast" />
       </NavButton>
       <div class="flex flex-grow"></div>
       <NavButton v-tooltip.right="'Launch Vanilla'" :to="() => launchGame(false)">

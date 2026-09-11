@@ -251,15 +251,20 @@ pub async fn install_api<R: tauri::Runtime>(
         let target = settings.game_root_path();
         tokio::fs::create_dir_all(&target).await?;
         extract_zip_guarded(bytes.as_ref(), &target, &["BepInEx"])?;
+        log_extracted_tree(&target.join("BepInEx"), 3);
     } else {
         install_hk_api_payload(settings, bytes.as_ref(), &api.version).await?;
     }
 
     emit_api_progress(app, 94, "Verifying installation...");
     if !is_api_installed(settings, installed) {
+        let install_target = if settings.game.is_silksong() {
+            settings.game_root_path().display().to_string()
+        } else {
+            settings.managed_folder.clone()
+        };
         write_install_log(format!(
-            "Modding API verification failed after extraction to {}.",
-            settings.managed_folder
+            "Modding API verification failed after extraction to {install_target}."
         ));
         return Err(AppError::InvalidInput(
             "Modding API files were not found after installation. See Needlelight-install.log for details.".to_string(),
@@ -277,6 +282,24 @@ pub async fn install_api<R: tauri::Runtime>(
     emit_api_progress(app, 100, "Installation complete");
 
     Ok(())
+}
+
+// logs the extracted BepInEx tree (bounded depth) so a verification
+// failure shows exactly what actually landed on disk instead of a guess
+fn log_extracted_tree(root: &Path, max_depth: usize) {
+    if !root.is_dir() {
+        write_install_log(format!("Extraction check: {} does not exist.", root.display()));
+        return;
+    }
+    let mut lines = vec![format!("Extracted tree under {}:", root.display())];
+    for entry in WalkDir::new(root).max_depth(max_depth).into_iter().flatten() {
+        if let Ok(relative) = entry.path().strip_prefix(root) {
+            if !relative.as_os_str().is_empty() {
+                lines.push(format!("  {}", relative.display()));
+            }
+        }
+    }
+    write_install_log(lines.join("\n"));
 }
 
 async fn install_hk_api_payload(settings: &AppSettings, data: &[u8], api_version: &str) -> AppResult<()> {
@@ -689,8 +712,18 @@ pub fn is_hk_api_enabled(settings: &AppSettings) -> bool {
 
 pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore) -> bool {
     if settings.game.is_silksong() {
-        let bepinex = settings.game_root_path().join("BepInEx/core/BepInEx.dll");
-        return bepinex.exists();
+        let core = settings.game_root_path().join("BepInEx").join("core");
+        if !core.is_dir() {
+            return false;
+        }
+        // different BepInEx releases have shipped different core dll names;
+        // accept any of them, or fall back to "core has any file in it" so a
+        // successful extraction is never rejected over one hardcoded name
+        let known_markers = ["BepInEx.dll", "BepInEx.Core.dll", "BepInEx.Preloader.dll", "BepInEx.Unity.dll"];
+        if known_markers.iter().any(|name| core.join(name).is_file()) {
+            return true;
+        }
+        return std::fs::read_dir(&core).map(|mut entries| entries.next().is_some()).unwrap_or(false);
     }
 
     if settings.managed_folder.trim().is_empty() {
