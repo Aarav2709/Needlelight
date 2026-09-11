@@ -172,7 +172,8 @@ function needsUpdate(mod) {
 function formatModName(name) {
   if (!isSilksong.value) return name
   const parts = name.split('-')
-  return parts.length <= 1 ? name : parts.slice(1).join('-')
+  const withoutAuthor = parts.length <= 1 ? name : parts.slice(1).join('-')
+  return withoutAuthor.replace(/_/g, ' ')
 }
 function formatDependency(name) {
   return isSilksong.value ? formatModName(name) : name

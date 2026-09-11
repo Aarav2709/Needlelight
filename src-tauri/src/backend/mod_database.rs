@@ -165,8 +165,11 @@ impl CatalogCache {
             }
         };
 
+        // the Silksong BepInEx pack is published under silksong_modding, not
+        // BepInEx; check both, matching Cogfly's reference implementation
         let excluded = [
             "BepInEx-BepInExPack_Silksong",
+            "silksong_modding-BepInExPack_Silksong",
             "ebkr-r2modman",
             "Kesomannen-GaleModManager",
         ];
@@ -187,7 +190,9 @@ impl CatalogCache {
             .filter(|p| !p.is_deprecated && !p.versions.is_empty())
         {
             if excluded.contains(&pkg.full_name.as_str()) {
-                if pkg.full_name == "BepInEx-BepInExPack_Silksong" {
+                if pkg.full_name == "BepInEx-BepInExPack_Silksong"
+                    || pkg.full_name == "silksong_modding-BepInExPack_Silksong"
+                {
                     if let Some(latest) = pkg.versions.first() {
                         api = ApiInfo {
                             url: latest.download_url.clone(),

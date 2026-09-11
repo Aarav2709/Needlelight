@@ -37,7 +37,7 @@
 					</div>
 
 					<button
-						class="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-secondary hover:bg-button-bg hover:text-contrast"
+						class="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-secondary outline-none hover:bg-button-bg hover:text-contrast"
 						@click="dismissNotification(index)"
 					>
 						<XIcon class="h-4 w-4" />
@@ -104,16 +104,26 @@ withDefaults(
 }
 
 .notifs-enter-active,
-.notifs-leave-active,
-.notifs-move {
-	transition: all 0.2s ease-in-out;
+.notifs-leave-active {
+	transition: opacity 0.25s ease, transform 0.25s ease;
 }
-.notifs-enter-from,
-.notifs-leave-to {
-	opacity: 0;
+.notifs-move {
+	transition: transform 0.25s ease;
 }
 
 .notifs-enter-from {
+	opacity: 0;
 	transform: translateY(0.5rem);
+}
+
+// taken out of flow while leaving so the remaining notifications can slide
+// smoothly into the gap instead of snapping into place
+.notifs-leave-active {
+	position: absolute;
+}
+
+.notifs-leave-to {
+	opacity: 0;
+	transform: translateY(1rem);
 }
 </style>
