@@ -54,13 +54,10 @@ The following projects and repositories were referred to during Needlelight deve
 - Referred to for Hollow Knight API installation, API state handling, vanilla/modded `Assembly-CSharp.dll` swapping, mod installation, and extraction behavior.
 - Scarab is licensed under GPL-3.0.
 
-#### Lumafly
-- Repository: https://github.com/themulhima/Lumafly
-- Referred to for Hollow Knight mod manager behavior, installation flows, API handling, update handling, and related reference implementation details.
-
 #### Cogfly
 - Repository: https://github.com/Nix-main/Cogfly
 - Referred to for Hollow Knight: Silksong game path handling and Silksong mod management implementation patterns.
+> The developer made several dismissive remarks about the project, including referring to AI assisted bug fixing as "slop", questioning the project's motivations, and making negative comments about the launcher. I found this unnecessary, particularly given that I am 15 and this is an independent project. I plan to publish a blog post with more details about the situation for transparency.
 
 #### Hollow Knight Modding API
 - Repository: https://github.com/hk-modding/api
@@ -172,8 +169,6 @@ NEEDLELIGHT_HK_APILINKS_URLS="https://your.backend/ApiLinks.xml"
 - Needlelight is built using Tauri, Rust, and Vue.
 - Install the project dependencies and use the project's development commands to start the desktop application.
 - The Rust backend is located in the Tauri application and handles native functionality such as filesystem access, game detection, mod installation, and configuration.
-> Though there is no estimation on when I will be done with v8.0.0.0, due to other projects and school life, I plan to finish it super soon, and if everything goes as planned, v8.0.0.0 will be the last Major Update to the launcher, and bugs (if any reported) will be fixed too!
-> If there are any suggestions, which y'all wanna suggest, then go ahead. If multiple people think the launcher needs it, then I will surely add it, maybe as a minor update if I am constantly updating the launcher, or as a major update if I am not updating it, with additional bug fixes. Also, since v8.0.0.0 was tested only on Steam + Windows, you can try it on other platforms + other OSes, and report bugs, because I *think* there might be some! Enjoy!
 
 ## Contributing
 - Contributions are welcome.
