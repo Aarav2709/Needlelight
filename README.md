@@ -43,7 +43,7 @@ A modern desktop mod manager for Hollow Knight and Hollow Knight: Silksong, buil
 - Needlelight is not associated with Lumafly.
 - The current codebase is a fresh rewrite built around Tauri and Rust. It does not use the legacy Lumafly implementation as runtime code.
 - The project was inspired by the work that came before it.
-
+- ***Blog post regarding the controversy is out on my <a href="https://aarav2709.github.io/blog/needlelight">portfolio</a> now!***
 
 ### Reference and Investigation Sources
 
@@ -57,7 +57,6 @@ The following projects and repositories were referred to during Needlelight deve
 #### Cogfly
 - Repository: https://github.com/Nix-main/Cogfly
 - Referred to for Hollow Knight: Silksong game path handling and Silksong mod management implementation patterns.
-> The developer made several dismissive remarks about the project, including referring to AI assisted bug fixing as "slop", questioning the project's motivations, and making negative comments about the launcher. I found this unnecessary, particularly given that I am 15 and this is an independent project. I plan to publish a blog post with more details about the situation for transparency.
 
 #### Hollow Knight Modding API
 - Repository: https://github.com/hk-modding/api
