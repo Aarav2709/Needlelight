@@ -47,6 +47,7 @@
   },
   "devDependencies": {
     "@eslint/compat": "^1.1.1",
+    "@tailwindcss/container-queries": "^0.1.1",
     "@formatjs/cli": "^6.2.12",
     "@taijased/vue-render-tracker": "^1.0.7",
     "@tauri-apps/cli": "^2.11.0",
