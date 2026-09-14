@@ -2,6 +2,8 @@ import { AbstractModule } from '../../../core/abstract-module'
 import type { UploadHandle } from '../../../types/upload'
 import type { Labrinth } from '../types'
 
+const VERSION_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000
+
 export class LabrinthVersionsV3Module extends AbstractModule {
 	public getModuleID(): string {
 		return 'labrinth_versions_v3'
@@ -35,8 +37,14 @@ export class LabrinthVersionsV3Module extends AbstractModule {
 		if (options?.loaders?.length) {
 			params.loaders = JSON.stringify(options.loaders)
 		}
-		if (options?.include_changelog !== undefined) {
-			params.include_changelog = options.include_changelog
+		if (options?.include_changelog === false) {
+			params.include_changelog = 'false'
+		}
+		if (options?.limit != null) {
+			params.limit = String(options.limit)
+		}
+		if (options?.offset != null) {
+			params.offset = String(options.offset)
 		}
 
 		return this.client.request<Labrinth.Versions.v3.Version[]>(`/project/${id}/version`, {
@@ -193,7 +201,7 @@ export class LabrinthVersionsV3Module extends AbstractModule {
 			api: 'labrinth',
 			version: 3,
 			formData,
-			timeout: 60 * 5 * 1000,
+			timeout: VERSION_UPLOAD_TIMEOUT_MS,
 		})
 	}
 
@@ -278,7 +286,7 @@ export class LabrinthVersionsV3Module extends AbstractModule {
 			api: 'labrinth',
 			version: 2,
 			formData,
-			timeout: 60 * 5 * 1000,
+			timeout: VERSION_UPLOAD_TIMEOUT_MS,
 		})
 	}
 }
