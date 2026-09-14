@@ -2,6 +2,7 @@ import mitt from 'mitt'
 
 import { AbstractWebSocketClient, type WebSocketConnection } from '../core/abstract-websocket'
 import type { Archon } from '../modules/archon/types'
+import { getNodeWebSocketUrl } from '../utils/node-url'
 
 type WSEventMap = {
 	[K in Archon.Websocket.v0.WSEvent as `${string}:${K['event']}`]: K
@@ -14,39 +15,63 @@ export class GenericWebSocketClient extends AbstractWebSocketClient {
 
 	async connect(serverId: string, auth: Archon.Websocket.v0.WSAuth): Promise<void> {
 		if (this.connections.has(serverId)) {
-			this.disconnect(serverId)
+			this.closeConnection(serverId)
 		}
 
 		return new Promise((resolve, reject) => {
+			let settled = false
+			let authenticationTimeout: ReturnType<typeof setTimeout> | null = null
+			const resolveConnection = () => {
+				if (settled) return
+				settled = true
+				if (authenticationTimeout) clearTimeout(authenticationTimeout)
+				resolve()
+			}
+			const rejectConnection = (error: unknown) => {
+				if (settled) return
+				settled = true
+				if (authenticationTimeout) clearTimeout(authenticationTimeout)
+				reject(error)
+			}
 			try {
-				const ws = new WebSocket(`wss://${auth.url}`)
+				const ws = new WebSocket(getNodeWebSocketUrl(auth.url))
 
 				const connection: WebSocketConnection = {
 					serverId,
 					socket: ws,
+					authenticated: false,
 					reconnectAttempts: 0,
 					reconnectTimer: undefined,
 					isReconnecting: false,
 				}
 
 				this.connections.set(serverId, connection)
+				authenticationTimeout = setTimeout(() => {
+					rejectConnection(new Error(`WebSocket authentication timed out for server ${serverId}`))
+					if (this.connections.get(serverId) === connection) this.closeConnection(serverId)
+				}, this.AUTHENTICATION_TIMEOUT)
 
 				ws.onopen = () => {
 					ws.send(JSON.stringify({ event: 'auth', jwt: auth.token }))
 
 					connection.reconnectAttempts = 0
 					connection.isReconnecting = false
-
-					resolve()
 				}
 
 				ws.onmessage = (messageEvent) => {
 					try {
 						const data = JSON.parse(messageEvent.data) as Archon.Websocket.v0.WSEvent
+						if (data.event === 'auth-ok') {
+							connection.authenticated = true
+						} else if (data.event === 'auth-incorrect') {
+							connection.authenticated = false
+						}
 
 						const eventKey = `${serverId}:${data.event}` as keyof WSEventMap
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						this.emitter.emit(eventKey, data as any)
+
+						if (data.event === 'auth-ok') resolveConnection()
 
 						if (data.event === 'auth-expiring' || data.event === 'auth-incorrect') {
 							this.handleAuthExpiring(serverId).catch(console.error)
@@ -57,22 +82,54 @@ export class GenericWebSocketClient extends AbstractWebSocketClient {
 				}
 
 				ws.onclose = (event) => {
+					connection.authenticated = false
+					console.debug(`[WebSocket] Closed for server ${serverId}:`, {
+						code: event.code,
+						reason: event.reason,
+						wasClean: event.wasClean,
+					})
+					rejectConnection(
+						new Error(
+							`WebSocket closed before authentication for server ${serverId} (code: ${event.code})`,
+						),
+					)
 					if (event.code !== NORMAL_CLOSURE) {
 						this.scheduleReconnect(serverId, auth)
 					}
 				}
 
-				ws.onerror = (error) => {
-					console.error(`[WebSocket] Error for server ${serverId}:`, error)
-					reject(new Error(`WebSocket connection failed for server ${serverId}`))
+				ws.onerror = (event) => {
+					const url = ws.url
+					const readyState = ws.readyState
+					console.error(`[WebSocket] Error for server ${serverId}:`, {
+						url,
+						readyState,
+						readyStateLabel: ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][readyState],
+						type: (event as Event).type,
+					})
+					rejectConnection(
+						new Error(
+							`WebSocket connection failed for server ${serverId} (readyState: ${readyState})`,
+						),
+					)
 				}
 			} catch (error) {
-				reject(error)
+				rejectConnection(error)
 			}
 		})
 	}
 
 	disconnect(serverId: string): void {
+		this.closeConnection(serverId)
+
+		this.emitter.all.forEach((_handlers, type) => {
+			if (type.toString().startsWith(`${serverId}:`)) {
+				this.emitter.all.delete(type)
+			}
+		})
+	}
+
+	private closeConnection(serverId: string): void {
 		const connection = this.connections.get(serverId)
 		if (!connection) return
 
@@ -87,12 +144,6 @@ export class GenericWebSocketClient extends AbstractWebSocketClient {
 		) {
 			connection.socket.close(NORMAL_CLOSURE, 'Client disconnecting')
 		}
-
-		this.emitter.all.forEach((_handlers, type) => {
-			if (type.toString().startsWith(`${serverId}:`)) {
-				this.emitter.all.delete(type)
-			}
-		})
 
 		this.connections.delete(serverId)
 	}
