@@ -1,10 +1,18 @@
 import { AbstractModule } from '../../../core/abstract-module'
 import type { UploadHandle, UploadProgress } from '../../../types/upload'
+import { getNodeBaseUrl } from '../../../utils/node-url'
+import type { Archon } from '../../archon/types'
 import type { Kyros } from '../types'
+
+type NodeFsAuth = Pick<Archon.Servers.v0.JWTAuth, 'url' | 'token'>
 
 export class KyrosFilesV0Module extends AbstractModule {
 	public getModuleID(): string {
 		return 'kyros_files_v0'
+	}
+
+	private getNodeBaseUrl(auth: NodeFsAuth): string {
+		return getNodeBaseUrl(auth.url)
 	}
 
 	/**
@@ -22,7 +30,7 @@ export class KyrosFilesV0Module extends AbstractModule {
 	): Promise<Kyros.Files.v0.DirectoryResponse> {
 		return this.client.request<Kyros.Files.v0.DirectoryResponse>('/fs/list', {
 			api: '',
-			version: 'v0',
+			version: 'modrinth/v0',
 			method: 'GET',
 			params: { path, page, page_size: pageSize },
 			useNodeAuth: true,
@@ -38,7 +46,7 @@ export class KyrosFilesV0Module extends AbstractModule {
 	public async createFileOrFolder(path: string, type: 'file' | 'directory'): Promise<void> {
 		return this.client.request<void>('/fs/create', {
 			api: '',
-			version: 'v0',
+			version: 'modrinth/v0',
 			method: 'POST',
 			params: { path, type },
 			headers: { 'Content-Type': 'application/octet-stream' },
@@ -55,10 +63,28 @@ export class KyrosFilesV0Module extends AbstractModule {
 	public async downloadFile(path: string): Promise<Blob> {
 		return this.client.request<Blob>('/fs/download', {
 			api: '',
-			version: 'v0',
+			version: 'modrinth/v0',
 			method: 'GET',
 			params: { path },
 			useNodeAuth: true,
+		})
+	}
+
+	/**
+	 * Download a file using explicit filesystem auth credentials.
+	 *
+	 * @param auth - Filesystem auth (url + token) from Archon
+	 * @param path - File path (e.g., "/server-icon.png")
+	 * @returns Promise resolving to file Blob
+	 */
+	public async downloadFileWithAuth(auth: NodeFsAuth, path: string): Promise<Blob> {
+		return this.client.request<Blob>('/fs/download', {
+			api: this.getNodeBaseUrl(auth),
+			version: 'modrinth/v0',
+			method: 'GET',
+			params: { path },
+			headers: { Authorization: `Bearer ${auth.token}` },
+			skipAuth: true,
 		})
 	}
 
@@ -69,6 +95,7 @@ export class KyrosFilesV0Module extends AbstractModule {
 	 * @param file - File to upload
 	 * @param options - Optional progress callback and feature overrides
 	 * @returns UploadHandle with promise, onProgress, and cancel
+	 * @deprecated Use `kyros.upload_sessions_v1` for bulk uploads so cancellation can remove staged files before finalize.
 	 */
 	public uploadFile(
 		path: string,
@@ -80,12 +107,42 @@ export class KyrosFilesV0Module extends AbstractModule {
 	): UploadHandle<void> {
 		return this.client.upload<void>('/fs/create', {
 			api: '',
-			version: 'v0',
+			version: 'modrinth/v0',
 			file,
 			params: { path, type: 'file' },
 			onProgress: options?.onProgress,
 			retry: options?.retry,
 			useNodeAuth: true,
+		})
+	}
+
+	/**
+	 * Upload a file using explicit filesystem auth credentials.
+	 *
+	 * @param auth - Filesystem auth (url + token) from Archon
+	 * @param path - Destination path (e.g., "/server-icon.png")
+	 * @param file - File to upload
+	 * @param options - Optional progress callback and feature overrides
+	 * @returns UploadHandle with promise, onProgress, and cancel
+	 */
+	public uploadFileWithAuth(
+		auth: NodeFsAuth,
+		path: string,
+		file: File | Blob,
+		options?: {
+			onProgress?: (progress: UploadProgress) => void
+			retry?: boolean | number
+		},
+	): UploadHandle<void> {
+		return this.client.upload<void>('/fs/create', {
+			api: this.getNodeBaseUrl(auth),
+			version: 'modrinth/v0',
+			file,
+			params: { path, type: 'file' },
+			headers: { Authorization: `Bearer ${auth.token}` },
+			onProgress: options?.onProgress,
+			retry: options?.retry,
+			skipAuth: true,
 		})
 	}
 
@@ -100,7 +157,7 @@ export class KyrosFilesV0Module extends AbstractModule {
 
 		return this.client.request<void>('/fs/update', {
 			api: '',
-			version: 'v0',
+			version: 'modrinth/v0',
 			method: 'PUT',
 			params: { path },
 			body: blob,
@@ -118,7 +175,7 @@ export class KyrosFilesV0Module extends AbstractModule {
 	public async moveFileOrFolder(sourcePath: string, destPath: string): Promise<void> {
 		return this.client.request<void>('/fs/move', {
 			api: '',
-			version: 'v0',
+			version: 'modrinth/v0',
 			method: 'POST',
 			body: { source: sourcePath, destination: destPath },
 			useNodeAuth: true,
@@ -145,10 +202,32 @@ export class KyrosFilesV0Module extends AbstractModule {
 	public async deleteFileOrFolder(path: string, recursive: boolean): Promise<void> {
 		return this.client.request<void>('/fs/delete', {
 			api: '',
-			version: 'v0',
+			version: 'modrinth/v0',
 			method: 'DELETE',
 			params: { path, recursive },
 			useNodeAuth: true,
+		})
+	}
+
+	/**
+	 * Delete a file or folder using explicit filesystem auth credentials.
+	 *
+	 * @param auth - Filesystem auth (url + token) from Archon
+	 * @param path - Path to delete
+	 * @param recursive - If true, delete directory contents recursively
+	 */
+	public async deleteFileOrFolderWithAuth(
+		auth: NodeFsAuth,
+		path: string,
+		recursive: boolean,
+	): Promise<void> {
+		return this.client.request<void>('/fs/delete', {
+			api: this.getNodeBaseUrl(auth),
+			version: 'modrinth/v0',
+			method: 'DELETE',
+			params: { path, recursive },
+			headers: { Authorization: `Bearer ${auth.token}` },
+			skipAuth: true,
 		})
 	}
 
@@ -160,18 +239,20 @@ export class KyrosFilesV0Module extends AbstractModule {
 	 * @param path - Path to archive file
 	 * @param override - If true, overwrite existing files
 	 * @param dry - If true, perform dry run (returns conflicts without extracting)
+	 * @param target - Directory to extract the archive into
 	 * @returns Extract result with modpack name and conflicting files
 	 */
 	public async extractFile(
 		path: string,
 		override: boolean = true,
 		dry: boolean = false,
+		target: string = '/',
 	): Promise<Kyros.Files.v0.ExtractResult> {
 		return this.client.request<Kyros.Files.v0.ExtractResult>('/fs/unarchive', {
 			api: '',
 			version: 'v1',
 			method: 'POST',
-			params: { src: path, trg: '/', override, dry },
+			params: { src: path, trg: target, override, dry },
 			useNodeAuth: true,
 		})
 	}

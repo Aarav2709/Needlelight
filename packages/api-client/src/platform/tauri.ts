@@ -1,6 +1,8 @@
 import type { ModrinthApiError } from '../core/errors'
 import type { ClientConfig } from '../types/client'
 import type { RequestOptions } from '../types/request'
+import { appendRequestParams, parseResponseErrorData, toFetchBody } from '../utils/fetch'
+import { GenericSyncClient } from './sync-generic'
 import { GenericWebSocketClient } from './websocket-generic'
 import { XHRUploadClient } from './xhr-upload-client'
 
@@ -27,11 +29,10 @@ interface HttpError extends Error {
  * ```typescript
  * import { getVersion } from '@tauri-apps/api/app'
  *
- * const version = await getVersion()
  * const client = new TauriModrinthClient({
- *   userAgent: `modrinth/theseus/${version} (support@modrinth.com)`,
+ *   userAgent: async () => `modrinth/theseus/${await getVersion()} (support@modrinth.com)`,
  *   features: [
- *     new AuthFeature({ token: 'mrp_...' })
+ *     new AuthFeature({ token: async () => getOAuthToken() })
  *   ]
  * })
  *
@@ -50,6 +51,12 @@ export class TauriModrinthClient extends XHRUploadClient {
 			enumerable: true,
 			configurable: false,
 		})
+		Object.defineProperty(this.archon, 'sync', {
+			value: new GenericSyncClient(this),
+			writable: false,
+			enumerable: true,
+			configurable: false,
+		})
 	}
 
 	protected async executeRequest<T>(url: string, options: RequestOptions): Promise<T> {
@@ -58,20 +65,8 @@ export class TauriModrinthClient extends XHRUploadClient {
 			// This allows the package to be used in non-Tauri environments
 			const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http')
 
-			let body: BodyInit | null | undefined = undefined
-			if (options.body) {
-				if (typeof options.body === 'object' && !(options.body instanceof FormData)) {
-					body = JSON.stringify(options.body)
-				} else {
-					body = options.body as BodyInit
-				}
-			}
-
-			let fullUrl = url
-			if (options.params) {
-				const queryParams = new URLSearchParams(options.params as Record<string, string>).toString()
-				fullUrl = `${url}?${queryParams}`
-			}
+			const body = toFetchBody(options.body)
+			const fullUrl = appendRequestParams(url, options.params)
 
 			const response = await tauriFetch(fullUrl, {
 				method: options.method ?? 'GET',
@@ -95,8 +90,73 @@ export class TauriModrinthClient extends XHRUploadClient {
 				throw error
 			}
 
-			const data = await response.json()
-			return data as T
+			// Handle binary downloads (e.g. kyros fs files) before JSON parsing.
+			const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+			if (fullUrl.includes('/fs/download')) {
+				return (await response.blob()) as T
+			}
+			if (
+				contentType.startsWith('image/') ||
+				contentType.startsWith('audio/') ||
+				contentType.startsWith('video/') ||
+				contentType.includes('application/octet-stream')
+			) {
+				return (await response.blob()) as T
+			}
+
+			if (response.status === 204 || response.status === 205) {
+				return undefined as T
+			}
+
+			if (contentType.includes('application/json') || contentType.includes('+json')) {
+				return (await response.json()) as T
+			}
+
+			const text = await response.text()
+			if (!text) {
+				return undefined as T
+			}
+
+			try {
+				return JSON.parse(text) as T
+			} catch {
+				return text as T
+			}
+		} catch (error) {
+			throw this.normalizeError(error)
+		}
+	}
+
+	protected async executeStreamRequest(
+		url: string,
+		options: RequestOptions,
+	): Promise<ReadableStream<Uint8Array>> {
+		try {
+			const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http')
+			const response = await tauriFetch(appendRequestParams(url, options.params), {
+				method: options.method ?? 'GET',
+				headers: options.headers,
+				body: toFetchBody(options.body),
+				signal: options.signal,
+			})
+
+			if (!response.ok) {
+				throw this.createNormalizedError(
+					new Error(`HTTP ${response.status}: ${response.statusText}`),
+					response.status,
+					await parseResponseErrorData(response),
+				)
+			}
+
+			if (!response.body) {
+				throw this.createNormalizedError(
+					new Error('Streaming response has no readable body'),
+					response.status,
+					undefined,
+				)
+			}
+
+			return response.body
 		} catch (error) {
 			throw this.normalizeError(error)
 		}

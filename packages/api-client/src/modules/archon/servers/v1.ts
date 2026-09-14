@@ -7,6 +7,48 @@ export class ArchonServersV1Module extends AbstractModule {
 	}
 
 	/**
+	 * Get list of servers for the authenticated user
+	 * GET /v1/servers
+	 */
+	public async list(): Promise<Archon.Servers.v1.ServerFull[]> {
+		return this.client.request<Archon.Servers.v1.ServerFull[]>('/servers', {
+			api: 'archon',
+			version: 1,
+			method: 'GET',
+		})
+	}
+
+	/**
+	 * Get full server details including worlds, backups, and content
+	 * GET /v1/servers/:server_id
+	 */
+	public async get(serverId: string): Promise<Archon.Servers.v1.ServerFull> {
+		return this.client.request<Archon.Servers.v1.ServerFull>(`/servers/${serverId}`, {
+			api: 'archon',
+			version: 1,
+			method: 'GET',
+		})
+	}
+
+	/**
+	 * Select the best currently available download method for a world
+	 * GET /v1/servers/:server_id/worlds/:world_id/select-download
+	 */
+	public async selectWorldDownload(
+		serverId: string,
+		worldId: string,
+	): Promise<Archon.Servers.v1.WorldDownloadMethod> {
+		return this.client.request<Archon.Servers.v1.WorldDownloadMethod>(
+			`/servers/${serverId}/worlds/${worldId}/select-download`,
+			{
+				api: 'archon',
+				version: 1,
+				method: 'GET',
+			},
+		)
+	}
+
+	/**
 	 * Get available regions
 	 * GET /v1/regions
 	 */
@@ -15,6 +57,46 @@ export class ArchonServersV1Module extends AbstractModule {
 			api: 'archon',
 			version: 1,
 			method: 'GET',
+			skipAuth: true,
 		})
+	}
+
+	/**
+	 * End the intro flow for a server
+	 * DELETE /v1/servers/:id/flows/intro
+	 */
+	public async endIntro(serverId: string): Promise<void> {
+		await this.client.request(`/servers/${serverId}/flows/intro`, {
+			api: 'archon',
+			version: 1,
+			method: 'DELETE',
+		})
+	}
+
+	/**
+	 * Reset a world to onboarding
+	 * POST /v1/servers/:id/worlds/:wid/onboard
+	 */
+	public async resetToOnboarding(serverId: string, worldId: string): Promise<void> {
+		await this.client.request(`/servers/${serverId}/worlds/${worldId}/onboard`, {
+			api: 'archon',
+			version: 1,
+			method: 'POST',
+		})
+	}
+
+	/**
+	 * Roll SFTP credentials for a server
+	 * POST /v1/servers/:server_id/sftp/roll
+	 */
+	public async rollSftp(serverId: string): Promise<Archon.Servers.v1.SftpCredentials> {
+		return this.client.request<Archon.Servers.v1.SftpCredentials>(
+			`/servers/${serverId}/sftp/roll`,
+			{
+				api: 'archon',
+				version: 1,
+				method: 'POST',
+			},
+		)
 	}
 }
