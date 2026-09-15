@@ -1,0 +1,707 @@
+import type { Archon, LauncherMeta } from '@modrinth/api-client'
+import { useQueryClient } from '@tanstack/vue-query'
+import { computed, type ComputedRef, type Ref, ref, type ShallowRef, watch } from 'vue'
+import type { ComponentExposed } from 'vue-component-type-helpers'
+
+import { useDebugLogger } from '#ui/composables/debug-logger'
+import {
+	defineMessages,
+	type MessageDescriptor,
+	useVIntl,
+	type VIntlFormatters,
+} from '#ui/composables/i18n'
+import { formatLoaderLabel } from '#ui/utils/loaders'
+
+import { createContext, injectModrinthClient, injectNotificationManager } from '../../../providers'
+import type { ImportableLauncher } from '../../../providers/instance-import'
+import type { MultiStageModal, StageConfigInput } from '../../base'
+import type { ComboboxOption } from '../../base/Combobox.vue'
+import { stageConfigs } from './stages'
+
+export type FlowType = 'world' | 'server-onboarding' | 'reset-server' | 'instance'
+export type SetupType = 'modpack' | 'custom' | 'vanilla'
+export type Gamemode = 'survival' | 'creative' | 'hardcore'
+export type Difficulty = 'peaceful' | 'easy' | 'normal' | 'hard'
+export type LoaderVersionType = 'stable' | 'latest' | 'other'
+export type GeneratorSettingsMode = 'default' | 'flat' | 'custom'
+export type LoaderManifest = LauncherMeta.Manifest.v0.Manifest
+export type LoaderManifestResolver = (loader: string) => Promise<LoaderManifest>
+export interface LoaderVersionEntry {
+	id: string
+	stable: boolean
+}
+
+const loaderManifestQueryKey = (loader: string) =>
+	['creation-flow', 'loader-manifest', loader] as const
+const paperSupportedVersionsQueryKey = ['creation-flow', 'paper', 'supported-versions'] as const
+const purpurSupportedVersionsQueryKey = ['creation-flow', 'purpur', 'supported-versions'] as const
+
+export const creationFlowMessages = defineMessages({
+	createWorldTitle: {
+		id: 'creation-flow.title.create-world',
+		defaultMessage: 'Create world',
+	},
+	setUpServerTitle: {
+		id: 'creation-flow.title.set-up-server',
+		defaultMessage: 'Set up server',
+	},
+	resetServerTitle: {
+		id: 'creation-flow.title.reset-server',
+		defaultMessage: 'Reset server',
+	},
+	createInstanceTitle: {
+		id: 'creation-flow.title.create-instance',
+		defaultMessage: 'Create instance',
+	},
+	createWorldButton: {
+		id: 'creation-flow.button.create-world',
+		defaultMessage: 'Create world',
+	},
+	createInstanceButton: {
+		id: 'creation-flow.button.create-instance',
+		defaultMessage: 'Create instance',
+	},
+	setupServerButton: {
+		id: 'creation-flow.button.setup-server',
+		defaultMessage: 'Setup server',
+	},
+	finishButton: {
+		id: 'creation-flow.button.finish',
+		defaultMessage: 'Finish',
+	},
+	importInstanceTitle: {
+		id: 'creation-flow.title.import-instance',
+		defaultMessage: 'Import instance',
+	},
+	importButton: {
+		id: 'creation-flow.button.import',
+		defaultMessage: 'Import',
+	},
+	importInstancesButton: {
+		id: 'creation-flow.button.import-instances',
+		defaultMessage: 'Import {count, plural, one {# instance} other {# instances}}',
+	},
+})
+
+export const flowTypeHeadingMessages: Record<FlowType, MessageDescriptor> = {
+	world: creationFlowMessages.createWorldTitle,
+	'server-onboarding': creationFlowMessages.setUpServerTitle,
+	'reset-server': creationFlowMessages.resetServerTitle,
+	instance: creationFlowMessages.createInstanceTitle,
+}
+
+export interface ModpackSelection {
+	projectId: string
+	versionId: string
+	name: string
+	iconUrl?: string
+}
+
+export interface ProjectSearchHit {
+	title: string
+	iconUrl?: string
+	latestVersion?: string
+	projectType: string
+}
+
+export interface ProjectSearchResult {
+	hits: {
+		project_id: string
+		project_type?: string
+		title: string
+		icon_url: string
+		latest_version?: string
+	}[]
+	total_hits: number
+	offset: number
+	limit: number
+}
+
+export interface ProjectInstallSelection {
+	projectId: string
+	title: string
+	iconUrl?: string | null
+	link: string
+	owner?: {
+		name: string
+		iconUrl?: string
+		circle?: boolean
+		link: string | (() => void)
+	} | null
+	compatibleLoaders: string[]
+	gameVersions: string[]
+	releaseGameVersions: Set<string>
+}
+
+export interface ProjectInstallCreateData {
+	name: string
+	iconPath: string | null
+	iconPreviewUrl: string | null
+	loader: string
+	gameVersion: string
+}
+
+export interface GeneratedInstanceIcon {
+	path: string
+	previewUrl: string
+}
+
+export interface CreationFlowContextValue {
+	// Flow
+	flowType: FlowType
+	formatMessage: VIntlFormatters['formatMessage']
+
+	// Configuration
+	availableLoaders: string[]
+	showSnapshotToggle: boolean
+	disableClose: boolean
+	isInitialSetup: boolean
+
+	// Initial values
+	initialLoader: string | null
+	initialGameVersion: string | null
+
+	// State
+	setupType: Ref<SetupType | null>
+	isImportMode: Ref<boolean>
+	worldName: Ref<string>
+	gamemode: Ref<Gamemode>
+	difficulty: Ref<Difficulty>
+	worldSeed: Ref<string>
+	worldTypeOption: Ref<string>
+	generateStructures: Ref<boolean>
+	generatorSettingsMode: Ref<GeneratorSettingsMode>
+	generatorSettingsCustom: Ref<string>
+
+	// Instance-specific state
+	instanceName: Ref<string>
+	autoInstanceName: ComputedRef<string>
+	instanceIcon: Ref<File | null>
+	instanceIconUrl: Ref<string | null>
+	instanceIconPath: Ref<string | null>
+	randomizeInstanceIcon: (() => Promise<GeneratedInstanceIcon | null>) | null
+	customizeInstanceIcon: (() => void) | null
+
+	// Loader/version state (custom setup)
+	selectedLoader: Ref<string | null>
+	selectedGameVersion: Ref<string | null>
+	loaderVersionType: Ref<LoaderVersionType>
+	selectedLoaderVersion: Ref<string | null>
+	hideLoaderChips: ComputedRef<boolean>
+	hideLoaderVersion: ComputedRef<boolean>
+	showSnapshots: Ref<boolean>
+	loaderVersionsCache: Ref<Record<string, LoaderManifest>>
+	paperSupportedVersions: Ref<Set<string> | null>
+	purpurSupportedVersions: Ref<Set<string> | null>
+
+	// Modpack state
+	modpackSelection: Ref<ModpackSelection | null>
+	modpackFile: Ref<File | null>
+	modpackFilePath: Ref<string | null>
+	projectInstall: Ref<ProjectInstallSelection | null>
+
+	// Project search state (persisted across stage navigation)
+	projectSearchProjectId: Ref<string | undefined>
+	projectSearchOptions: Ref<ComboboxOption<string>[]>
+	projectSearchHits: Ref<Record<string, ProjectSearchHit>>
+
+	// Import state (instance flow only)
+	importLaunchers: Ref<ImportableLauncher[]>
+	importSelectedInstances: Ref<Record<string, Set<string>>>
+	importSearchQuery: Ref<string>
+
+	// Confirm stage
+	hardReset: Ref<boolean>
+
+	// Loading state (set when finish() is called, cleared on reset)
+	loading: Ref<boolean>
+	finishDisabled: ComputedRef<boolean>
+	finishDisabledTooltip: ComputedRef<string | undefined>
+
+	// Backup state (set by InlineBackupCreator in reset-server flow)
+	isBackingUp: Ref<boolean>
+	cancelBackup: Ref<(() => void) | null>
+
+	// Modal
+	modal: ShallowRef<ComponentExposed<typeof MultiStageModal> | null>
+	stageConfigs: StageConfigInput<CreationFlowContextValue>[]
+
+	// Callbacks
+	onBack: (() => void) | null
+
+	// Methods
+	reset: (instanceCount?: number) => Promise<void>
+	setSetupType: (type: SetupType) => void
+	setImportMode: () => void
+	browseModpacks: () => void
+	selectProject: (projectId: string, projectType: string) => Promise<void>
+	finish: () => void
+	buildProperties: () => Archon.Content.v1.PropertiesFields
+	fetchLoaderMetadata: (loader?: string | null) => Promise<void>
+	prefetchLoaderMetadata: () => Promise<void>
+
+	// Platform-provided search
+	searchProjects: (query: string, limit?: number) => Promise<ProjectSearchResult>
+	getProjectVersions: (projectId: string) => Promise<{ id: string }[]>
+	getLoaderManifest: LoaderManifestResolver | null
+}
+
+export const [injectCreationFlowContext, provideCreationFlowContext] =
+	createContext<CreationFlowContextValue>('CreationFlowModal')
+
+// TODO: replace with actual world count from the world list once available
+let worldCounter = 0
+
+export interface CreationFlowOptions {
+	availableLoaders?: string[]
+	showSnapshotToggle?: boolean
+	disableClose?: boolean
+	isInitialSetup?: boolean
+	initialLoader?: string
+	initialGameVersion?: string
+	fetchExistingInstanceNames?: () => Promise<string[]>
+	onBack?: () => void
+	searchProjects?: (query: string, limit?: number) => Promise<ProjectSearchResult>
+	prepareProjectInstall?: (
+		projectId: string,
+		projectType: string,
+	) => Promise<ProjectInstallSelection | null>
+	createProjectInstall?: (data: ProjectInstallCreateData) => Promise<void>
+	getProjectVersions?: (projectId: string) => Promise<{ id: string }[]>
+	getLoaderManifest?: LoaderManifestResolver
+	randomizeInstanceIcon?: () => Promise<GeneratedInstanceIcon | null>
+	customizeInstanceIcon?: () => void
+	finishDisabled?: ComputedRef<boolean>
+	finishDisabledTooltip?: ComputedRef<string | undefined>
+}
+
+export function createCreationFlowContext(
+	modal: ShallowRef<ComponentExposed<typeof MultiStageModal> | null>,
+	flowType: FlowType,
+	emit: {
+		browseModpacks: () => void
+		create: (config: CreationFlowContextValue) => void
+	},
+	options: CreationFlowOptions = {},
+): CreationFlowContextValue {
+	const debug = useDebugLogger('CreationFlow')
+	const client = injectModrinthClient()
+	const { handleError } = injectNotificationManager()
+	const queryClient = useQueryClient()
+	const { formatMessage } = useVIntl()
+	const availableLoaders = options.availableLoaders ?? ['fabric', 'neoforge', 'forge', 'quilt']
+	const showSnapshotToggle = options.showSnapshotToggle ?? false
+	const disableClose = options.disableClose ?? false
+	const isInitialSetup = options.isInitialSetup ?? false
+	const initialLoader = options.initialLoader ?? null
+	const initialGameVersion = options.initialGameVersion ?? null
+	const onBack = options.onBack ?? null
+	const randomizeInstanceIcon = options.randomizeInstanceIcon ?? null
+	const customizeInstanceIcon = options.customizeInstanceIcon ?? null
+	const searchProjects = options.searchProjects!
+	const prepareProjectInstall = options.prepareProjectInstall
+	const createProjectInstall = options.createProjectInstall
+	const getProjectVersions = options.getProjectVersions!
+	const getLoaderManifest = options.getLoaderManifest ?? null
+	const finishDisabled = options.finishDisabled ?? computed(() => false)
+	const finishDisabledTooltip = options.finishDisabledTooltip ?? computed(() => undefined)
+
+	const setupType = ref<SetupType | null>(null)
+	const isImportMode = ref(false)
+	const worldName = ref('')
+	const gamemode = ref<Gamemode>('survival')
+	const difficulty = ref<Difficulty>('normal')
+	const worldSeed = ref('')
+	const worldTypeOption = ref('minecraft:normal')
+	const generateStructures = ref(true)
+	const generatorSettingsMode = ref<GeneratorSettingsMode>('default')
+	const generatorSettingsCustom = ref('')
+
+	// Instance-specific state
+	const instanceName = ref('')
+	const existingInstanceNames = ref<string[]>([])
+	const fetchExistingInstanceNames = options.fetchExistingInstanceNames ?? null
+	const instanceIcon = ref<File | null>(null)
+	const instanceIconUrl = ref<string | null>(null)
+	const instanceIconPath = ref<string | null>(null)
+
+	// Revoke old object URL when icon is cleared to avoid memory leaks
+	watch(instanceIconUrl, (_newUrl, oldUrl) => {
+		if (oldUrl && oldUrl.startsWith('blob:')) {
+			URL.revokeObjectURL(oldUrl)
+		}
+	})
+
+	const selectedLoader = ref<string | null>(null)
+	const selectedGameVersion = ref<string | null>(null)
+	const loaderVersionType = ref<LoaderVersionType>('stable')
+	const selectedLoaderVersion = ref<string | null>(null)
+	const showSnapshots = ref(false)
+	const loaderVersionsCache = ref<Record<string, LoaderManifest>>({})
+	const paperSupportedVersions = ref<Set<string> | null>(null)
+	const purpurSupportedVersions = ref<Set<string> | null>(null)
+
+	const autoInstanceName = computed(() => {
+		const loader = selectedLoader.value
+		const version = selectedGameVersion.value
+		if (!version) return ''
+
+		const loaderName = loader ? formatLoaderLabel(loader) : 'Vanilla'
+		const baseName = `${loaderName} ${version}`
+
+		const names = new Set(existingInstanceNames.value)
+		if (!names.has(baseName)) return baseName
+
+		let counter = 1
+		while (names.has(`${baseName} (${counter})`)) {
+			counter++
+		}
+		return `${baseName} (${counter})`
+	})
+
+	const modpackSelection = ref<ModpackSelection | null>(null)
+	const modpackFile = ref<File | null>(null)
+	const modpackFilePath = ref<string | null>(null)
+	const projectInstall = ref<ProjectInstallSelection | null>(null)
+
+	// Project search state (persisted across stage navigation)
+	const projectSearchProjectId = ref<string | undefined>()
+	const projectSearchOptions = ref<ComboboxOption<string>[]>([])
+	const projectSearchHits = ref<Record<string, ProjectSearchHit>>({})
+
+	// Import state (instance flow only)
+	const importLaunchers = ref<ImportableLauncher[]>([])
+	const importSelectedInstances = ref<Record<string, Set<string>>>({})
+	const importSearchQuery = ref('')
+
+	const hardReset = ref(isInitialSetup)
+	const loading = ref(false)
+	const isBackingUp = ref(false)
+	const cancelBackup = ref<(() => void) | null>(null)
+
+	// hideLoaderChips: hides the entire loader chips section (only for vanilla world type in world/server flows)
+	const hideLoaderChips = computed(() => setupType.value === 'vanilla')
+
+	// hideLoaderVersion: hides the loader version section (vanilla world type OR vanilla selected as loader chip)
+	const hideLoaderVersion = computed(
+		() =>
+			setupType.value === 'vanilla' ||
+			selectedLoader.value === 'vanilla' ||
+			projectInstall.value !== null,
+	)
+
+	function toApiLoaderName(loader: string): string {
+		return loader === 'neoforge' ? 'neo' : loader
+	}
+
+	async function fetchLoaderManifest(loader: string) {
+		const apiLoader = toApiLoaderName(loader)
+		if (loaderVersionsCache.value[apiLoader]) return
+
+		try {
+			const data = await queryClient.fetchQuery({
+				queryKey: loaderManifestQueryKey(apiLoader),
+				queryFn: async () =>
+					(await getLoaderManifest?.(apiLoader)) ??
+					(await client.launchermeta.manifest_v0.getManifest(apiLoader)),
+				staleTime: Infinity,
+			})
+			loaderVersionsCache.value[apiLoader] = data
+			debug('fetchLoaderManifest: loaded', apiLoader, 'gameVersions:', data.gameVersions.length)
+		} catch (error) {
+			debug('fetchLoaderManifest: failed', apiLoader, error)
+			loaderVersionsCache.value[apiLoader] = { gameVersions: [] }
+		}
+	}
+
+	async function fetchPaperSupportedVersions() {
+		if (paperSupportedVersions.value) return
+		try {
+			paperSupportedVersions.value = await queryClient.fetchQuery({
+				queryKey: paperSupportedVersionsQueryKey,
+				queryFn: async () => {
+					const project = await client.paper.versions_v3.getProject()
+					return new Set(Object.values(project.versions).flat())
+				},
+				staleTime: Infinity,
+			})
+		} catch {
+			paperSupportedVersions.value = new Set()
+		}
+	}
+
+	async function fetchPurpurSupportedVersions() {
+		if (purpurSupportedVersions.value) return
+		try {
+			purpurSupportedVersions.value = await queryClient.fetchQuery({
+				queryKey: purpurSupportedVersionsQueryKey,
+				queryFn: async () => {
+					const project = await client.purpur.versions_v2.getProject()
+					return new Set(project.versions)
+				},
+				staleTime: Infinity,
+			})
+		} catch {
+			purpurSupportedVersions.value = new Set()
+		}
+	}
+
+	async function fetchLoaderMetadata(loader?: string | null) {
+		if (!loader || loader === 'vanilla') return
+		if (loader === 'paper') {
+			await fetchPaperSupportedVersions()
+			return
+		}
+		if (loader === 'purpur') {
+			await fetchPurpurSupportedVersions()
+			return
+		}
+		await fetchLoaderManifest(loader)
+	}
+
+	async function prefetchLoaderMetadata() {
+		await Promise.allSettled(
+			availableLoaders
+				.filter((loader) => loader !== 'vanilla')
+				.map((loader) => fetchLoaderMetadata(loader)),
+		)
+	}
+
+	async function reset() {
+		if (fetchExistingInstanceNames) {
+			existingInstanceNames.value = await fetchExistingInstanceNames()
+		}
+		setupType.value = null
+		isImportMode.value = false
+		worldCounter++
+		worldName.value = flowType === 'world' ? `World ${worldCounter}` : ''
+		gamemode.value = 'survival'
+		difficulty.value = 'normal'
+		worldSeed.value = ''
+		worldTypeOption.value = 'minecraft:normal'
+		generateStructures.value = true
+		generatorSettingsMode.value = 'default'
+		generatorSettingsCustom.value = ''
+
+		// Instance-specific
+		instanceName.value = ''
+		instanceIconUrl.value = null
+		instanceIcon.value = null
+		instanceIconPath.value = null
+
+		selectedLoader.value = null
+		selectedGameVersion.value = null
+		loaderVersionType.value = 'stable'
+		selectedLoaderVersion.value = null
+		showSnapshots.value = false
+		modpackSelection.value = null
+		modpackFile.value = null
+		modpackFilePath.value = null
+		projectInstall.value = null
+		projectSearchProjectId.value = undefined
+		projectSearchOptions.value = []
+		projectSearchHits.value = {}
+
+		// Import state
+		importLaunchers.value = []
+		importSelectedInstances.value = {}
+		importSearchQuery.value = ''
+
+		hardReset.value = isInitialSetup
+		loading.value = false
+		isBackingUp.value = false
+		cancelBackup.value = null
+	}
+
+	function setSetupType(type: SetupType) {
+		debug('setSetupType:', type)
+		isImportMode.value = false
+		projectInstall.value = null
+		setupType.value = type
+		if (type === 'modpack') {
+			selectedLoader.value = null
+			selectedLoaderVersion.value = null
+			loaderVersionType.value = 'stable'
+		} else {
+			modpackSelection.value = null
+			modpackFile.value = null
+			modpackFilePath.value = null
+			if (type === 'vanilla') {
+				selectedLoader.value = null
+				selectedLoaderVersion.value = null
+				loaderVersionType.value = 'stable'
+			}
+			// both custom and vanilla go to custom-setup
+			// vanilla just hides loader chips via hideLoaderChips computed
+			modal.value?.setStage('custom-setup')
+		}
+	}
+
+	function setImportMode() {
+		isImportMode.value = true
+		setupType.value = null
+		modal.value?.setStage('import-instance')
+	}
+
+	function browseModpacks() {
+		modal.value?.hide()
+		emit.browseModpacks()
+	}
+
+	async function selectProject(projectId: string, projectType: string) {
+		if (!prepareProjectInstall) return
+
+		try {
+			const selection = await prepareProjectInstall(projectId, projectType)
+			if (selection) {
+				setProjectInstall(selection)
+			} else {
+				modal.value?.hide()
+			}
+		} catch (error) {
+			projectSearchProjectId.value = undefined
+			handleError(error as Error)
+		}
+	}
+
+	function setProjectInstall(selection: ProjectInstallSelection) {
+		projectInstall.value = selection
+		projectSearchProjectId.value = undefined
+		setupType.value = 'custom'
+		isImportMode.value = false
+		modpackSelection.value = null
+		instanceName.value = selection.title
+		selectedLoader.value = selection.compatibleLoaders[0] ?? null
+		selectedGameVersion.value =
+			selection.gameVersions.find((version) => selection.releaseGameVersions.has(version)) ??
+			selection.gameVersions[0] ??
+			null
+		modal.value?.setStage('custom-setup')
+	}
+
+	function finish() {
+		if (finishDisabled.value) return
+
+		debug('finish() called, state:', {
+			setupType: setupType.value,
+			selectedLoader: selectedLoader.value,
+			selectedGameVersion: selectedGameVersion.value,
+			selectedLoaderVersion: selectedLoaderVersion.value,
+			modpackSelection: modpackSelection.value,
+			hasModpackFile: !!modpackFile.value,
+		})
+		loading.value = true
+		if (
+			projectInstall.value &&
+			createProjectInstall &&
+			selectedLoader.value &&
+			selectedGameVersion.value
+		) {
+			modal.value?.hide()
+			void createProjectInstall({
+				name: instanceName.value.trim() || projectInstall.value.title,
+				iconPath: instanceIconPath.value,
+				iconPreviewUrl: instanceIconUrl.value,
+				loader: selectedLoader.value,
+				gameVersion: selectedGameVersion.value,
+			}).catch(handleError)
+			return
+		}
+		emit.create(contextValue)
+	}
+
+	function buildProperties(): Archon.Content.v1.PropertiesFields {
+		const isHardcore = gamemode.value === 'hardcore'
+		const known: Archon.Content.v1.KnownPropertiesFields = {
+			gamemode: isHardcore ? 'survival' : gamemode.value,
+			hardcore: isHardcore ? 'true' : 'false',
+			difficulty: difficulty.value,
+			level_seed: worldSeed.value || null,
+			level_type: worldTypeOption.value,
+			generate_structures: String(generateStructures.value),
+		}
+
+		if (generatorSettingsMode.value === 'flat') {
+			known.generator_settings = ''
+		} else if (generatorSettingsMode.value === 'custom' && generatorSettingsCustom.value) {
+			known.generator_settings = generatorSettingsCustom.value
+		}
+
+		return { known }
+	}
+
+	const resolvedStageConfigs = disableClose
+		? stageConfigs.map((stage) => ({ ...stage, disableClose: true }))
+		: stageConfigs
+
+	const contextValue: CreationFlowContextValue = {
+		flowType,
+		formatMessage,
+		availableLoaders,
+		showSnapshotToggle,
+		disableClose,
+		isInitialSetup,
+		initialLoader,
+		initialGameVersion,
+		setupType,
+		isImportMode,
+		worldName,
+		gamemode,
+		difficulty,
+		worldSeed,
+		worldTypeOption,
+		generateStructures,
+		generatorSettingsMode,
+		generatorSettingsCustom,
+		instanceName,
+		autoInstanceName,
+		instanceIcon,
+		instanceIconUrl,
+		instanceIconPath,
+		randomizeInstanceIcon,
+		customizeInstanceIcon,
+		selectedLoader,
+		selectedGameVersion,
+		loaderVersionType,
+		selectedLoaderVersion,
+		hideLoaderChips,
+		hideLoaderVersion,
+		showSnapshots,
+		loaderVersionsCache,
+		paperSupportedVersions,
+		purpurSupportedVersions,
+		modpackSelection,
+		modpackFile,
+		modpackFilePath,
+		projectInstall,
+		projectSearchProjectId,
+		projectSearchOptions,
+		projectSearchHits,
+		importLaunchers,
+		importSelectedInstances,
+		importSearchQuery,
+		hardReset,
+		loading,
+		finishDisabled,
+		finishDisabledTooltip,
+		isBackingUp,
+		cancelBackup,
+		modal,
+		stageConfigs: resolvedStageConfigs,
+		onBack,
+		reset,
+		setSetupType,
+		setImportMode,
+		browseModpacks,
+		selectProject,
+		finish,
+		buildProperties,
+		fetchLoaderMetadata,
+		prefetchLoaderMetadata,
+		searchProjects,
+		getProjectVersions,
+		getLoaderManifest,
+	}
+
+	return contextValue
+}

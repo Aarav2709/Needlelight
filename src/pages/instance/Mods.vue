@@ -2,7 +2,7 @@
 <div>
 <template v-if="projects?.length > 0">
 <div class="flex items-center gap-2 mb-4">
-<StyledInput
+<Input
 v-model="searchFilter"
 :icon="SearchIcon"
 type="text"
@@ -51,24 +51,22 @@ return item
 >
 <template v-if="selectedProjects.length > 0" #headers>
 <div class="flex gap-2">
-<ButtonStyled v-if="selectedProjects.some((m) => m.disabled)">
-<button @click="enableAll()"><CheckCircleIcon /> Enable</button>
-</ButtonStyled>
-<ButtonStyled v-if="selectedProjects.some((m) => !m.disabled)">
-<button @click="disableAll()"><SlashIcon /> Disable</button>
-</ButtonStyled>
-<ButtonStyled color="red">
-<button @click="deleteSelected()"><TrashIcon /> Remove</button>
-</ButtonStyled>
+<Button v-if="selectedProjects.some((m) => m.disabled)" @click="enableAll()">
+<CheckCircleIcon /> Enable
+</Button>
+<Button v-if="selectedProjects.some((m) => !m.disabled)" @click="disableAll()">
+<SlashIcon /> Disable
+</Button>
+<Button type="colored" color="red" @click="deleteSelected()">
+<TrashIcon /> Remove
+</Button>
 </div>
 </template>
 <template #header-actions>
-<ButtonStyled type="transparent" color-fill="text" hover-color-fill="text">
-<button :disabled="refreshingProjects" class="w-max" @click="refreshProjects">
+<Button type="quiet" :disabled="refreshingProjects" class="w-max" @click="refreshProjects">
 <UpdatedIcon />
 Refresh
-</button>
-</ButtonStyled>
+</Button>
 </template>
 <template #actions="{ item }">
 <div class="w-[36px]"></div>
@@ -77,25 +75,23 @@ class="!mx-2"
 :model-value="!item.data.disabled"
 @update:model-value="toggleDisableMod(item.data)"
 />
-<ButtonStyled type="transparent" circular>
-<button v-tooltip="'Remove'" @click="removeMod(item)">
+<IconButton type="quiet" label="Remove" v-tooltip="'Remove'" @click="removeMod(item)">
 <TrashIcon />
-</button>
-</ButtonStyled>
-<ButtonStyled type="transparent" circular>
-<OverflowMenu
+</IconButton>
+<TeleportOverflowMenu
+type="quiet"
+label="More options"
 :options="[
 {
 id: 'show-file',
+label: 'Show file',
+icon: ExternalIcon,
 action: () => highlightModInProfile(instance.path, item.path),
 },
 ]"
-direction="left"
 >
 <MoreVerticalIcon />
-<template #show-file> <ExternalIcon /> Show file </template>
-</OverflowMenu>
-</ButtonStyled>
+</TeleportOverflowMenu>
 </template>
 </ContentListPanel>
 <div class="flex justify-end mt-4">
@@ -130,13 +126,14 @@ TrashIcon,
 UpdatedIcon,
 } from '@modrinth/assets'
 import {
-ButtonStyled,
+Button,
 ContentListPanel,
+IconButton,
 injectNotificationManager,
-OverflowMenu,
+Input,
 Pagination,
 RadialHeader,
-StyledInput,
+TeleportOverflowMenu,
 Toggle,
 } from '@modrinth/ui'
 import { getCurrentWebview } from '@tauri-apps/api/webview'

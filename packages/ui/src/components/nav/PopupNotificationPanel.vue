@@ -1,9 +1,11 @@
 <template>
 	<div
-		class="popup-notification-group experimental-styles-within"
+		class="popup-notification-group"
 		:class="{
 			'has-sidebar': hasSidebar,
+			'has-modal': hasModalActive,
 		}"
+		:style="notificationGroupStyle"
 	>
 		<transition-group name="popup-notifs">
 			<div
@@ -13,50 +15,156 @@
 				@mouseenter="stopTimer(item)"
 				@mouseleave="setNotificationTimer(item)"
 			>
+				<NotificationToast
+					v-if="item.contentType === 'toast'"
+					class="min-w-full"
+					:type="item.type"
+					:action-loading="toastActionLoading(item.id)"
+					:actor-name="item.actorName"
+					:actor-avatar-url="item.actorAvatarUrl"
+					:entity-name="item.entityName"
+					:entity-icon-url="item.entityIconUrl"
+					:status-text="item.statusText"
+					:progress="item.progress"
+					:waiting="item.waiting"
+					:show-progress="item.showProgress"
+					:progress-type="item.progressType"
+					:progress-current="item.progressCurrent"
+					:progress-total="item.progressTotal"
+					@accept="handleToastAccept(item, item.onAccept)"
+					@decline="handleToastAction(item, item.onDecline)"
+					@dismiss="handleToastAction(item, item.onDismiss)"
+					@launch="handleToastAction(item, item.onLaunch)"
+					@open-actor="item.onOpenActor?.()"
+					@open-instance="handleToastAction(item, item.onOpenInstance)"
+				/>
+				<TransitionGroup
+					v-else-if="isDownloadNotification(item)"
+					name="popup-downloads"
+					tag="div"
+					class="flex flex-col gap-3"
+				>
+					<div v-for="progressItem in downloadToastItems(item)" :key="progressItem.id">
+						<NotificationToast
+							class="min-w-full"
+							type="instance-download"
+							:entity-name="progressItem.title || item.title"
+							:entity-icon-url="progressItem.iconUrl ?? item.iconUrl ?? MinecraftServerIcon"
+							:status-text="progressItem.text"
+							:progress="progressItem.progress"
+							:waiting="progressItem.waiting"
+							:show-progress="progressItem.showProgress"
+							:wrap-text="progressItem.wrapText"
+							:progress-type="progressItem.progressType"
+							:progress-current="progressItem.progressCurrent"
+							:progress-total="progressItem.progressTotal"
+							:actions="progressItem.buttons"
+							:dismissible="progressItem.dismissible"
+							@dismiss="handleProgressItemDismiss(item, progressItem)"
+							@action="(index) => handleProgressItemAction(item, progressItem, index)"
+						/>
+					</div>
+				</TransitionGroup>
+				<component
+					:is="item.component"
+					v-else-if="item.contentType === 'custom'"
+					v-bind="item.componentProps"
+					@dismiss="popupNotificationManager.removeNotification(item.id)"
+				/>
 				<div
+					v-else
 					class="flex w-full flex-col gap-3 overflow-hidden rounded-2xl bg-bg-raised shadow-xl border-surface-5 border-solid border p-4"
 				>
 					<div class="flex flex-col gap-2 w-full">
 						<div class="flex items-center justify-between gap-2.5">
-							<div class="flex items-center gap-2">
-								<div
-									class="flex items-center"
-									:class="{
-										'text-red': item.type === 'error',
-										'text-orange': item.type === 'warning',
-										'text-contrast': item.type === 'success',
-										'text-blue': !item.type || !['error', 'warning', 'success'].includes(item.type),
-									}"
-								>
-									<IssuesIcon v-if="item.type === 'warning'" class="h-5 w-5" />
-									<CheckCircleIcon v-else-if="item.type === 'success'" class="h-5 w-5" />
-									<XCircleIcon v-else-if="item.type === 'error'" class="h-5 w-5" />
-									<InfoIcon v-else class="h-5 w-5" />
-								</div>
-								<div class="text-contrast font-semibold m-0 grow">
-									{{ item.title }}
-								</div>
+							<div class="flex min-w-0 flex-1 items-center gap-2">
+								<component
+									:is="item.titleLogo"
+									v-if="item.titleLogo"
+									class="h-7 w-auto min-w-0 max-w-full text-contrast"
+								/>
+								<template v-else>
+									<div
+										v-if="!item.hideIcon"
+										class="flex items-center"
+										:class="{
+											'text-red': item.type === 'error',
+											'text-orange': item.type === 'warning',
+											'text-green': item.type === 'download',
+											'text-contrast': item.type === 'success',
+											'text-blue':
+												!item.type ||
+												!['error', 'warning', 'success', 'download'].includes(item.type),
+										}"
+									>
+										<IssuesIcon v-if="item.type === 'warning'" class="h-5 w-5" />
+										<DownloadIcon v-else-if="item.type === 'download'" class="h-5 w-5" />
+										<CheckCircleIcon v-else-if="item.type === 'success'" class="h-5 w-5" />
+										<XCircleIcon v-else-if="item.type === 'error'" class="h-5 w-5" />
+										<InfoIcon v-else class="h-5 w-5" />
+									</div>
+									<div class="text-contrast font-semibold m-0 grow">
+										{{ item.title }}
+									</div>
+								</template>
 							</div>
-							<ButtonStyled size="small" type="transparent" circular>
-								<button @click="dismiss(item.id)">
-									<XIcon />
-								</button>
-							</ButtonStyled>
+							<IconButton
+								v-if="item.dismissible !== false"
+								type="quiet"
+								:label="formatMessage(messages.close)"
+								size="sm"
+								class="-m-1.5 -mx-2"
+								@click="handleStandardNotificationDismiss(item)"
+							>
+								<XIcon />
+							</IconButton>
 						</div>
 						<span v-if="item.text" class="text-primary">
 							{{ item.text }}
 						</span>
 					</div>
+					<div v-if="item.progressItems?.length" class="flex flex-col gap-3">
+						<div
+							v-for="progressItem in item.progressItems"
+							:key="progressItem.id"
+							class="flex flex-col gap-2"
+						>
+							<div class="text-contrast truncate">
+								{{ progressItem.title }}
+							</div>
+							<ProgressBar
+								:progress="progressItem.progress"
+								:max="1"
+								:waiting="progressItem.waiting"
+								:color="progressColorForType(item.type)"
+								:gradient-border="false"
+								full-width
+							/>
+							<div v-if="progressItem.text" class="text-sm text-secondary truncate">
+								{{ progressItem.text }}
+							</div>
+						</div>
+					</div>
+					<ProgressBar
+						v-else-if="item.progress != null || item.waiting"
+						:progress="item.progress ?? 0"
+						:max="1"
+						:waiting="item.waiting ?? false"
+						:color="progressColorForType(item.type)"
+						:gradient-border="false"
+						full-width
+					/>
 					<div v-if="item.buttons?.length" class="flex gap-1.5">
-						<ButtonStyled
+						<Button
 							v-for="(btn, idx) in item.buttons"
 							:key="idx"
-							:color="btn.color || (idx === 0 ? 'brand' : undefined)"
+							:type="notificationButtonColor(btn, idx) ? 'colored' : 'base'"
+							:color="notificationButtonColor(btn, idx)"
+							@click="handleButtonClick(item.id, btn)"
 						>
-							<button @click="handleButtonClick(item.id, btn)">
-								{{ btn.label }}
-							</button>
-						</ButtonStyled>
+							<component :is="btn.icon" v-if="btn.icon" />
+							{{ btn.label }}
+						</Button>
 					</div>
 				</div>
 			</div>
@@ -65,29 +173,175 @@
 </template>
 
 <script setup lang="ts">
-import { CheckCircleIcon, InfoIcon, IssuesIcon, XCircleIcon, XIcon } from '@modrinth/assets'
-import { computed } from 'vue'
+import {
+	CheckCircleIcon,
+	DownloadIcon,
+	InfoIcon,
+	IssuesIcon,
+	MinecraftServerIcon,
+	XCircleIcon,
+	XIcon,
+} from '@modrinth/assets'
+import { computed, ref } from 'vue'
 
+import { Button, type ButtonColor, IconButton } from '#ui/components/base/buttons'
+
+import { defineMessages, useVIntl } from '../../composables/i18n'
+import { useModalStack } from '../../composables/modal-stack'
 import {
 	injectPopupNotificationManager,
 	type PopupNotification,
 	type PopupNotificationButton,
+	type PopupNotificationProgressItem,
+	type PopupNotificationStandard,
 } from '../../providers'
-import ButtonStyled from '../base/ButtonStyled.vue'
+import ProgressBar from '../base/ProgressBar.vue'
+import NotificationToast from '../notifications/NotificationToast.vue'
+
+const { formatMessage } = useVIntl()
+const messages = defineMessages({
+	close: { id: 'notifications.close', defaultMessage: 'Close' },
+})
 
 const popupNotificationManager = injectPopupNotificationManager()
 const notifications = computed<PopupNotification[]>(() =>
-	popupNotificationManager.getNotifications(),
+	popupNotificationManager.getVisibleNotifications(),
 )
+const { stackCount } = useModalStack()
+const hasModalActive = computed(() => stackCount.value > 0)
+const notificationGroupStyle = computed(() => ({
+	zIndex: hasModalActive.value ? 100 + stackCount.value * 10 + 8 : 200,
+}))
+const activeToastActions = ref<Record<string, 'accept'>>({})
 
 const stopTimer = (n: PopupNotification) => popupNotificationManager.stopNotificationTimer(n)
 const setNotificationTimer = (n: PopupNotification) =>
 	popupNotificationManager.setNotificationTimer(n)
-const dismiss = (id: string | number) => popupNotificationManager.removeNotification(id)
+const toastActionLoading = (id: string | number) => activeToastActions.value[String(id)] ?? null
 
-function handleButtonClick(id: string | number, btn: PopupNotificationButton) {
-	btn.action()
-	popupNotificationManager.removeNotification(id)
+function notificationButtonColor(
+	button: PopupNotificationButton,
+	index: number,
+): ButtonColor | undefined {
+	const color = button.color ?? (index === 0 ? 'brand' : undefined)
+	return color === 'standard' ? undefined : color
+}
+
+function isDownloadNotification(
+	item: PopupNotification,
+): item is PopupNotificationStandard & { type: 'download' } {
+	return !!(
+		item.contentType === 'standard' &&
+		item.type === 'download' &&
+		(!!item.progressItems?.length || item.progress != null || item.waiting)
+	)
+}
+
+function downloadToastItems(item: PopupNotificationStandard): PopupNotificationProgressItem[] {
+	if (item.progressItems?.length) {
+		return popupNotificationManager.getVisibleDownloadProgressItems(item)
+	}
+
+	return [
+		{
+			id: `${item.id}`,
+			title: item.title,
+			text: item.text,
+			iconUrl: item.iconUrl,
+			progress: item.progress ?? 0,
+			waiting: item.waiting ?? false,
+			showProgress: true,
+			progressType: 'percentage',
+		},
+	]
+}
+
+function handleProgressItemDismiss(
+	item: PopupNotification,
+	progressItem: PopupNotificationProgressItem,
+) {
+	popupNotificationManager.hideDownloadItem(item.id, downloadProgressItemId(item, progressItem))
+}
+
+async function handleProgressItemAction(
+	item: PopupNotification,
+	progressItem: PopupNotificationProgressItem,
+	index: number,
+) {
+	const button = progressItem.buttons?.[index]
+	if (button) {
+		await handleProgressItemButtonClick(item, progressItem, button)
+	}
+}
+
+async function handleProgressItemButtonClick(
+	item: PopupNotification,
+	progressItem: PopupNotificationProgressItem,
+	btn: PopupNotificationButton,
+) {
+	await btn.action()
+	if (!btn.keepOpen) {
+		popupNotificationManager.hideDownloadItem(item.id, downloadProgressItemId(item, progressItem))
+	}
+}
+
+function downloadProgressItemId(
+	item: PopupNotification,
+	progressItem: PopupNotificationProgressItem,
+): string | undefined {
+	return item.contentType === 'standard' && item.progressItems?.length ? progressItem.id : undefined
+}
+
+async function handleButtonClick(id: string | number, btn: PopupNotificationButton) {
+	await btn.action()
+	if (!btn.keepOpen) {
+		popupNotificationManager.removeNotification(id)
+	}
+}
+
+async function handleStandardNotificationDismiss(item: PopupNotificationStandard) {
+	await item.onDismiss?.()
+	popupNotificationManager.removeNotification(item.id)
+}
+
+async function handleToastAction(item: PopupNotification, action?: () => void | Promise<void>) {
+	popupNotificationManager.removeNotification(item.id)
+	await action?.()
+}
+
+async function handleToastAccept(item: PopupNotification, action?: () => void | Promise<void>) {
+	if (toastActionLoading(item.id) != null) return
+
+	const actionId = String(item.id)
+	popupNotificationManager.stopNotificationTimer(item)
+	activeToastActions.value = {
+		...activeToastActions.value,
+		[actionId]: 'accept',
+	}
+
+	try {
+		await action?.()
+	} finally {
+		activeToastActions.value = Object.fromEntries(
+			Object.entries(activeToastActions.value).filter(([key]) => key !== actionId),
+		)
+		popupNotificationManager.removeNotification(item.id)
+	}
+}
+
+function progressColorForType(type: PopupNotificationStandard['type']) {
+	if (type === 'error') {
+		return 'red'
+	} else if (type === 'warning') {
+		return 'orange'
+	} else if (type === 'download') {
+		return 'green'
+	} else if (type === 'success') {
+		return 'green'
+	} else if (type === 'info') {
+		return 'blue'
+	}
+	return 'green'
 }
 
 withDefaults(
@@ -106,19 +360,29 @@ withDefaults(
 	top: calc(var(--top-bar-height, 3rem) + 1.5rem);
 	right: 1.5rem;
 	z-index: 200;
-	width: 400px;
+	width: min(440px, calc(100vw - 1.5rem));
+	min-width: min(440px, calc(100vw - 1.5rem));
+	max-width: min(440px, calc(100vw - 1.5rem));
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
+	transition:
+		opacity 0.2s ease-in-out,
+		transform 0.2s ease-in-out;
 }
 
 .popup-notification-group.has-sidebar {
 	right: calc(var(--right-bar-width, 0px) + 1.5rem);
 }
 
+.popup-notification-group.has-modal {
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(-0.5rem);
+}
+
 @media screen and (max-width: 500px) {
 	.popup-notification-group {
-		width: calc(100% - 1.5rem);
 		right: 0.75rem;
 	}
 }
@@ -140,6 +404,21 @@ withDefaults(
 
 .popup-notifs-leave-to {
 	opacity: 0;
-	transform: translateX(100%) scale(0.8);
+	transform: translateX(100%);
+}
+
+.popup-downloads-move {
+	transition: transform 0.3s ease-in-out;
+}
+
+.popup-downloads-leave-active {
+	transition:
+		opacity 0.3s ease-in-out,
+		transform 0.3s ease-in-out;
+}
+
+.popup-downloads-leave-to {
+	opacity: 0;
+	transform: translateX(100%);
 }
 </style>

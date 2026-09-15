@@ -88,18 +88,21 @@
 					formatMessage(messages.openingAutomatically)
 				}}</span>
 				<div v-else class="grid grid-cols-2 gap-2 w-full">
-					<ButtonStyled class="flex-1">
-						<button @click="hide">
-							<XIcon />
-							{{ formatMessage(messages.close) }}
-						</button>
-					</ButtonStyled>
-					<ButtonStyled color="green" class="flex-1">
-						<a href="https://modrinth.com/app" target="_blank" rel="noopener noreferrer">
-							<DownloadIcon />
-							{{ formatMessage(messages.getApp) }}
-						</a>
-					</ButtonStyled>
+					<Button class="flex-1" @click="hide">
+						<XIcon />
+						{{ formatMessage(commonMessages.closeButton) }}
+					</Button>
+					<ButtonLink
+						type="colored"
+						color="brand"
+						class="flex-1"
+						href="https://modrinth.com/app"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						<DownloadIcon />
+						{{ formatMessage(messages.getApp) }}
+					</ButtonLink>
 				</div>
 			</div>
 		</div>
@@ -108,10 +111,13 @@
 
 <script setup lang="ts">
 import { CheckIcon, DownloadIcon, XIcon } from '@modrinth/assets'
+import { commonMessages } from '@modrinth/ui'
 import { computed, nextTick, onUnmounted, ref } from 'vue'
 
+import { Button, ButtonLink } from '#ui/components/base/buttons'
+
 import { defineMessages, useVIntl } from '../../composables/i18n'
-import { Avatar, ButtonStyled } from '../base'
+import { Avatar } from '../base'
 import ServerOnlinePlayers from '../project/server/ServerOnlinePlayers.vue'
 import ServerRegion from '../project/server/ServerRegion.vue'
 
@@ -141,10 +147,6 @@ const messages = defineMessages({
 	openingAutomatically: {
 		id: 'modal.open-in-app.opening-automatically',
 		defaultMessage: 'The Modrinth App will open automatically...',
-	},
-	close: {
-		id: 'modal.open-in-app.close',
-		defaultMessage: 'Close',
 	},
 	getApp: {
 		id: 'modal.open-in-app.get-app',

@@ -8,6 +8,10 @@
 		:no-options-message="searchLoading ? loadingMessage : noResultsMessage"
 		:disable-search-filter="true"
 		:disabled="disabled"
+		:clearable="clearable"
+		:search-input-variant="searchInputVariant"
+		:sync-with-selection="syncWithSelection"
+		:select-search-text-on-focus="selectSearchTextOnFocus"
 		show-icon-in-selected
 		@search-input="(query) => handleSearch(query)"
 	/>
@@ -16,10 +20,11 @@
 <script lang="ts" setup>
 import { PackageIcon } from '@modrinth/assets'
 import { useDebounceFn } from '@vueuse/core'
-import { defineAsyncComponent, h, ref, watch } from 'vue'
+import Fuse from 'fuse.js'
+import { defineAsyncComponent, h, markRaw, ref, watch } from 'vue'
 
 import { injectModrinthClient, injectNotificationManager } from '../../providers'
-import type { ComboboxOption } from '../base/Combobox.vue'
+import type { ComboboxOption, ComboboxSearchInputVariant } from '../base/Combobox.vue'
 import Combobox from '../base/Combobox.vue'
 
 export type ProjectType =
@@ -31,12 +36,13 @@ export type ProjectType =
 	| 'plugin'
 	| 'server'
 
-interface SearchHit {
+export interface SearchHit {
 	project_id: string
 	title: string
 	icon_url?: string
 	project_type: string
 	slug: string
+	author?: string
 }
 
 const props = withDefaults(
@@ -53,10 +59,22 @@ const props = withDefaults(
 		noResultsMessage?: string
 		/** Whether the combobox is disabled */
 		disabled?: boolean
+		/** Whether to show a button for clearing the search input */
+		clearable?: boolean
+		/** Visual treatment for the search input */
+		searchInputVariant?: ComboboxSearchInputVariant
+		/** Keep the selected project's label in the search input */
+		syncWithSelection?: boolean
+		/** Select all search text when the input receives focus */
+		selectSearchTextOnFocus?: boolean
 		/** Maximum number of results to show */
 		limit?: number
 		/** Project IDs to exclude from results */
 		excludeProjectIds?: string[]
+		/** Include the user's own projects (including unlisted) in results via Fuse search */
+		includeUserUnlistedProjects?: boolean
+		/** User ID or username required when includeUserUnlistedProjects is true */
+		userId?: string
 	}>(),
 	{
 		placeholder: 'Select project',
@@ -64,6 +82,8 @@ const props = withDefaults(
 		loadingMessage: 'Loading...',
 		noResultsMessage: 'No results found',
 		disabled: false,
+		searchInputVariant: 'surface',
+		syncWithSelection: true,
 		limit: 20,
 	},
 )
@@ -78,22 +98,71 @@ const searchResultsCache = ref<Map<string, SearchHit>>(new Map())
 
 const { labrinth } = injectModrinthClient()
 
+function isAllowedProjectType(projectType: string): boolean {
+	return !props.projectTypes || props.projectTypes.includes(projectType as ProjectType)
+}
+
+const userProjectHits = ref<SearchHit[]>([])
+const userProjectsFuse = ref<Fuse<SearchHit> | null>(null)
+
+watch(
+	() => props.includeUserUnlistedProjects && props.userId,
+	async (shouldFetch) => {
+		if (!shouldFetch || !props.userId) {
+			userProjectHits.value = []
+			userProjectsFuse.value = null
+			return
+		}
+
+		try {
+			const projects = await labrinth.users_v2.getProjects(props.userId)
+			const projectTypeSet = props.projectTypes ? new Set(props.projectTypes) : null
+
+			userProjectHits.value = projects
+				.filter((p) => !projectTypeSet || projectTypeSet.has(p.project_type as ProjectType))
+				.filter((p) => p.status === 'unlisted')
+				.map((p) => ({
+					project_id: p.id,
+					title: p.title,
+					icon_url: p.icon_url ?? undefined,
+					project_type: p.project_type,
+					slug: p.slug,
+				}))
+
+			for (const hit of userProjectHits.value) {
+				searchResultsCache.value.set(hit.project_id, hit)
+			}
+
+			userProjectsFuse.value = new Fuse(userProjectHits.value, {
+				keys: ['title', 'slug'],
+				threshold: 0.4,
+			})
+		} catch {
+			userProjectHits.value = []
+			userProjectsFuse.value = null
+		}
+	},
+	{ immediate: true },
+)
+
 function hitToOption(hit: SearchHit): ComboboxOption<string> {
 	return {
 		label: hit.title,
 		value: hit.project_id,
 		icon: hit.icon_url
-			? defineAsyncComponent(() =>
-					Promise.resolve({
-						setup: () => () =>
-							h('img', {
-								src: hit.icon_url,
-								alt: hit.title,
-								class: 'h-5 w-5 rounded',
-							}),
-					}),
+			? markRaw(
+					defineAsyncComponent(() =>
+						Promise.resolve({
+							setup: () => () =>
+								h('img', {
+									src: hit.icon_url,
+									alt: hit.title,
+									class: 'h-5 w-5 rounded',
+								}),
+						}),
+					),
 				)
-			: PackageIcon,
+			: markRaw(PackageIcon),
 	}
 }
 
@@ -113,7 +182,7 @@ watch(
 		} else {
 			try {
 				const project = await labrinth.projects_v2.get(newId)
-				if (project) {
+				if (project && isAllowedProjectType(project.project_type)) {
 					hit = {
 						project_id: project.id,
 						title: project.title,
@@ -127,6 +196,9 @@ watch(
 				selectedProject.value = null
 				return
 			}
+		}
+		if (hit && !isAllowedProjectType(hit.project_type)) {
+			hit = null
 		}
 
 		selectedProject.value = hit
@@ -160,16 +232,23 @@ const search = async (query: string) => {
 			facets: [[`project_id:${query.replace(/[^a-zA-Z0-9]/g, '')}`]],
 		})
 
-		const allHits = [...resultsByProjectId.hits, ...results.hits]
+		const userFuseHits: SearchHit[] = userProjectsFuse.value
+			? userProjectsFuse.value.search(query).map((r) => r.item)
+			: []
+
+		const allHits = [...userFuseHits, ...resultsByProjectId.hits, ...results.hits]
 		const seenIds = new Set<string>()
 		const excludeSet = new Set(props.excludeProjectIds ?? [])
 		const uniqueHits: SearchHit[] = []
 
 		for (const hit of allHits) {
-			if (!seenIds.has(hit.project_id) && !excludeSet.has(hit.project_id)) {
+			if (
+				isAllowedProjectType(hit.project_type) &&
+				!seenIds.has(hit.project_id) &&
+				!excludeSet.has(hit.project_id)
+			) {
 				seenIds.add(hit.project_id)
 				uniqueHits.push(hit)
-				// Cache the hit for later lookup
 				searchResultsCache.value.set(hit.project_id, hit)
 			}
 		}

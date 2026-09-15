@@ -3,7 +3,7 @@ import {
 	Checkbox,
 	defineMessages,
 	injectNotificationManager,
-	StyledInput,
+	Input,
 	useVIntl,
 } from '@modrinth/ui'
 import { computed, ref, watch } from 'vue'
@@ -114,7 +114,7 @@ const messages = defineMessages({
 		<p class="m-0">
 			{{ formatMessage(messages.preLaunchDescription) }}
 		</p>
-		<StyledInput
+		<Input
 			id="pre-launch"
 			v-model="hooks.pre_launch"
 			autocomplete="off"
@@ -129,7 +129,7 @@ const messages = defineMessages({
 		<p class="m-0">
 			{{ formatMessage(messages.wrapperDescription) }}
 		</p>
-		<StyledInput
+		<Input
 			id="wrapper"
 			v-model="hooks.wrapper"
 			autocomplete="off"
@@ -144,7 +144,7 @@ const messages = defineMessages({
 		<p class="m-0">
 			{{ formatMessage(messages.postExitDescription) }}
 		</p>
-		<StyledInput
+		<Input
 			id="post-exit"
 			v-model="hooks.post_exit"
 			autocomplete="off"

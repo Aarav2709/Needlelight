@@ -2,7 +2,7 @@
 import { onClickOutside } from '@vueuse/core'
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 
-import ButtonStyled from './ButtonStyled.vue'
+import { Button } from '#ui/components/base/buttons'
 
 const PANEL_VIEWPORT_MARGIN = 8
 
@@ -13,11 +13,13 @@ const props = withDefaults(
 		disabled?: boolean
 		buttonClass?: string
 		panelClass?: string
+		autoFocus?: boolean
 	}>(),
 	{
 		placement: 'bottom-end',
 		distance: 8,
 		disabled: false,
+		autoFocus: true,
 	},
 )
 
@@ -157,9 +159,11 @@ async function open() {
 	await updatePanelPosition()
 	startPositionTracking()
 
-	setTimeout(() => {
-		focusPanelContent()
-	}, 50)
+	if (props.autoFocus) {
+		setTimeout(() => {
+			focusPanelContent()
+		}, 50)
+	}
 }
 
 function close() {
@@ -245,19 +249,18 @@ defineExpose({
 
 <template>
 	<div class="relative inline-block">
-		<ButtonStyled v-bind="$attrs">
-			<button
-				ref="triggerRef"
-				:class="buttonClass"
-				:disabled="disabled"
-				:aria-expanded="isOpen"
-				aria-haspopup="true"
-				@click="toggle"
-				@keydown="handleTriggerKeydown"
-			>
-				<slot></slot>
-			</button>
-		</ButtonStyled>
+		<Button
+			v-bind="$attrs"
+			ref="triggerRef"
+			:class="buttonClass"
+			:disabled="disabled"
+			:aria-expanded="isOpen"
+			aria-haspopup="true"
+			@click="toggle"
+			@keydown="handleTriggerKeydown"
+		>
+			<slot></slot>
+		</Button>
 
 		<Teleport to="body">
 			<Transition

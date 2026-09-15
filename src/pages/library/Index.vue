@@ -7,7 +7,7 @@ import {
   XIcon,
   FolderSearchIcon,
 } from '@modrinth/assets'
-import { ButtonStyled, Toggle, injectNotificationManager } from '@modrinth/ui'
+import { Button, Toggle, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
@@ -300,18 +300,19 @@ onUnmounted(() => {
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <ButtonStyled type="transparent" size="small">
-          <button @click="fetchCatalog" :disabled="catalogLoading || !hasGameFolder">
-            <RefreshCwIcon :class="{ 'animate-spin': catalogLoading }" />
-            Refresh
-          </button>
-        </ButtonStyled>
-        <ButtonStyled type="transparent" size="small">
-          <button @click="chooseManagedFolder(true)">
-            <FolderSearchIcon />
-            {{ hasGameFolder ? 'Change folder' : 'Browse' }}
-          </button>
-        </ButtonStyled>
+        <Button
+          type="quiet"
+          size="sm"
+          :disabled="catalogLoading || !hasGameFolder"
+          @click="fetchCatalog"
+        >
+          <RefreshCwIcon :class="{ 'animate-spin': catalogLoading }" />
+          Refresh
+        </Button>
+        <Button type="quiet" size="sm" @click="chooseManagedFolder(true)">
+          <FolderSearchIcon />
+          {{ hasGameFolder ? 'Change folder' : 'Browse' }}
+        </Button>
       </div>
     </div>
 
@@ -349,7 +350,7 @@ onUnmounted(() => {
         <div v-else-if="catalogError" class="rounded-2xl bg-bg-raised border border-solid border-surface-5 p-8 min-h-[40vh] flex flex-col items-center justify-center text-center">
           <h2 class="m-0 text-lg font-bold text-contrast">Could not load the mod catalog</h2>
           <p class="m-0 mt-2 max-w-lg text-sm text-secondary">Check your connection or change the configured game directory.</p>
-          <ButtonStyled class="mt-4" color="brand"><button @click="fetchCatalog">Retry</button></ButtonStyled>
+          <Button class="mt-4" type="colored" color="brand" @click="fetchCatalog">Retry</Button>
         </div>
 
         <div v-else-if="filteredMods.length === 0" class="text-secondary text-sm py-12 text-center">
