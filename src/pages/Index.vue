@@ -1,6 +1,6 @@
 <script setup>
 import { LibraryIcon, ShieldIcon } from '@modrinth/assets'
-import { ButtonStyled, injectNotificationManager } from '@modrinth/ui'
+import { injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

@@ -324,7 +324,7 @@ export const categoryMessages = defineMessages({
 	},
 	kitpvp: {
 		id: 'tag.category.kitpvp',
-		defaultMessage: 'Kit PVP',
+		defaultMessage: 'Kit PvP',
 	},
 	library: {
 		id: 'tag.category.library',
@@ -436,7 +436,7 @@ export const categoryMessages = defineMessages({
 	},
 	pokemon: {
 		id: 'tag.category.pokemon',
-		defaultMessage: 'Pokemon',
+		defaultMessage: 'Pokémon',
 	},
 	potato: {
 		id: 'tag.category.potato',
@@ -448,11 +448,11 @@ export const categoryMessages = defineMessages({
 	},
 	pve: {
 		id: 'tag.category.pve',
-		defaultMessage: 'PVE',
+		defaultMessage: 'PvE',
 	},
 	pvp: {
 		id: 'tag.category.pvp',
-		defaultMessage: 'PVP',
+		defaultMessage: 'PvP',
 	},
 	questing: {
 		id: 'tag.category.questing',
@@ -573,6 +573,7 @@ export const categoryMessages = defineMessages({
 })
 
 export const DEFAULT_MOD_LOADERS: string[] = ['fabric', 'forge', 'neoforge']
+export const DEFAULT_PLUGIN_LOADERS: string[] = ['paper', 'spigot']
 export const DEFAULT_SHADER_LOADERS: string[] = ['iris', 'optifine', 'vanilla']
 
 const DEFAULT_LOADER_NAMES = new Set([...DEFAULT_MOD_LOADERS, ...DEFAULT_SHADER_LOADERS])
@@ -598,7 +599,7 @@ export function sortTagsForDisplay(tags: string[]): string[] {
 export const categoryHeaderMessages = defineMessages({
 	resolutions: {
 		id: 'header.category.resolutions',
-		defaultMessage: 'Resolutions',
+		defaultMessage: 'Resolution',
 	},
 	categories: {
 		id: 'header.category.category',

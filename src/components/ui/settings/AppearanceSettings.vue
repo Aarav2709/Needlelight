@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ThemeSelector, Toggle } from '@modrinth/ui'
+import { Toggle } from '@modrinth/ui'
 import { onMounted, ref, watch } from 'vue'
 
 import { get, set } from '@/helpers/settings.ts'
 import { useTheming } from '@/store/state'
 import type { ColorTheme } from '@/store/theme.ts'
+
+import ThemeSelector from './ThemeSelector.vue'
 
 const themeStore = useTheming()
 

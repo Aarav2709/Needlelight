@@ -1,0 +1,563 @@
+<script setup lang="ts">
+import type { Kyros } from '@modrinth/api-client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+import ReadyTransition from '#ui/components/base/ReadyTransition.vue'
+import { useReadyState } from '#ui/composables'
+import { useUploadSessionUpload } from '#ui/composables/hosting/kyros-session-upload'
+import { defineMessages, useVIntl } from '#ui/composables/i18n'
+import { useServerPermissions } from '#ui/composables/server-permissions'
+import {
+	injectModrinthClient,
+	injectModrinthServerContext,
+	injectNotificationManager,
+} from '#ui/providers'
+import { commonMessages } from '#ui/utils/common-messages'
+
+import FilePageLayout from '../../../shared/files-tab/layout.vue'
+import { provideFileManager } from '../../../shared/files-tab/providers/file-manager'
+import type { EditingFile, FileItem } from '../../../shared/files-tab/types'
+
+const props = defineProps<{
+	showDebugInfo?: boolean
+	showRefreshButton?: boolean
+}>()
+
+const client = injectModrinthClient()
+const serverContext = injectModrinthServerContext()
+const {
+	serverId,
+	worldId,
+	fsOps,
+	busyReasons,
+	uploadState,
+	cancelUpload: cancelUploadRef,
+} = serverContext
+const fileUploadSession = useUploadSessionUpload({
+	client,
+	scope: 'files',
+	worldId,
+	uploadState,
+	cancelUpload: cancelUploadRef,
+})
+const { addNotification } = injectNotificationManager()
+const { formatMessage } = useVIntl()
+const { canWriteFiles, canUsePowerActions, permissionDeniedMessage } = useServerPermissions()
+
+const route = useRoute()
+const router = useRouter()
+const queryClient = useQueryClient()
+
+const messages = defineMessages({
+	zipCreated: {
+		id: 'servers.files.zip-created',
+		defaultMessage: 'ZIP created',
+	},
+	zipCreatedDescription: {
+		id: 'servers.files.zip-created-description',
+		defaultMessage: 'Created {destination}',
+	},
+})
+
+const zippingFolder = ref(false)
+
+const serverBusy = computed(() => busyReasons.value.length > 0)
+const busyTooltip = computed(() =>
+	busyReasons.value.length > 0 ? formatMessage(busyReasons.value[0].reason) : undefined,
+)
+const fileWriteDisabled = computed(
+	() => !canWriteFiles.value || serverBusy.value || zippingFolder.value,
+)
+const fileWriteDisabledTooltip = computed(() =>
+	canWriteFiles.value ? busyTooltip.value : permissionDeniedMessage.value,
+)
+const nonBackupBusyReasons = computed(() =>
+	busyReasons.value.filter(
+		(r) =>
+			r.reason.id !== 'servers.busy.backup-creating' &&
+			r.reason.id !== 'servers.busy.backup-restoring',
+	),
+)
+
+const busyWarning = computed(() =>
+	nonBackupBusyReasons.value.length > 0
+		? formatMessage(nonBackupBusyReasons.value[0].reason)
+		: null,
+)
+
+// Path & navigation
+const currentPath = computed(() => (typeof route.query.path === 'string' ? route.query.path : '/'))
+
+function navigateTo(path: string) {
+	const { editing: _, ...query } = route.query
+	router.push({ query: { ...query, path } })
+}
+
+// Editing state (synced with URL)
+const editingFile = ref<EditingFile | null>(null)
+
+function startEditing(file: EditingFile) {
+	editingFile.value = file
+	router.push({ query: { ...route.query, path: currentPath.value, editing: file.path } })
+}
+
+function stopEditing() {
+	editingFile.value = null
+	const newQuery = { ...route.query }
+	delete newQuery.editing
+	router.replace({ query: newQuery })
+}
+
+// Sync editing state from URL
+watch(
+	() => route.query,
+	(newQuery, oldQuery) => {
+		if (newQuery.editing && editingFile.value?.path !== newQuery.editing) {
+			editingFile.value = {
+				name: (newQuery.editing as string).split('/').pop() || '',
+				path: newQuery.editing as string,
+			}
+		} else if (oldQuery?.editing && !newQuery.editing) {
+			editingFile.value = null
+		}
+	},
+	{ deep: true },
+)
+
+// Initialize editing from URL on mount
+function initializeFileEdit() {
+	if (!route.query.editing) return
+	const filePath = route.query.editing as string
+	editingFile.value = {
+		name: filePath.split('/').pop() || '',
+		path: filePath,
+	}
+}
+
+// Directory listing query
+const {
+	data: directoryData,
+	isLoading,
+	error: loadError,
+} = useQuery({
+	queryKey: computed(() => ['files', serverId, currentPath.value]),
+	queryFn: async () => {
+		return client.kyros.files_v0.listDirectory(currentPath.value, 1, 2000)
+	},
+	staleTime: 30_000,
+})
+
+function isVisibleFileItem(item: Kyros.Files.v0.DirectoryItem) {
+	return !item.path.split('/').includes('.modrinth-staged')
+}
+
+const items = computed<FileItem[]>(() =>
+	(directoryData.value?.items ?? []).filter(isVisibleFileItem),
+)
+
+const filesReadyPending = useReadyState({ isLoading, data: directoryData })
+
+// Prefetching
+function prefetchDirectory(path: string) {
+	queryClient.prefetchQuery({
+		queryKey: ['files', serverId, path],
+		queryFn: async () => {
+			try {
+				return await client.kyros.files_v0.listDirectory(path, 1, 2000)
+			} catch {
+				return { items: [], total: 0, current: 1 }
+			}
+		},
+		staleTime: 30_000,
+	})
+}
+
+function prefetchFile(path: string) {
+	queryClient.prefetchQuery({
+		queryKey: ['file-content', serverId, path],
+		queryFn: async () => {
+			try {
+				const blob = await client.kyros.files_v0.downloadFile(path)
+				return await blob.text()
+			} catch {
+				return null
+			}
+		},
+		staleTime: 30_000,
+	})
+}
+
+function getQueryKey() {
+	return ['files', serverId, currentPath.value]
+}
+
+function refreshList() {
+	queryClient.invalidateQueries({ queryKey: ['files', serverId] })
+}
+
+// Mutations
+const deleteMutation = useMutation({
+	mutationFn: ({ path, recursive }: { path: string; recursive: boolean }) =>
+		client.kyros.files_v0.deleteFileOrFolder(path, recursive),
+	onMutate: async ({ path }) => {
+		const queryKey = getQueryKey()
+		await queryClient.cancelQueries({ queryKey })
+		const previous = queryClient.getQueryData(queryKey)
+		queryClient.setQueryData(queryKey, (old: Kyros.Files.v0.DirectoryResponse | undefined) => {
+			if (!old) return old
+			return { ...old, items: old.items.filter((item) => item.path !== path) }
+		})
+		return { previous }
+	},
+	onError: (err: Error, _vars, context) => {
+		queryClient.setQueryData(getQueryKey(), context?.previous)
+		addNotification({
+			title: formatMessage(commonMessages.deleteFailedLabel),
+			text: err.message,
+			type: 'error',
+		})
+	},
+	onSuccess: () => {
+		addNotification({
+			title: 'File deleted',
+			text: 'Your file has been deleted.',
+			type: 'success',
+		})
+	},
+	onSettled: () => {
+		queryClient.invalidateQueries({ queryKey: ['files', serverId] })
+	},
+})
+
+const renameMutation = useMutation({
+	mutationFn: ({ path, newName }: { path: string; newName: string }) =>
+		client.kyros.files_v0.renameFileOrFolder(path, newName),
+	onMutate: async ({ path, newName }) => {
+		const queryKey = getQueryKey()
+		await queryClient.cancelQueries({ queryKey })
+		const previous = queryClient.getQueryData(queryKey)
+		queryClient.setQueryData(queryKey, (old: Kyros.Files.v0.DirectoryResponse | undefined) => {
+			if (!old) return old
+			return {
+				...old,
+				items: old.items.map((item) =>
+					item.path === path
+						? {
+								...item,
+								name: newName,
+								path: item.path.replace(/[^/]+$/, newName),
+							}
+						: item,
+				),
+			}
+		})
+		return { previous }
+	},
+	onError: (err: Error, _vars, context) => {
+		queryClient.setQueryData(getQueryKey(), context?.previous)
+		addNotification({
+			title: formatMessage(commonMessages.renameFailedLabel),
+			text: err.message,
+			type: 'error',
+		})
+	},
+	onSuccess: (_, { newName }) => {
+		addNotification({ title: 'Renamed', text: `Renamed to ${newName}`, type: 'success' })
+	},
+	onSettled: () => {
+		queryClient.invalidateQueries({ queryKey: ['files', serverId] })
+	},
+})
+
+const moveMutation = useMutation({
+	mutationFn: ({ source, destination }: { source: string; destination: string }) =>
+		client.kyros.files_v0.moveFileOrFolder(source, destination),
+	onMutate: async ({ source }) => {
+		const queryKey = getQueryKey()
+		await queryClient.cancelQueries({ queryKey })
+		const previous = queryClient.getQueryData(queryKey)
+		queryClient.setQueryData(queryKey, (old: Kyros.Files.v0.DirectoryResponse | undefined) => {
+			if (!old) return old
+			return { ...old, items: old.items.filter((item) => item.path !== source) }
+		})
+		return { previous }
+	},
+	onError: (err: Error, _vars, context) => {
+		queryClient.setQueryData(getQueryKey(), context?.previous)
+		addNotification({
+			title: formatMessage(commonMessages.moveFailedLabel),
+			text: err.message,
+			type: 'error',
+		})
+	},
+	onSuccess: (_, { destination }) => {
+		addNotification({ title: 'Moved', text: `Moved to ${destination}`, type: 'success' })
+	},
+	onSettled: () => {
+		queryClient.invalidateQueries({ queryKey: ['files', serverId] })
+	},
+})
+
+const createMutation = useMutation({
+	mutationFn: ({ path, type }: { path: string; type: 'file' | 'directory' }) =>
+		client.kyros.files_v0.createFileOrFolder(path, type),
+	onMutate: async ({ path, type }) => {
+		const queryKey = getQueryKey()
+		await queryClient.cancelQueries({ queryKey })
+		const previous = queryClient.getQueryData(queryKey)
+		const name = path.split('/').pop()!
+		const now = Math.floor(Date.now() / 1000)
+		const newItem: Kyros.Files.v0.DirectoryItem = {
+			name,
+			path,
+			type,
+			modified: now,
+			created: now,
+			...(type === 'directory' ? { count: 0 } : { size: 0 }),
+		}
+		queryClient.setQueryData(queryKey, (old: Kyros.Files.v0.DirectoryResponse | undefined) => {
+			if (!old) return old
+			return { ...old, items: [newItem, ...old.items] }
+		})
+		return { previous }
+	},
+	onError: (err: Error, _vars, context) => {
+		queryClient.setQueryData(getQueryKey(), context?.previous)
+		addNotification({
+			title: formatMessage(commonMessages.createFailedLabel),
+			text: err.message,
+			type: 'error',
+		})
+	},
+	onSuccess: (_, { path, type }) => {
+		const name = path.split('/').pop()
+		addNotification({
+			title: `${type === 'directory' ? 'Folder' : 'File'} created`,
+			text: `Created ${name}`,
+			type: 'success',
+		})
+	},
+	onSettled: () => {
+		queryClient.invalidateQueries({ queryKey: ['files', serverId] })
+	},
+})
+
+// Extraction
+async function extractFile(path: string, override: boolean, dry: boolean) {
+	if (fileWriteDisabled.value) return
+	const target = path.replace(/\.zip$/i, '')
+	if (dry) {
+		return await client.kyros.files_v0.extractFile(path, override, true, target)
+	}
+	await client.kyros.files_v0.extractFile(path, override, false, target)
+}
+
+// File I/O
+async function readFile(path: string): Promise<string> {
+	const normalizedPath = path.startsWith('/') ? path : `/${path}`
+	const cachedContent = queryClient.getQueryData<string>(['file-content', serverId, normalizedPath])
+	if (cachedContent) return cachedContent
+	const blob = await client.kyros.files_v0.downloadFile(normalizedPath)
+	return await blob.text()
+}
+
+async function readFileAsBlob(path: string): Promise<Blob> {
+	const normalizedPath = path.startsWith('/') ? path : `/${path}`
+	return await client.kyros.files_v0.downloadFile(normalizedPath)
+}
+
+async function writeFile(path: string, content: string): Promise<void> {
+	if (fileWriteDisabled.value) return
+	await client.kyros.files_v0.updateFile(path, content)
+	queryClient.invalidateQueries({ queryKey: ['servers', 'detail', serverId] })
+}
+
+async function downloadFile(path: string, fileName: string): Promise<void> {
+	try {
+		const fileData = await client.kyros.files_v0.downloadFile(path)
+		if (fileData) {
+			saveBlob(fileData, fileName)
+		}
+	} catch {
+		addNotification({
+			title: formatMessage(commonMessages.downloadFailedLabel),
+			text: 'Could not download the file.',
+			type: 'error',
+		})
+	}
+}
+
+function saveBlob(blob: Blob, fileName: string) {
+	const link = document.createElement('a')
+	link.href = window.URL.createObjectURL(blob)
+	link.download = fileName
+	link.click()
+	window.URL.revokeObjectURL(link.href)
+}
+
+async function statFile(path: string): Promise<Kyros.Files.v1.FileStatResponse> {
+	if (!worldId.value) throw new Error('No active world')
+	return client.kyros.files_v1.stat(worldId.value, { path })
+}
+
+async function createZip(data: Kyros.Files.v1.ZipRequest, destination?: string): Promise<void> {
+	if (!worldId.value || fileWriteDisabled.value) return
+	const operationId = `local-zip-${crypto.randomUUID()}`
+	const source =
+		data.target_type === 'Directory'
+			? `${data.path.split('/').pop() || data.path}.zip`
+			: data.target
+	const updateOperation = (record: Partial<Kyros.Files.v1.ZipProgress>, state = 'ongoing') => {
+		serverContext.upsertLocalFileOperation?.({
+			id: operationId,
+			op: 'zip',
+			src: source,
+			state,
+			progress: (record.progress ?? 0) / 100,
+			cancellable: false,
+			error: record.error,
+		})
+	}
+	zippingFolder.value = true
+	updateOperation({ progress: 0 })
+	try {
+		await client.kyros.files_v1.createZip(worldId.value, data, (record) => {
+			updateOperation(record, record.done ? 'done' : 'ongoing')
+		})
+		updateOperation({ progress: 100 }, 'done')
+		addNotification({
+			title: formatMessage(messages.zipCreated),
+			text: destination
+				? formatMessage(messages.zipCreatedDescription, { destination })
+				: undefined,
+			type: 'success',
+		})
+		refreshList()
+	} catch (error) {
+		updateOperation(
+			{ progress: 0, error: error instanceof Error ? error.message : undefined },
+			'failure-error',
+		)
+	} finally {
+		zippingFolder.value = false
+	}
+}
+
+async function zipFolder(path: string): Promise<void> {
+	await createZip({ target_type: 'Directory', path })
+}
+
+async function zipPaths(parent: string, include: string[], target: string): Promise<void> {
+	await createZip(
+		{ target_type: 'ManyPaths', parent, include, target },
+		`${parent}/${target}`.replace('//', '/'),
+	)
+}
+
+watch(
+	() => fsOps.value,
+	() => {
+		refreshList()
+	},
+)
+
+onMounted(async () => {
+	initializeFileEdit()
+})
+
+// Restart
+async function restartServer() {
+	if (!canUsePowerActions.value) return
+	await client.archon.servers_v0.power(serverId, 'Restart')
+}
+
+function getSessionUploadFilename(fileName: string) {
+	const basePath = currentPath.value.split('/').filter(Boolean).join('/')
+	return basePath ? `${basePath}/${fileName}` : fileName
+}
+
+async function uploadFiles(files: File[]) {
+	if (fileWriteDisabled.value || files.length === 0) return
+
+	try {
+		const result = await fileUploadSession.uploadFiles(
+			files.map((file) => ({
+				file,
+				filename: getSessionUploadFilename(file.name),
+			})),
+		)
+		if (result === 'completed') refreshList()
+	} catch (err) {
+		addNotification({
+			title: formatMessage(commonMessages.uploadFailedLabel),
+			text: err instanceof Error ? err.message : undefined,
+			type: 'error',
+		})
+	}
+}
+
+function cancelUpload() {
+	fileUploadSession.cancelUpload()
+}
+
+// Provide the file manager context
+provideFileManager({
+	items,
+	loading: computed(() => isLoading.value),
+	error: computed(() => loadError.value ?? null),
+	currentPath,
+	navigateTo,
+	editingFile,
+	startEditing,
+	stopEditing,
+	createItem: async (name, type) => {
+		if (fileWriteDisabled.value) return
+		const path = `${currentPath.value}/${name}`.replace('//', '/')
+		await createMutation.mutateAsync({ path, type })
+	},
+	renameItem: async (path, newName) => {
+		if (fileWriteDisabled.value) return
+		await renameMutation.mutateAsync({ path, newName })
+	},
+	moveItem: async (source, destination) => {
+		if (fileWriteDisabled.value) return
+		await moveMutation.mutateAsync({ source, destination })
+	},
+	deleteItem: async (path, recursive) => {
+		if (fileWriteDisabled.value) return
+		await deleteMutation.mutateAsync({ path, recursive })
+	},
+	readFile,
+	readFileAsBlob,
+	writeFile,
+	downloadFile,
+	statFile,
+	zipFolder,
+	zipPaths,
+	uploadFiles,
+	cancelUpload,
+	uploadState,
+	refresh: refreshList,
+	isBusy: fileWriteDisabled,
+	busyTooltip: fileWriteDisabledTooltip,
+	busyWarning,
+	extractFile,
+	prefetchDirectory,
+	prefetchFile,
+	showInstallFromUrl: true,
+	canRestart: canUsePowerActions.value,
+	restartServer,
+	canShareToMclogs: true,
+})
+</script>
+
+<template>
+	<ReadyTransition :pending="filesReadyPending">
+		<FilePageLayout
+			:show-debug-info="props.showDebugInfo"
+			:show-refresh-button="props.showRefreshButton"
+		/>
+	</ReadyTransition>
+</template>

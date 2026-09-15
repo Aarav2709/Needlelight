@@ -2,7 +2,7 @@
 import { DropdownIcon } from '@modrinth/assets'
 import { reactive } from 'vue'
 
-import Button from './Button.vue'
+import { IconButton } from '#ui/components/base/buttons'
 
 const props = defineProps({
 	collapsible: {
@@ -33,9 +33,9 @@ function toggleCollapsed() {
 		<div v-if="!!$slots.header || collapsible" class="header">
 			<slot name="header"></slot>
 			<div v-if="collapsible" class="btn-group">
-				<Button :action="toggleCollapsed">
+				<IconButton label="Toggle details" @click="toggleCollapsed">
 					<DropdownIcon :style="{ transform: `rotate(${state.collapsed ? 0 : 180}deg)` }" />
-				</Button>
+				</IconButton>
 			</div>
 		</div>
 		<slot v-if="!state.collapsed" />

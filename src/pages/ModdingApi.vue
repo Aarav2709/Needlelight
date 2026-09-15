@@ -1,6 +1,6 @@
 <script setup>
 import { DownloadIcon, RefreshCwIcon, SpinnerIcon, SteamColorIcon } from '@modrinth/assets'
-import { Admonition, ButtonStyled, ProgressBar, injectNotificationManager } from '@modrinth/ui'
+import { Admonition, Button, ProgressBar, injectNotificationManager } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
@@ -107,13 +107,11 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <ButtonStyled color="brand" :disabled="installing">
-          <button @click="installApi">
-            <RefreshCwIcon v-if="installing" class="animate-spin" />
-            <DownloadIcon v-else />
-            {{ installing ? 'Installing...' : ctaLabel }}
-          </button>
-        </ButtonStyled>
+        <Button type="colored" color="brand" :disabled="installing" @click="installApi">
+          <RefreshCwIcon v-if="installing" class="animate-spin" />
+          <DownloadIcon v-else />
+          {{ installing ? 'Installing...' : ctaLabel }}
+        </Button>
       </div>
 
       <div v-if="installing" class="max-w-sm">
@@ -209,7 +207,7 @@ onUnmounted(() => {
 
       <div v-if="error" class="pt-5 border-t border-solid border-surface-5 flex items-center gap-3 text-sm text-secondary">
         <span class="text-contrast font-semibold">Could not load API information.</span>
-        <ButtonStyled size="small"><button @click="loadState">Retry</button></ButtonStyled>
+        <Button size="sm" @click="loadState">Retry</Button>
       </div>
     </main>
   </div>

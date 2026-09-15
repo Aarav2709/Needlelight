@@ -1,6 +1,6 @@
 <script setup>
 import { CopyIcon, CheckIcon, DropdownIcon, XIcon } from "@modrinth/assets";
-import { ButtonStyled, Collapsible } from "@modrinth/ui";
+import { Collapsible, IconButton } from "@modrinth/ui";
 import { computed, ref } from "vue";
 
 import ModalWrapper from "@/components/ui/modal/ModalWrapper.vue";
@@ -84,16 +84,16 @@ async function copyToClipboard(text) {
             class="bg-bg text-secondary text-xs p-4 rounded-lg overflow-auto max-h-48"
             >{{ debugInfo }}</pre
           >
-          <ButtonStyled
+          <IconButton
             class="absolute top-2 right-2"
-            type="transparent"
-            circular
+            type="quiet"
+            size="sm"
+            label="Copy debug info"
+            @click="copyToClipboard(debugInfo)"
           >
-            <button @click="copyToClipboard(debugInfo)">
-              <CheckIcon v-if="copied" class="w-4 h-4" />
-              <CopyIcon v-else class="w-4 h-4" />
-            </button>
-          </ButtonStyled>
+            <CheckIcon v-if="copied" class="w-4 h-4" />
+            <CopyIcon v-else class="w-4 h-4" />
+          </IconButton>
         </div>
       </Collapsible>
     </div>

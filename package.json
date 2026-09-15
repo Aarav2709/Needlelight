@@ -8,7 +8,7 @@
     "dev": "tauri dev",
     "dev:web": "vite",
     "dev:desktop": "tauri dev",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vue-tsc --noEmit -p tsconfig.app.json && vite build",
     "build:desktop": "tauri build",
     "clean": "rm -rf dist src-tauri/target",
     "preview": "vite preview",

@@ -1,10 +1,10 @@
 <template>
-	<div v-if="hasContent" class="flex flex-col gap-3">
+	<div v-if="loading || hasContent" class="flex flex-col gap-3">
 		<h2 class="text-lg m-0">{{ formatMessage(messages.title) }}</h2>
 
 		<div
 			v-if="ipAddress"
-			v-tooltip="`Copy Java IP: ${ipAddress}`"
+			v-tooltip="formatMessage(messages.addressTooltip)"
 			class="bg-button-bg flex gap-2 justify-between rounded-2xl items-center px-3 pr-1.5 h-12 cursor-pointer hover:bg-button-bg-hover hover:brightness-125 transition-all active:scale-95"
 			@click="handleCopyIP"
 		>
@@ -15,9 +15,13 @@
 				<CopyIcon class="shrink-0" />
 			</div>
 		</div>
+		<div
+			v-else-if="loading && !projectV3"
+			class="h-12 rounded-2xl bg-surface-4 animate-pulse"
+		></div>
 
 		<section v-if="requiredContent" class="flex flex-col gap-2">
-			<h3 class="text-primary text-base m-0">Required content</h3>
+			<h3 class="text-primary text-base m-0">{{ formatMessage(messages.requiredContent) }}</h3>
 			<ServerModpackContentCard
 				:name="requiredContent.name"
 				:version-number="requiredContent.versionNumber ?? ''"
@@ -26,17 +30,24 @@
 				:onclick-version="requiredContent.onclickVersion"
 				:onclick-download="requiredContent.onclickDownload"
 				:show-custom-modpack-tooltip="requiredContent.showCustomModpackTooltip"
+				:loading-version="loading"
 			/>
 		</section>
+		<section v-else-if="loading" class="flex flex-col gap-2">
+			<h3 class="text-primary text-base m-0">{{ formatMessage(messages.requiredContent) }}</h3>
+			<div class="h-[52px] rounded-2xl bg-surface-4 animate-pulse"></div>
+		</section>
 		<section v-if="recommendedVersions.length" class="flex flex-col gap-2">
-			<h3 class="text-primary text-base m-0">Minecraft: Java Edition</h3>
+			<h3 class="text-primary text-base m-0">{{ formatMessage(messages.minecraftJava) }}</h3>
 			<div class="flex flex-wrap gap-1.5">
 				<TagItem
 					v-for="version in formatVersionsForDisplay(recommendedVersions, tags.gameVersions)"
 					:key="`recommended-tag-${version}`"
 				>
 					{{ version }}
-					<template v-if="supportedVersions.length > 0"> (Recommended) </template>
+					<template v-if="supportedVersions.length > 0">
+						{{ formatMessage(messages.recommendedVersion) }}
+					</template>
 				</TagItem>
 				<TagItem
 					v-for="version in formatVersionsForDisplay(supportedVersionsList, tags.gameVersions)"
@@ -55,18 +66,33 @@
 				</TagItem>
 			</div>
 		</section>
+		<section v-else-if="loading" class="flex flex-col gap-2">
+			<h3 class="text-primary text-base m-0">{{ formatMessage(messages.minecraftJava) }}</h3>
+			<div class="flex flex-wrap gap-1.5">
+				<div
+					v-for="width in ['w-16', 'w-20']"
+					:key="`version-skeleton-${width}`"
+					class="h-[26px] rounded-full bg-surface-4 animate-pulse"
+					:class="width"
+				></div>
+			</div>
+		</section>
 		<section v-if="props.ping !== undefined || region" class="flex flex-col gap-2">
-			<h3 class="text-primary text-base m-0">Region</h3>
+			<h3 class="text-primary text-base m-0">{{ formatMessage(messages.region) }}</h3>
 			<div class="flex flex-wrap gap-1.5 items-center">
+				<ServerPing
+					v-if="projectV3?.status !== 'draft'"
+					:ping="props.ping"
+					:status-online="props.statusOnline"
+				/>
 				<ServerRegion v-if="region" :region="region" />
-				<ServerPing :ping="props.ping" :status-online="props.statusOnline" />
 			</div>
 		</section>
 		<section v-if="languages.length > 0" class="flex flex-col gap-2">
-			<h3 class="text-primary text-base m-0">Languages</h3>
+			<h3 class="text-primary text-base m-0">{{ formatMessage(messages.languages) }}</h3>
 			<div class="flex flex-wrap gap-1.5">
 				<TagItem v-for="language in languages" :key="`${language}`">
-					{{ languageDisplay.find((l) => l.value === language)?.label ?? language }}
+					{{ SERVER_LANGUAGES[language] ? formatMessage(SERVER_LANGUAGES[language]) : language }}
 				</TagItem>
 			</div>
 		</section>
@@ -75,6 +101,7 @@
 <script setup lang="ts">
 import type { Labrinth } from '@modrinth/api-client'
 import { CopyIcon, getLoaderIcon } from '@modrinth/assets'
+import { SERVER_LANGUAGES } from '@modrinth/ui'
 import { formatVersionsForDisplay, type GameVersionTag, type PlatformTag } from '@modrinth/utils'
 import { computed } from 'vue'
 
@@ -108,6 +135,7 @@ interface Props {
 	loaders?: string[]
 	ping?: number
 	statusOnline?: boolean
+	loading?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -167,48 +195,6 @@ function handleCopyIP() {
 	})
 }
 
-const languageDisplay = [
-	{ value: 'en', label: 'English' },
-	{ value: 'es', label: 'Spanish' },
-	{ value: 'pt', label: 'Portuguese' },
-	{ value: 'fr', label: 'French' },
-	{ value: 'de', label: 'German' },
-	{ value: 'it', label: 'Italian' },
-	{ value: 'nl', label: 'Dutch' },
-	{ value: 'ru', label: 'Russian' },
-	{ value: 'uk', label: 'Ukrainian' },
-	{ value: 'pl', label: 'Polish' },
-	{ value: 'cs', label: 'Czech' },
-	{ value: 'sk', label: 'Slovak' },
-	{ value: 'hu', label: 'Hungarian' },
-	{ value: 'ro', label: 'Romanian' },
-	{ value: 'bg', label: 'Bulgarian' },
-	{ value: 'hr', label: 'Croatian' },
-	{ value: 'sr', label: 'Serbian' },
-	{ value: 'el', label: 'Greek' },
-	{ value: 'tr', label: 'Turkish' },
-	{ value: 'ar', label: 'Arabic' },
-	{ value: 'he', label: 'Hebrew' },
-	{ value: 'hi', label: 'Hindi' },
-	{ value: 'bn', label: 'Bengali' },
-	{ value: 'ur', label: 'Urdu' },
-	{ value: 'zh', label: 'Chinese' },
-	{ value: 'ja', label: 'Japanese' },
-	{ value: 'ko', label: 'Korean' },
-	{ value: 'th', label: 'Thai' },
-	{ value: 'vi', label: 'Vietnamese' },
-	{ value: 'id', label: 'Indonesian' },
-	{ value: 'ms', label: 'Malay' },
-	{ value: 'tl', label: 'Filipino' },
-	{ value: 'sv', label: 'Swedish' },
-	{ value: 'no', label: 'Norwegian' },
-	{ value: 'da', label: 'Danish' },
-	{ value: 'fi', label: 'Finnish' },
-	{ value: 'lt', label: 'Lithuanian' },
-	{ value: 'lv', label: 'Latvian' },
-	{ value: 'et', label: 'Estonian' },
-]
-
 const messages = defineMessages({
 	copied: {
 		id: `project.about.server.copied`,
@@ -216,15 +202,35 @@ const messages = defineMessages({
 	},
 	copiedText: {
 		id: `project.about.server.copiedText`,
-		defaultMessage: 'IP address copied to clipboard',
+		defaultMessage: 'Server address copied to clipboard',
 	},
 	title: {
 		id: `project.about.server.title`,
 		defaultMessage: 'Server details',
 	},
-	latency: {
-		id: `project.about.server.latency`,
-		defaultMessage: 'Latency',
+	addressTooltip: {
+		id: `project.about.server.address.tooltip`,
+		defaultMessage: 'Copy Java server address',
+	},
+	requiredContent: {
+		id: `project.about.server.requiredContent`,
+		defaultMessage: 'Required content',
+	},
+	minecraftJava: {
+		id: `project.about.compatibility.game.minecraftJava`,
+		defaultMessage: 'Minecraft: Java Edition',
+	},
+	recommendedVersion: {
+		id: `project.about.server.recommendedVersion`,
+		defaultMessage: '(Recommended)',
+	},
+	region: {
+		id: `project.about.server.region`,
+		defaultMessage: 'Region',
+	},
+	languages: {
+		id: `project.about.server.languages`,
+		defaultMessage: 'Languages',
 	},
 })
 </script>

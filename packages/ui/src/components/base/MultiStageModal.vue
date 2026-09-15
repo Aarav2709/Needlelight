@@ -5,7 +5,7 @@
 		max-content-height="72vh"
 		:on-hide="onModalHide"
 		:closable="true"
-		:close-on-click-outside="false"
+		:close-on-click-outside="closeOnClickOutside"
 		:width="resolvedMaxWidth"
 		:fade="fade"
 		:disable-close="resolveCtxFn(currentStage.disableClose, context)"
@@ -59,7 +59,7 @@
 		</template>
 
 		<progress
-			v-if="nonProgressStage !== true"
+			v-if="nonProgressStage !== true && !disableProgress"
 			:value="progressValue"
 			max="100"
 			class="w-full h-1 appearance-none border-none absolute top-0 left-0"
@@ -72,53 +72,70 @@
 				class="flex flex-col justify-end gap-2 sm:flex-row"
 				:class="leftButtonConfig || rightButtonConfig ? 'mt-4' : ''"
 			>
-				<ButtonStyled v-if="leftButtonConfig" type="outlined">
-					<button
-						class="!border-surface-5"
-						:class="leftButtonConfig.buttonClass"
-						:disabled="leftButtonConfig.disabled"
-						@click="leftButtonConfig.onClick"
-					>
-						<component :is="leftButtonConfig.icon" />
-						{{ leftButtonConfig.label }}
-					</button>
-				</ButtonStyled>
-				<ButtonStyled v-if="rightButtonConfig" :color="rightButtonConfig.color">
-					<button
-						:disabled="rightButtonConfig.disabled"
-						:class="rightButtonConfig.buttonClass"
-						@click="rightButtonConfig.onClick"
-					>
-						<component
-							:is="rightButtonConfig.icon"
-							v-if="rightButtonConfig.iconPosition === 'before'"
-							:class="rightButtonConfig.iconClass"
-						/>
-						{{ rightButtonConfig.label }}
-						<component
-							:is="rightButtonConfig.icon"
-							v-if="rightButtonConfig.iconPosition === 'after'"
-							:class="rightButtonConfig.iconClass"
-						/>
-					</button>
-				</ButtonStyled>
+				<Button
+					v-if="leftButtonConfig"
+					v-tooltip="leftButtonConfig.tooltip"
+					type="outlined"
+					:class="leftButtonConfig.buttonClass"
+					:disabled="leftButtonConfig.disabled"
+					@click="leftButtonConfig.onClick"
+				>
+					<component :is="leftButtonConfig.icon" />
+					{{ leftButtonConfig.label }}
+				</Button>
+				<Button
+					v-if="rightButtonConfig"
+					v-tooltip="rightButtonConfig.tooltip"
+					:type="
+						rightButtonConfig.color && rightButtonConfig.color !== 'standard' ? 'colored' : 'base'
+					"
+					:color="rightButtonConfig.color === 'standard' ? undefined : rightButtonConfig.color"
+					:class="rightButtonConfig.buttonClass"
+					:disabled="rightButtonConfig.disabled || rightButtonConfig.loading"
+					@click="rightButtonConfig.onClick"
+				>
+					<SpinnerIcon
+						v-if="rightButtonConfig.loading && rightButtonConfig.iconPosition === 'before'"
+						class="animate-spin"
+					/>
+					<component
+						:is="rightButtonConfig.icon"
+						v-else-if="rightButtonConfig.iconPosition === 'before'"
+						:class="rightButtonConfig.iconClass"
+					/>
+					{{ rightButtonConfig.label }}
+					<SpinnerIcon
+						v-if="rightButtonConfig.loading && rightButtonConfig.iconPosition === 'after'"
+						class="animate-spin"
+					/>
+					<component
+						:is="rightButtonConfig.icon"
+						v-else-if="rightButtonConfig.iconPosition === 'after'"
+						:class="rightButtonConfig.iconClass"
+					/>
+				</Button>
 			</div>
 		</template>
 	</NewModal>
 </template>
 
 <script lang="ts">
-import { ChevronRightIcon } from '@modrinth/assets'
-import { ButtonStyled, NewModal } from '@modrinth/ui'
+import { ChevronRightIcon, SpinnerIcon } from '@modrinth/assets'
+import { NewModal } from '@modrinth/ui'
 import type { Component } from 'vue'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+
+import type { ButtonColor } from '#ui/components/base/buttons'
+import { Button } from '#ui/components/base/buttons'
 
 export interface StageButtonConfig {
 	label?: string
 	icon?: Component | null
 	iconPosition?: 'before' | 'after'
-	color?: InstanceType<typeof ButtonStyled>['$props']['color']
+	color?: ButtonColor | 'standard'
 	disabled?: boolean
+	loading?: boolean
+	tooltip?: string
 	iconClass?: string | null
 	buttonClass?: string | null
 	onClick?: () => void
@@ -148,13 +165,20 @@ export function resolveCtxFn<T, R>(value: MaybeCtxFn<T, R>, ctx: T): R {
 </script>
 
 <script setup lang="ts" generic="T">
-const props = defineProps<{
-	stages: StageConfigInput<T>[]
-	context: T
-	breadcrumbs?: boolean
-	fitContent?: boolean
-	fade?: 'standard' | 'warning' | 'danger'
-}>()
+const props = withDefaults(
+	defineProps<{
+		stages: StageConfigInput<T>[]
+		context: T
+		breadcrumbs?: boolean
+		fitContent?: boolean
+		fade?: 'standard' | 'warning' | 'danger'
+		disableProgress?: boolean
+		closeOnClickOutside?: boolean
+	}>(),
+	{
+		closeOnClickOutside: true,
+	},
+)
 
 const modal = useTemplateRef<InstanceType<typeof NewModal>>('modal')
 const currentStageIndex = ref<number>(0)
