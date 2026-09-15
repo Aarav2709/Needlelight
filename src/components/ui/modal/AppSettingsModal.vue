@@ -20,7 +20,7 @@ import ModalWrapper from "@/components/ui/modal/ModalWrapper.vue";
 import AppearanceSettings from "@/components/ui/settings/AppearanceSettings.vue";
 import FeatureFlagSettings from "@/components/ui/settings/FeatureFlagSettings.vue";
 import GameSettings from "@/components/ui/settings/GameSettings.vue";
-import { get, set } from "@/helpers/settings.ts";
+import { type AppSettings, get, set } from "@/helpers/settings.ts";
 import { injectAppUpdateDownloadProgress } from "@/providers/download-progress.ts";
 import { useTheming } from "@/store/state";
 
@@ -76,7 +76,7 @@ defineExpose({ show, isOpen });
 const { progress, version: downloadingVersion } =
   injectAppUpdateDownloadProgress();
 
-const settings = ref<Record<string, any> | null>(null);
+const settings = ref<AppSettings | null>(null);
 const ready = ref(false);
 
 onMounted(async () => {

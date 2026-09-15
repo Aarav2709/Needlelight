@@ -48,15 +48,15 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["proceed"]);
-const modal = ref(null);
+const modal = ref<InstanceType<typeof ConfirmModal> | null>(null);
 
 defineExpose({
   show: () => {
-    modal.value.show();
+    modal.value?.show();
   },
   hide: () => {
     onModalHide();
-    modal.value.hide();
+    modal.value?.hide();
   },
 });
 
