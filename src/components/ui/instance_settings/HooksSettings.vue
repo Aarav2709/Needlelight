@@ -18,14 +18,22 @@ const { formatMessage } = useVIntl()
 
 const props = defineProps<InstanceSettingsTabProps>()
 
-const globalSettings = (await get().catch(handleError)) as AppSettings
+const globalSettings = (await get().catch(handleError)) as unknown as AppSettings
 
 const overrideHooks = ref(
 	!!props.instance.hooks.pre_launch ||
 		!!props.instance.hooks.wrapper ||
 		!!props.instance.hooks.post_exit,
 )
-const hooks = ref(props.instance.hooks ?? globalSettings.hooks)
+// The backend models hooks as Option<String>, so values arrive as `string | null`,
+// but Input's v-model only accepts `string | number | undefined`. Keep the editable
+// state as plain strings and convert empty back to null when saving.
+const sourceHooks = props.instance.hooks ?? globalSettings.hooks ?? {}
+const hooks = ref({
+	pre_launch: sourceHooks.pre_launch ?? '',
+	wrapper: sourceHooks.wrapper ?? '',
+	post_exit: sourceHooks.post_exit ?? '',
+})
 
 const editProfileObject = computed(() => {
 	const editProfile: {
@@ -33,7 +41,13 @@ const editProfileObject = computed(() => {
 	} = {}
 
 	// When hooks are not overridden per-instance, we want to clear them
-	editProfile.hooks = overrideHooks.value ? hooks.value : {}
+	editProfile.hooks = overrideHooks.value
+		? {
+				pre_launch: hooks.value.pre_launch || null,
+				wrapper: hooks.value.wrapper || null,
+				post_exit: hooks.value.post_exit || null,
+			}
+		: {}
 
 	return editProfile
 })

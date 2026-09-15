@@ -2,24 +2,24 @@
 import { Toggle } from '@modrinth/ui'
 import { onMounted, ref, watch } from 'vue'
 
-import { get as getSettings, set as setSettings } from '@/helpers/settings.ts'
+import { type AppSettings, get as getSettings, set as setSettings } from '@/helpers/settings.ts'
 import { useTheming } from '@/store/state'
 import { DEFAULT_FEATURE_FLAGS, type FeatureFlag } from '@/store/theme.ts'
 
 const themeStore = useTheming()
 
-const settings = ref<Record<string, any> | null>(null)
+const settings = ref<AppSettings | null>(null)
 const ready = ref(false)
 
 onMounted(async () => {
 	try { settings.value = await getSettings() } catch { /* ignore */ }
 	ready.value = true
 })
-const options = ref<FeatureFlag[]>(Object.keys(DEFAULT_FEATURE_FLAGS))
+const options = ref<FeatureFlag[]>(Object.keys(DEFAULT_FEATURE_FLAGS) as FeatureFlag[])
 
-function setFeatureFlag(key: string, value: boolean) {
+function setFeatureFlag(key: FeatureFlag, value: boolean) {
 	themeStore.featureFlags[key] = value
-	settings.value.feature_flags[key] = value
+	if (settings.value) settings.value.feature_flags[key] = value
 }
 
 watch(
@@ -36,7 +36,7 @@ watch(
 	<div v-for="option in options" :key="option" class="mt-4 flex items-center justify-between">
 		<div>
 			<h2 class="m-0 text-lg font-extrabold text-contrast capitalize">
-				{{ option.replaceAll('_', ' ') }}
+				{{ option.replace(/_/g, ' ') }}
 			</h2>
 		</div>
 

@@ -54,7 +54,7 @@ export type AppSettings = {
 	custom_env_vars: [string, string][]
 	memory: MemorySettings
 	force_fullscreen: boolean
-	game_resolution: WindowSize
+	game_resolution: [number, number]
 	hide_on_process_start: boolean
 	hooks: Hooks
 
@@ -95,7 +95,7 @@ export async function get() {
 			onboarded: true,
 			extra_launch_args: [],
 			custom_env_vars: [],
-			memory: { min: null, max: 4096 },
+			memory: { maximum: 4096 },
 			force_fullscreen: false,
 			game_resolution: [1280, 720],
 			hide_on_process_start: false,
@@ -108,7 +108,7 @@ export async function get() {
 			prev_custom_dir: loaded.managed_folder || null,
 			migrated: true,
 			developer_mode: false,
-			feature_flags: {},
+			feature_flags: { project_background: false, page_path: false, i18n_debug: false },
 			skipped_update: null,
 			pending_update_toast_for_version: null,
 			auto_download_updates: null,

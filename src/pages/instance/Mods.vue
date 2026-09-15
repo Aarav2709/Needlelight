@@ -26,23 +26,15 @@ v-if="search.length > 0"
 v-model="selectedFiles"
 :locked="false"
 :items="
-search.map((x) => {
-const item = {
+search.map((x) => ({
 path: x.path,
 disabled: x.disabled,
 filename: x.file_name,
 icon: x.icon ?? undefined,
 title: x.name,
 data: x,
-}
-
-if (x.version) {
-item.version = x.version
-item.versionId = x.version
-}
-
-return item
-})
+...(x.version ? { version: x.version, versionId: x.version } : {}),
+}))
 "
 :sort-column="sortColumn"
 :sort-ascending="ascending"
@@ -254,7 +246,7 @@ try {
 mod.path = await toggle_disable_project(props.instance.path, mod.path)
 mod.disabled = !mod.disabled
 } catch (err) {
-handleError(err)
+handleError(err as Error)
 }
 
 locks[mod.file_name] = null

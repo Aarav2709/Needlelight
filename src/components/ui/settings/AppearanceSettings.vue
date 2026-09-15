@@ -2,7 +2,7 @@
 import { Toggle } from '@modrinth/ui'
 import { onMounted, ref, watch } from 'vue'
 
-import { get, set } from '@/helpers/settings.ts'
+import { type AppSettings, get, set } from '@/helpers/settings.ts'
 import { useTheming } from '@/store/state'
 import type { ColorTheme } from '@/store/theme.ts'
 
@@ -10,7 +10,7 @@ import ThemeSelector from './ThemeSelector.vue'
 
 const themeStore = useTheming()
 
-const settings = ref<Record<string, any> | null>(null)
+const settings = ref<AppSettings | null>(null)
 const ready = ref(false)
 
 onMounted(async () => {
@@ -21,6 +21,16 @@ onMounted(async () => {
 	}
 	ready.value = true
 })
+
+function updateColorTheme(theme: ColorTheme) {
+	themeStore.setThemeState(theme)
+	if (settings.value) settings.value.theme = theme
+}
+
+function updateAdvancedRendering(enabled: boolean) {
+	themeStore.advancedRendering = enabled
+	if (settings.value) settings.value.advanced_rendering = enabled
+}
 
 watch(
 	settings,
@@ -37,12 +47,7 @@ watch(
 	<p class="m-0 mt-1">Select your preferred color theme for Needlelight.</p>
 
 	<ThemeSelector
-		:update-color-theme="
-			(theme: ColorTheme) => {
-				themeStore.setThemeState(theme)
-				settings.theme = theme
-			}
-		"
+		:update-color-theme="updateColorTheme"
 		:current-theme="settings.theme"
 		:theme-options="themeStore.getThemeOptions().filter((theme) => theme !== 'system')"
 		system-theme-color="system"
@@ -60,12 +65,7 @@ watch(
 		<Toggle
 			id="advanced-rendering"
 			:model-value="themeStore.advancedRendering"
-			@update:model-value="
-				(e) => {
-					themeStore.advancedRendering = !!e
-					settings.advanced_rendering = themeStore.advancedRendering
-				}
-			"
+			@update:model-value="(e) => updateAdvancedRendering(!!e)"
 		/>
 	</div>
 
