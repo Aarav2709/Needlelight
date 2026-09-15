@@ -5,7 +5,7 @@ SpinnerIcon,
 WrenchIcon,
 } from '@modrinth/assets'
 import {
-ButtonStyled,
+Button,
 defineMessages,
 injectNotificationManager,
 useVIntl,
@@ -88,8 +88,9 @@ class="w-10 h-10 flex items-center justify-center rounded-full bg-button-bg bord
 </div>
 </div>
 <div class="flex gap-1">
-<ButtonStyled color="orange" type="transparent" hover-color-fill="background">
-<button
+<Button
+type="quiet"
+color="orange"
 :disabled="installing || repairing"
 @click="repairConfirmModal.show()"
 >
@@ -100,8 +101,7 @@ repairing
 ? formatMessage(messages.repairingButton)
 : formatMessage(messages.repairButton)
 }}
-</button>
-</ButtonStyled>
+</Button>
 </div>
 </div>
 </div>

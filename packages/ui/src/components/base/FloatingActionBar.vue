@@ -1,38 +1,271 @@
 <script setup lang="ts">
-import { onUnmounted, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+
+import { useModalStack } from '../../composables/modal-stack'
+import { injectPageContext } from '../../providers'
+
+const visibleFloatingActionBars = new Set<symbol>()
+
+function updateFloatingActionBarBodyClass() {
+	if (typeof document === 'undefined') return
+
+	document.body.classList.toggle('floating-action-bar-shown', visibleFloatingActionBars.size > 0)
+}
 
 const props = defineProps<{
 	shown: boolean
+	ariaLabel?: string
+	belowModal?: boolean
+	hideWhenModalOpen?: boolean
+	inline?: boolean
 }>()
 
+const INTERCOM_BUBBLE_GAP = 8
+
+const barEl = ref<HTMLElement | null>(null)
+const toolbarEl = ref<HTMLElement | null>(null)
+const compact = ref(false)
+const attentionRequested = ref(false)
+
+const { stackCount } = useModalStack()
+const pageContext = injectPageContext(null)
+const shown = computed(() => props.shown && (!props.hideWhenModalOpen || stackCount.value === 0))
+const floatingActionBarId = Symbol('floating-action-bar')
+const intercomBubbleClearanceRequestId = Symbol('floating-action-bar')
+const zIndex = computed(() => 100 + stackCount.value * 10 + 8 + (!props.belowModal ? 1 : 0))
+const leftOffset = computed(() =>
+	stackCount.value > 0
+		? '0px'
+		: (pageContext?.floatingActionBarOffsets?.left.value ?? 'var(--left-bar-width, 0px)'),
+)
+const rightOffset = computed(() =>
+	stackCount.value > 0
+		? '0px'
+		: (pageContext?.floatingActionBarOffsets?.right.value ?? 'var(--right-bar-width, 0px)'),
+)
+const barStyle = computed(() => ({
+	zIndex: zIndex.value,
+	'--floating-action-bar-left-offset': leftOffset.value,
+	'--floating-action-bar-right-offset': rightOffset.value,
+}))
+
+function checkCompact() {
+	const el = toolbarEl.value
+	if (!el) return
+
+	const clone = el.cloneNode(true) as HTMLElement
+	clone.classList.remove('bar-compact')
+	clone.style.position = 'absolute'
+	clone.style.visibility = 'hidden'
+	clone.style.pointerEvents = 'none'
+	clone.style.width = `${el.offsetWidth}px`
+
+	el.parentElement!.appendChild(clone)
+	const needsCompact = clone.offsetHeight > 70
+	clone.remove()
+
+	compact.value = needsCompact
+}
+
+function clearIntercomBubbleClearance() {
+	pageContext?.intercomBubble?.requestVerticalClearance(intercomBubbleClearanceRequestId, null)
+}
+
+function updateIntercomBubbleClearance() {
+	const intercomBubble = pageContext?.intercomBubble
+	if (!intercomBubble) return
+
+	if (
+		typeof window === 'undefined' ||
+		props.inline ||
+		!shown.value ||
+		stackCount.value > 0 ||
+		!barEl.value ||
+		!toolbarEl.value
+	) {
+		clearIntercomBubbleClearance()
+		return
+	}
+
+	const barRect = barEl.value.getBoundingClientRect()
+	const toolbarRight = barRect.left + toolbarEl.value.offsetLeft + toolbarEl.value.offsetWidth
+	const bubbleLeft =
+		window.innerWidth - intercomBubble.horizontalPadding.value - intercomBubble.width.value
+
+	if (toolbarRight + INTERCOM_BUBBLE_GAP <= bubbleLeft) {
+		clearIntercomBubbleClearance()
+		return
+	}
+
+	const barStyle = window.getComputedStyle(barEl.value)
+	const bottomOffset = Number.parseFloat(barStyle.bottom) || 0
+	intercomBubble.requestVerticalClearance(
+		intercomBubbleClearanceRequestId,
+		Math.ceil(bottomOffset + barEl.value.offsetHeight + INTERCOM_BUBBLE_GAP),
+	)
+}
+
+function updateBodyState(isShown = shown.value) {
+	if (typeof document === 'undefined') return
+
+	if (isShown && !props.inline) {
+		visibleFloatingActionBars.add(floatingActionBarId)
+	} else {
+		visibleFloatingActionBars.delete(floatingActionBarId)
+	}
+
+	updateFloatingActionBarBodyClass()
+	if (!isShown) {
+		clearIntercomBubbleClearance()
+	}
+}
+
+let observer: ResizeObserver | null = null
+let updateFrame: number | null = null
+
+function scheduleIntercomBubbleClearanceUpdate() {
+	if (typeof window === 'undefined') return
+	if (updateFrame !== null) {
+		window.cancelAnimationFrame(updateFrame)
+	}
+
+	updateFrame = window.requestAnimationFrame(() => {
+		updateFrame = null
+		updateIntercomBubbleClearance()
+	})
+}
+
 watch(
-	() => props.shown,
-	(shown) => {
-		document?.body.classList.toggle('floating-action-bar-shown', shown)
+	toolbarEl,
+	(el) => {
+		observer?.disconnect()
+		if (!el) return
+		observer = new ResizeObserver(() => {
+			checkCompact()
+			scheduleIntercomBubbleClearanceUpdate()
+		})
+		observer.observe(el.parentElement!)
+		checkCompact()
+		scheduleIntercomBubbleClearanceUpdate()
 	},
 	{ immediate: true },
 )
 
+watch(
+	[shown, () => props.inline],
+	async (isShown) => {
+		await nextTick()
+		updateBodyState(isShown[0])
+		scheduleIntercomBubbleClearanceUpdate()
+	},
+	{ immediate: true },
+)
+
+watch(
+	[
+		shown,
+		leftOffset,
+		rightOffset,
+		stackCount,
+		() => pageContext?.intercomBubble?.horizontalPadding.value,
+		() => pageContext?.intercomBubble?.width.value,
+	],
+	() => scheduleIntercomBubbleClearanceUpdate(),
+	{ immediate: true },
+)
+
+onMounted(() => {
+	window.addEventListener('resize', scheduleIntercomBubbleClearanceUpdate)
+	scheduleIntercomBubbleClearanceUpdate()
+})
+
 onUnmounted(() => {
-	document?.body.classList.remove('floating-action-bar-shown')
+	observer?.disconnect()
+	window.removeEventListener('resize', scheduleIntercomBubbleClearanceUpdate)
+	if (updateFrame !== null) {
+		window.cancelAnimationFrame(updateFrame)
+	}
+	clearIntercomBubbleClearance()
+	visibleFloatingActionBars.delete(floatingActionBarId)
+	if (typeof document === 'undefined') return
+	updateFloatingActionBarBodyClass()
+})
+
+async function nudge(): Promise<void> {
+	attentionRequested.value = false
+	await nextTick()
+	attentionRequested.value = true
+}
+
+defineExpose({ nudge })
+defineOptions({
+	inheritAttrs: false,
 })
 </script>
 
 <template>
-	<Transition name="floating-action-bar" appear>
-		<div v-if="shown" class="floating-action-bar fixed w-full z-10 left-0 p-10 bottom-0">
+	<Teleport to="body" :disabled="inline">
+		<Transition name="floating-action-bar" appear>
 			<div
-				class="flex items-center gap-2 rounded-2xl bg-bg-raised border-2 border-divider border-solid mx-auto max-w-[75rem] p-4"
+				v-if="shown"
+				v-bind="$attrs"
+				ref="barEl"
+				class="floating-action-bar drop-shadow-2xl"
+				:class="inline ? 'floating-action-bar--inline z-10' : 'fixed bottom-0 p-4'"
+				:style="inline ? undefined : barStyle"
+				aria-live="polite"
 			>
-				<slot />
+				<div
+					ref="toolbarEl"
+					role="toolbar"
+					:aria-label="ariaLabel"
+					class="relative overflow-clip flex items-center gap-1.5 rounded-[20px] bg-surface-3 border border-surface-5 border-solid px-3 py-2.5 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.3),0px_6px_10px_0px_rgba(0,0,0,0.15)]"
+					:class="[
+						{
+							'bar-compact': compact,
+							'floating-action-bar-attention': attentionRequested,
+						},
+						inline ? 'w-full' : 'mx-auto md:max-w-[min(calc(100vw-120px),1050px)]',
+					]"
+					@animationend="attentionRequested = false"
+				>
+					<slot />
+				</div>
 			</div>
-		</div>
-	</Transition>
+		</Transition>
+	</Teleport>
 </template>
 
 <style scoped>
 .floating-action-bar {
+	left: var(--floating-action-bar-left-offset, var(--left-bar-width, 0px));
+	right: var(--floating-action-bar-right-offset, var(--right-bar-width, 0px));
 	transition: bottom 0.25s ease-in-out;
+}
+
+.floating-action-bar--inline {
+	left: auto;
+	right: auto;
+}
+
+.floating-action-bar-attention {
+	animation: floating-action-bar-attention 300ms ease-in-out;
+}
+
+@keyframes floating-action-bar-attention {
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+	25% {
+		transform: translateX(-0.4rem);
+	}
+	50% {
+		transform: translateX(0.4rem);
+	}
+	75% {
+		transform: translateX(-0.2rem);
+	}
 }
 
 .floating-action-bar-enter-active {
@@ -58,12 +291,28 @@ onUnmounted(() => {
 }
 
 @media (any-hover: none) and (max-width: 640px) {
-	.floating-action-bar {
+	.floating-action-bar:not(.floating-action-bar--inline) {
 		bottom: var(--size-mobile-navbar-height);
 	}
 
-	.expanded-mobile-nav .floating-action-bar {
+	.expanded-mobile-nav .floating-action-bar:not(.floating-action-bar--inline) {
 		bottom: var(--size-mobile-navbar-height-expanded);
 	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.floating-action-bar-attention {
+		animation: none;
+	}
+}
+</style>
+
+<style>
+.bar-compact .bar-label {
+	display: none;
+}
+
+.bar-compact .cq-show-icon {
+	display: block;
 }
 </style>

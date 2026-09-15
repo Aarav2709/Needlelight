@@ -9,12 +9,12 @@ import {
 } from "@modrinth/assets";
 import {
   Avatar,
-  ButtonStyled,
+  Button,
   Checkbox,
   defineMessages,
   injectNotificationManager,
-  OverflowMenu,
-  StyledInput,
+  Input,
+  TeleportOverflowMenu,
   useVIntl,
 } from "@modrinth/ui";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -208,17 +208,26 @@ const messages = defineMessages({
   />
   <div class="block">
     <div class="float-end ml-4 relative group">
-      <OverflowMenu
+      <TeleportOverflowMenu
         v-tooltip="formatMessage(messages.editIcon)"
+        type="quiet"
+        :icon-only="false"
+        :label="formatMessage(messages.editIcon)"
         class="bg-transparent border-none appearance-none p-0 m-0 cursor-pointer group-active:scale-95 transition-transform"
         :options="[
           {
             id: 'select',
+            label: icon
+              ? formatMessage(messages.replaceIcon)
+              : formatMessage(messages.selectIcon),
+            icon: UploadIcon,
             action: () => setIcon(),
           },
           {
             id: 'remove',
-            color: 'danger',
+            label: formatMessage(messages.removeIcon),
+            icon: TrashIcon,
+            tone: 'red',
             action: () => resetIcon(),
             shown: !!icon,
           },
@@ -238,18 +247,7 @@ const messages = defineMessages({
             <EditIcon aria-hidden="true" class="h-4 w-4 text-primary" />
           </div>
         </div>
-        <template #select>
-          <UploadIcon />
-          {{
-            icon
-              ? formatMessage(messages.replaceIcon)
-              : formatMessage(messages.selectIcon)
-          }}
-        </template>
-        <template #remove>
-          <TrashIcon /> {{ formatMessage(messages.removeIcon) }}
-        </template>
-      </OverflowMenu>
+      </TeleportOverflowMenu>
     </div>
     <label
       for="instance-name"
@@ -258,7 +256,7 @@ const messages = defineMessages({
       {{ formatMessage(messages.name) }}
     </label>
     <div class="flex">
-      <StyledInput
+      <Input
         id="instance-name"
         v-model="title"
         autocomplete="off"
@@ -278,20 +276,18 @@ const messages = defineMessages({
           {{ formatMessage(messages.duplicateInstanceDescription) }}
         </p>
       </div>
-      <ButtonStyled>
-        <button
-          v-tooltip="
-            installing
-              ? formatMessage(messages.duplicateButtonTooltipInstalling)
-              : null
-          "
-          aria-labelledby="duplicate-instance-label"
-          :disabled="installing"
-          @click="duplicateProfile"
-        >
-          <CopyIcon /> {{ formatMessage(messages.duplicateButton) }}
-        </button>
-      </ButtonStyled>
+      <Button
+        v-tooltip="
+          installing
+            ? formatMessage(messages.duplicateButtonTooltipInstalling)
+            : null
+        "
+        aria-labelledby="duplicate-instance-label"
+        :disabled="installing"
+        @click="duplicateProfile"
+      >
+        <CopyIcon /> {{ formatMessage(messages.duplicateButton) }}
+      </Button>
     </template>
     <h2 class="m-0 mt-4 mb-1 text-lg font-extrabold text-contrast block">
       {{ formatMessage(messages.libraryGroups) }}
@@ -308,16 +304,14 @@ const messages = defineMessages({
         @click="toggleGroup(group)"
       />
       <div class="flex gap-2 items-center">
-        <StyledInput
+        <Input
           v-model="newCategoryInput"
           :placeholder="formatMessage(messages.libraryGroupsEnterName)"
-          @submit="() => addCategory"
+          @keyup.enter="() => addCategory()"
         />
-        <ButtonStyled>
-          <button class="w-fit" @click="() => addCategory()">
-            <PlusIcon /> {{ formatMessage(messages.libraryGroupsCreate) }}
-          </button>
-        </ButtonStyled>
+        <Button class="w-fit" @click="() => addCategory()">
+          <PlusIcon /> {{ formatMessage(messages.libraryGroupsCreate) }}
+        </Button>
       </div>
     </div>
     <h2
@@ -329,21 +323,21 @@ const messages = defineMessages({
     <p class="m-0 mb-2">
       {{ formatMessage(messages.deleteInstanceDescription) }}
     </p>
-    <ButtonStyled color="red">
-      <button
-        aria-labelledby="delete-instance-label"
-        :disabled="removing"
-        @click="deleteConfirmModal.show()"
-      >
-        <SpinnerIcon v-if="removing" class="animate-spin" />
-        <TrashIcon v-else />
-        {{
-          removing
-            ? formatMessage(messages.deletingInstanceButton)
-            : formatMessage(messages.deleteInstanceButton)
-        }}
-      </button>
-    </ButtonStyled>
+    <Button
+      type="colored"
+      color="red"
+      aria-labelledby="delete-instance-label"
+      :disabled="removing"
+      @click="deleteConfirmModal.show()"
+    >
+      <SpinnerIcon v-if="removing" class="animate-spin" />
+      <TrashIcon v-else />
+      {{
+        removing
+          ? formatMessage(messages.deletingInstanceButton)
+          : formatMessage(messages.deleteInstanceButton)
+      }}
+    </Button>
   </div>
 </template>
 <style scoped lang="scss">

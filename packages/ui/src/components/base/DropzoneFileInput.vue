@@ -13,7 +13,7 @@
 	>
 		<div
 			:class="[
-				'grid place-content-center  text-brand border-brand border-solid border bg-highlight-green',
+				'grid place-content-center  text-brand border-brand border-solid border bg-brand-highlight',
 				size === 'small' ? 'w-10 h-10' : 'h-14 w-14',
 				size === 'small' ? 'rounded-xl' : 'rounded-2xl',
 			]"
@@ -50,6 +50,7 @@ import { FolderUpIcon } from '@modrinth/assets'
 import { fileIsValid } from '@modrinth/utils'
 import { ref } from 'vue'
 
+import { useFormatBytes } from '../../composables'
 import { injectNotificationManager } from '../../providers'
 
 const { addNotification } = injectNotificationManager()
@@ -77,6 +78,8 @@ const props = withDefaults(
 		size: 'large',
 	},
 )
+
+const formatBytes = useFormatBytes()
 
 const files = ref<File[]>([])
 
@@ -129,7 +132,7 @@ function addFiles(incoming: FileList, shouldNotReset = false) {
 		alertOnInvalid: true,
 	}
 
-	files.value = files.value.filter((file) => fileIsValid(file, validationOptions))
+	files.value = files.value.filter((file) => fileIsValid(file, validationOptions, formatBytes))
 
 	if (files.value.length > 0) {
 		emit('change', files.value)

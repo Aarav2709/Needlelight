@@ -11,22 +11,25 @@
 				{{ version.name }}
 			</p>
 		</div>
-		<ButtonStyled color="brand">
-			<a :href="downloadUrl" class="min-w-0" @click="emit('onDownload')">
-				<DownloadIcon aria-hidden="true" /> Download
-			</a>
-		</ButtonStyled>
-		<ButtonStyled circular>
-			<button
-				class="min-w-0"
-				aria-label="View version"
-				@click="
-					emit('onNavigate', `/project/${props.version.project_id}/version/${props.version.id}`)
-				"
-			>
-				<ExternalIcon aria-hidden="true" />
-			</button>
-		</ButtonStyled>
+		<ButtonLink
+			type="colored"
+			color="brand"
+			:href="downloadUrl"
+			:download="primaryFilename"
+			class="min-w-0"
+			@click="emit('onDownload')"
+		>
+			<DownloadIcon aria-hidden="true" /> Download
+		</ButtonLink>
+		<IconButton
+			label="View version"
+			class="min-w-0"
+			@click="
+				emit('onNavigate', `/project/${props.version.project_id}/version/${props.version.id}`)
+			"
+		>
+			<ExternalIcon aria-hidden="true" />
+		</IconButton>
 	</div>
 </template>
 
@@ -35,16 +38,25 @@ import { DownloadIcon, ExternalIcon } from '@modrinth/assets'
 import type { Version, VersionFile } from '@modrinth/utils'
 import { computed } from 'vue'
 
-import { ButtonStyled, VersionChannelIndicator } from '../index'
+import { ButtonLink, IconButton } from '#ui/components/base/buttons'
+
+import { VersionChannelIndicator } from '../index'
 
 const props = defineProps<{
 	version: Version
+	decorateDownloadUrl?: (url: string) => string
 }>()
 
+const primaryFile = computed<VersionFile>(
+	() => props.version.files.find((x) => x.primary) || props.version.files[0],
+)
+
 const downloadUrl = computed(() => {
-	const primary: VersionFile = props.version.files.find((x) => x.primary) || props.version.files[0]
-	return primary.url
+	const raw = primaryFile.value.url
+	return props.decorateDownloadUrl ? props.decorateDownloadUrl(raw) : raw
 })
+
+const primaryFilename = computed(() => primaryFile.value.filename)
 
 const emit = defineEmits<{
 	onDownload: []

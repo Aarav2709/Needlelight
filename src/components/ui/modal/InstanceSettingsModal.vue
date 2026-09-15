@@ -27,7 +27,11 @@ const { formatMessage } = useVIntl()
 
 const props = defineProps<InstanceSettingsTabProps>()
 
-const tabs: TabbedModalTab<InstanceSettingsTabProps>[] = [
+// NOTE (Needlelight): @modrinth/ui's Tab type is no longer generic and no longer carries a
+// per-tab `props` field, so tab content is rendered by TabbedModal with no props forwarded.
+// We therefore render the active tab ourselves via the new #content slot (below) and bind
+// the instance settings props explicitly.
+const tabs: TabbedModalTab[] = [
 {
 name: defineMessage({
 id: 'instance.settings.tabs.general',
@@ -78,6 +82,10 @@ formatMessage(commonMessages.settingsLabel)
 </span>
 </template>
 
-<TabbedModal :tabs="tabs" v-bind="props" />
+<TabbedModal :tabs="tabs">
+<template #content="{ tab }">
+<component :is="tab.content" v-if="tab?.content" v-bind="props" />
+</template>
+</TabbedModal>
 </ModalWrapper>
 </template>

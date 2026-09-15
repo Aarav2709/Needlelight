@@ -14,11 +14,9 @@ import {
   XIcon,
 } from "@modrinth/assets";
 import {
-  ButtonStyled,
   commonMessages,
   defineMessages,
   NotificationPanel,
-  OverflowMenu,
   ProgressSpinner,
   provideNotificationManager,
   useVIntl,

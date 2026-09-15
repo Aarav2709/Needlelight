@@ -1,6 +1,6 @@
 <script setup>
 import { FolderSearchIcon } from "@modrinth/assets";
-import { ButtonStyled, Toggle, injectNotificationManager } from "@modrinth/ui";
+import { Button, Toggle, injectNotificationManager } from "@modrinth/ui";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { onMounted, ref, computed } from "vue";
@@ -78,12 +78,10 @@ onMounted(() => loadBackendSettings());
           class="flex-1 min-w-0 bg-bg-raised rounded-lg border border-solid border-surface-5 px-3 py-2 text-sm text-contrast outline-none placeholder:text-secondary"
           @input="debouncedSave"
         />
-        <ButtonStyled size="small">
-          <button @click="browseFolder">
-            <FolderSearchIcon />
-            Browse
-          </button>
-        </ButtonStyled>
+        <Button size="sm" @click="browseFolder">
+          <FolderSearchIcon />
+          Browse
+        </Button>
       </div>
     </div>
 

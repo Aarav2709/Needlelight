@@ -1,4 +1,7 @@
-import { defineMessages } from '../composables/i18n'
+import type { Labrinth } from '@modrinth/api-client'
+import { capitalizeString } from '@modrinth/utils'
+
+import { defineMessage, defineMessages, type MessageDescriptor } from '../composables/i18n'
 
 export const commonMessages = defineMessages({
 	acceptButton: {
@@ -13,6 +16,10 @@ export const commonMessages = defineMessages({
 		id: 'button.analytics',
 		defaultMessage: 'Analytics',
 	},
+	alpha: {
+		id: 'badge.alpha',
+		defaultMessage: 'Alpha',
+	},
 	betaRelease: {
 		id: 'badge.beta-release',
 		defaultMessage: 'Beta Release',
@@ -21,9 +28,21 @@ export const commonMessages = defineMessages({
 		id: 'badge.beta',
 		defaultMessage: 'Beta',
 	},
+	release: {
+		id: 'badge.release',
+		defaultMessage: 'Release',
+	},
 	allProjectType: {
 		id: 'project-type.all',
 		defaultMessage: 'All',
+	},
+	addAnotherButton: {
+		id: 'button.add-another',
+		defaultMessage: 'Add another',
+	},
+	addServerToInstanceButton: {
+		id: 'button.add-server-to-instance',
+		defaultMessage: 'Add server to instance',
 	},
 	backButton: {
 		id: 'button.back',
@@ -77,10 +96,6 @@ export const commonMessages = defineMessages({
 		id: 'label.dashboard',
 		defaultMessage: 'Dashboard',
 	},
-	dateAtTimeTooltip: {
-		id: 'tooltip.date-at-time',
-		defaultMessage: '{date, date, long} at {time, time, short}',
-	},
 	declineButton: {
 		id: 'button.decline',
 		defaultMessage: 'Decline',
@@ -88,6 +103,10 @@ export const commonMessages = defineMessages({
 	deleteLabel: {
 		id: 'label.delete',
 		defaultMessage: 'Delete',
+	},
+	deleteImmediatelyLabel: {
+		id: 'label.delete-immediately',
+		defaultMessage: 'Delete immediately',
 	},
 	descriptionLabel: {
 		id: 'label.description',
@@ -97,9 +116,17 @@ export const commonMessages = defineMessages({
 		id: 'label.details',
 		defaultMessage: 'Details',
 	},
+	discoverContentLabel: {
+		id: 'label.discover-content',
+		defaultMessage: 'Discover content',
+	},
 	downloadButton: {
 		id: 'button.download',
 		defaultMessage: 'Download',
+	},
+	downloadFilesButton: {
+		id: 'button.download-files',
+		defaultMessage: 'Download files',
 	},
 	downloadingButton: {
 		id: 'button.downloading',
@@ -125,9 +152,17 @@ export const commonMessages = defineMessages({
 		id: 'notification.error.title',
 		defaultMessage: 'An error occurred',
 	},
+	explanationLabel: {
+		id: 'label.explanation',
+		defaultMessage: 'Explanation',
+	},
 	filterByLabel: {
 		id: 'label.filter-by',
 		defaultMessage: 'Filter by',
+	},
+	filtersLabel: {
+		id: 'label.filters',
+		defaultMessage: 'Filters',
 	},
 	followButton: {
 		id: 'button.follow',
@@ -144,6 +179,10 @@ export const commonMessages = defineMessages({
 	gridInputView: {
 		id: 'input.view.grid',
 		defaultMessage: 'Grid view',
+	},
+	iUnderstandButton: {
+		id: 'button.i-understand',
+		defaultMessage: 'I understand',
 	},
 	listInputView: {
 		id: 'input.view.list',
@@ -177,6 +216,10 @@ export const commonMessages = defineMessages({
 		id: 'label.no',
 		defaultMessage: 'No',
 	},
+	noPermissionAction: {
+		id: 'action.no-permission',
+		defaultMessage: 'You do not have permission.',
+	},
 	notificationsLabel: {
 		id: 'label.notifications',
 		defaultMessage: 'Notifications',
@@ -184,6 +227,14 @@ export const commonMessages = defineMessages({
 	openFolderButton: {
 		id: 'button.open-folder',
 		defaultMessage: 'Open folder',
+	},
+	openInBrowserButton: {
+		id: 'button.open-in-browser',
+		defaultMessage: 'Open in browser',
+	},
+	openInModrinthButton: {
+		id: 'button.open-in-modrinth',
+		defaultMessage: 'Open in Modrinth',
 	},
 	orLabel: {
 		id: 'label.or',
@@ -199,7 +250,7 @@ export const commonMessages = defineMessages({
 	},
 	playedLabel: {
 		id: 'label.played',
-		defaultMessage: 'Played {time}',
+		defaultMessage: 'Played {ago}',
 	},
 	privateLabel: {
 		id: 'collections.label.private',
@@ -257,6 +308,10 @@ export const commonMessages = defineMessages({
 		id: 'label.scopes',
 		defaultMessage: 'Scopes',
 	},
+	permissionsLabel: {
+		id: 'label.permissions',
+		defaultMessage: 'Permissions',
+	},
 	searchLabel: {
 		id: 'label.search',
 		defaultMessage: 'Search',
@@ -295,7 +350,7 @@ export const commonMessages = defineMessages({
 	},
 	sortByLabel: {
 		id: 'label.sort-by',
-		defaultMessage: 'Sort by',
+		defaultMessage: 'Sort by: ',
 	},
 	stopButton: {
 		id: 'button.stop',
@@ -337,9 +392,131 @@ export const commonMessages = defineMessages({
 		id: 'label.yes',
 		defaultMessage: 'Yes',
 	},
+	platformLabel: {
+		id: 'label.platform',
+		defaultMessage: 'Platform',
+	},
+	gameVersionLabel: {
+		id: 'label.game-version',
+		defaultMessage: 'Game version',
+	},
+	selectVersionPlaceholder: {
+		id: 'input.select-version.placeholder',
+		defaultMessage: 'Select version',
+	},
+	searchVersionPlaceholder: {
+		id: 'input.search-version.placeholder',
+		defaultMessage: 'Search version...',
+	},
+	unknownLabel: {
+		id: 'label.unknown',
+		defaultMessage: 'Unknown',
+	},
+	modpackLabel: {
+		id: 'label.modpack',
+		defaultMessage: 'Modpack',
+	},
+	repairButton: {
+		id: 'button.repair',
+		defaultMessage: 'Repair',
+	},
+	repairingButton: {
+		id: 'button.repairing',
+		defaultMessage: 'Repairing...',
+	},
+	showAllVersionsButton: {
+		id: 'button.show-all-versions',
+		defaultMessage: 'Show all versions',
+	},
+	hideSnapshotsButton: {
+		id: 'button.hide-snapshots',
+		defaultMessage: 'Hide snapshots',
+	},
+	installationInfoTitle: {
+		id: 'label.installation-info',
+		defaultMessage: 'Installation info',
+	},
+	installButton: {
+		id: 'button.install',
+		defaultMessage: 'Install',
+	},
+	installedLabel: {
+		id: 'label.installed',
+		defaultMessage: 'Installed',
+	},
+	validatingLabel: {
+		id: 'label.validating',
+		defaultMessage: 'Validating',
+	},
+	selectedLabel: {
+		id: 'label.selected',
+		defaultMessage: 'Selected',
+	},
+	installingContentLabel: {
+		id: 'label.installing-content',
+		defaultMessage: 'Installing content',
+	},
+	hideInstalledContentLabel: {
+		id: 'label.hide-installed-content',
+		defaultMessage: 'Hide content already installed',
+	},
+	hideSelectedContentLabel: {
+		id: 'label.hide-selected-content',
+		defaultMessage: 'Hide selected content',
+	},
+	serverOnlyLabel: {
+		id: 'label.server-only',
+		defaultMessage: 'Server only',
+	},
+	installedModpackTitle: {
+		id: 'label.installed-modpack',
+		defaultMessage: 'Installed modpack',
+	},
+	changeVersionButton: {
+		id: 'button.change-version',
+		defaultMessage: 'Change version',
+	},
+	unlinkModpackButton: {
+		id: 'button.unlink-modpack',
+		defaultMessage: 'Unlink modpack',
+	},
+	reinstallModpackButton: {
+		id: 'button.reinstall-modpack',
+		defaultMessage: 'Re-install modpack',
+	},
+	resetServerButton: {
+		id: 'button.reset-server',
+		defaultMessage: 'Reset server',
+	},
+	clientOnlyWarning: {
+		id: 'label.client-only-warning',
+		defaultMessage: 'This is a client-side mod and may cause issues when starting your server',
+	},
+	clientRetainedWarning: {
+		id: 'label.client-retained-warning',
+		defaultMessage:
+			'This is a client-side mod that was installed as a dependency and may cause issues when starting your server',
+	},
+	clientDependsWarning: {
+		id: 'label.client-depends-warning',
+		defaultMessage:
+			'This mod depends on a client-side mod and may cause issues when starting your server',
+	},
+	selectAllLabel: {
+		id: 'label.select-all',
+		defaultMessage: 'Select all',
+	},
+	selectionActionsLabel: {
+		id: 'label.selection-actions',
+		defaultMessage: 'Selection actions',
+	},
 	updateAvailableLabel: {
 		id: 'label.update-available',
 		defaultMessage: 'Update available',
+	},
+	installingLabel: {
+		id: 'label.installing',
+		defaultMessage: 'Installing...',
 	},
 	changelogLabel: {
 		id: 'label.changelog',
@@ -357,6 +534,10 @@ export const commonMessages = defineMessages({
 		id: 'label.version',
 		defaultMessage: 'Version',
 	},
+	viewLabel: {
+		id: 'label.view',
+		defaultMessage: 'View',
+	},
 	projectLabel: {
 		id: 'label.project',
 		defaultMessage: 'Project',
@@ -368,6 +549,122 @@ export const commonMessages = defineMessages({
 	noItemsLabel: {
 		id: 'label.no-items',
 		defaultMessage: 'No items',
+	},
+	planUnknownLabel: {
+		id: 'label.plan-unknown',
+		defaultMessage: 'Unknown',
+	},
+	planSmallLabel: {
+		id: 'label.plan-small',
+		defaultMessage: 'Small',
+	},
+	planMediumLabel: {
+		id: 'label.plan-medium',
+		defaultMessage: 'Medium',
+	},
+	planLargeLabel: {
+		id: 'label.plan-large',
+		defaultMessage: 'Large',
+	},
+	planCustomLabel: {
+		id: 'label.plan-custom',
+		defaultMessage: 'Custom',
+	},
+	copyLinkButton: {
+		id: 'button.copy-link',
+		defaultMessage: 'Copy link',
+	},
+	switchToVersionButton: {
+		id: 'button.switch-to-version',
+		defaultMessage: 'Switch to version',
+	},
+	switchVersionButton: {
+		id: 'button.switch-version',
+		defaultMessage: 'Switch version',
+	},
+	updatingLabel: {
+		id: 'label.updating',
+		defaultMessage: 'Updating...',
+	},
+	deleteFailedLabel: {
+		id: 'label.delete-failed',
+		defaultMessage: 'Delete failed',
+	},
+	uploadFailedLabel: {
+		id: 'label.upload-failed',
+		defaultMessage: 'Upload failed',
+	},
+	uploadVersionsEmptyStateDescription: {
+		id: 'empty-state.upload-versions.description',
+		defaultMessage: `Come back once you've uploaded your versions.`,
+	},
+	renameFailedLabel: {
+		id: 'label.rename-failed',
+		defaultMessage: 'Rename failed',
+	},
+	moveFailedLabel: {
+		id: 'label.move-failed',
+		defaultMessage: 'Move failed',
+	},
+	createFailedLabel: {
+		id: 'label.create-failed',
+		defaultMessage: 'Create failed',
+	},
+	extractFailedLabel: {
+		id: 'label.extract-failed',
+		defaultMessage: 'Extract failed',
+	},
+	showFileButton: {
+		id: 'button.show-file',
+		defaultMessage: 'Show file',
+	},
+	enableButton: {
+		id: 'button.enable',
+		defaultMessage: 'Enable',
+	},
+	disableButton: {
+		id: 'button.disable',
+		defaultMessage: 'Disable',
+	},
+	renameButton: {
+		id: 'button.rename',
+		defaultMessage: 'Rename',
+	},
+	moveButton: {
+		id: 'button.move',
+		defaultMessage: 'Move',
+	},
+	extractButton: {
+		id: 'button.extract',
+		defaultMessage: 'Extract',
+	},
+	doneLabel: {
+		id: 'label.done',
+		defaultMessage: 'Done',
+	},
+	copyFilenameButton: {
+		id: 'button.copy-filename',
+		defaultMessage: 'Copy filename',
+	},
+	copyFullPathButton: {
+		id: 'button.copy-full-path',
+		defaultMessage: 'Copy full path',
+	},
+	copiedFilenameLabel: {
+		id: 'label.copied-filename',
+		defaultMessage: 'Copied filename',
+	},
+	copiedPathLabel: {
+		id: 'label.copied-path',
+		defaultMessage: 'Copied path',
+	},
+	openInFolderButton: {
+		id: 'button.open-in-folder',
+		defaultMessage: 'Open in folder',
+	},
+	downloadFailedLabel: {
+		id: 'label.download-failed',
+		defaultMessage: 'Download failed',
 	},
 	projectCreated: {
 		id: 'project.about.details.created',
@@ -387,19 +684,28 @@ export const commonMessages = defineMessages({
 	},
 	projectDownloads: {
 		id: 'project.download-count-tooltip',
-		defaultMessage: '{count} {count, plural, one {download} other {downloads}}',
+		defaultMessage: '{count, number} {count, plural, one {download} other {downloads}}',
 	},
 	projectFollowers: {
 		id: 'project.follower-count-tooltip',
-		defaultMessage: '{count} {count, plural, one {followers} other {followers}}',
+		defaultMessage: '{count, number} {count, plural, one {follower} other {followers}}',
 	},
 	projectOnlinePlayerCount: {
 		id: 'project.online-player-count',
-		defaultMessage: '{count} {count, plural, one {online} other {online}}',
+		defaultMessage: '{count, number} online',
+	},
+	projectOnlinePlayerCountTooltip: {
+		id: 'project.online-player-count.tooltip',
+		defaultMessage: '{count} {countPlural, plural, one {player} other {players}} online',
 	},
 	projectRecentPlays: {
 		id: 'project.recent-plays',
-		defaultMessage: '{count} {count, plural, one {recent play} other {recent plays}}',
+		defaultMessage: '{count} {countPlural, plural, one {recent play} other {recent plays}}',
+	},
+	projectRecentPlaysTooltip: {
+		id: 'project.recent-plays.tooltip',
+		defaultMessage:
+			'{count} {countPlural, plural, one {recent play} other {recent plays}} from Modrinth in the past 2 weeks',
 	},
 })
 
@@ -524,6 +830,17 @@ export const financialMessages = defineMessages({
 	},
 })
 
+const PROJECT_TYPE_ALIASES: Record<string, string> = {
+	shaderpack: 'shader',
+	minecraft_java_server: 'server',
+}
+
+export function normalizeProjectType(type: string): string {
+	return PROJECT_TYPE_ALIASES[type] ?? type
+}
+
+type FormatMessage = (descriptor: MessageDescriptor, values?: Record<string, unknown>) => string
+
 export const commonProjectTypeCategoryMessages = defineMessages({
 	datapack: {
 		id: 'project-type.datapack.category',
@@ -629,6 +946,165 @@ export const commonProjectTypeSentenceMessages = defineMessages({
 	},
 })
 
+type ProjectTypeMessageKey = keyof typeof commonProjectTypeSentenceMessages
+
+function getProjectTypeMessageKey(type: string | undefined): ProjectTypeMessageKey {
+	const normalized = normalizeProjectType(type ?? 'project')
+	return normalized in commonProjectTypeSentenceMessages
+		? (normalized as ProjectTypeMessageKey)
+		: 'project'
+}
+
+export function getProjectTypeCategoryMessage(type: string | undefined): MessageDescriptor {
+	return commonProjectTypeCategoryMessages[getProjectTypeMessageKey(type)]
+}
+
+export function getProjectTypeTitleMessage(type: string | undefined): MessageDescriptor {
+	return commonProjectTypeTitleMessages[getProjectTypeMessageKey(type)]
+}
+
+export function getProjectTypeSentenceMessage(type: string | undefined): MessageDescriptor {
+	return commonProjectTypeSentenceMessages[getProjectTypeMessageKey(type)]
+}
+
+export function formatProjectTypeSentence(
+	formatMessage: FormatMessage,
+	type: string | undefined,
+	count = 1,
+): string {
+	return formatMessage(getProjectTypeSentenceMessage(type), { count })
+}
+
+export const contentItemTypeMessages = defineMessages({
+	item: {
+		id: 'content-type.item.lowercase',
+		defaultMessage: '{count, plural, one {item} other {items}}',
+	},
+	content: {
+		id: 'content-type.content.lowercase',
+		defaultMessage: 'content',
+	},
+})
+
+export function formatContentTypeSentence(
+	formatMessage: FormatMessage,
+	type: string | undefined,
+	count = 1,
+	fallback: keyof typeof contentItemTypeMessages = 'item',
+): string {
+	if (type) {
+		return formatProjectTypeSentence(formatMessage, type, count)
+	}
+
+	return formatMessage(contentItemTypeMessages[fallback], { count })
+}
+
+export const reportItemTypeMessages = defineMessages({
+	project: {
+		id: 'report.item-type.project',
+		defaultMessage: 'project',
+	},
+	version: {
+		id: 'report.item-type.version',
+		defaultMessage: 'version',
+	},
+	user: {
+		id: 'report.item-type.user',
+		defaultMessage: 'user',
+	},
+	content: {
+		id: 'report.item-type.content',
+		defaultMessage: 'content',
+	},
+})
+
+export function formatReportItemType(
+	formatMessage: FormatMessage,
+	type: string | undefined,
+): string {
+	const key =
+		type && type in reportItemTypeMessages
+			? (type as keyof typeof reportItemTypeMessages)
+			: 'content'
+	return formatMessage(reportItemTypeMessages[key])
+}
+
+export const reportTypeMessages = defineMessages({
+	spam: {
+		id: 'report.type.spam',
+		defaultMessage: 'Spam',
+	},
+	copyright: {
+		id: 'report.type.copyright',
+		defaultMessage: 'Reuploaded work',
+	},
+	inappropriate: {
+		id: 'report.type.inappropriate',
+		defaultMessage: 'Inappropriate',
+	},
+	malicious: {
+		id: 'report.type.malicious',
+		defaultMessage: 'Malicious',
+	},
+	'name-squatting': {
+		id: 'report.type.name-squatting',
+		defaultMessage: 'Name squatting',
+	},
+	'missing-disclosure': {
+		id: 'report.type.missing-disclosure',
+		defaultMessage: 'Missing or incorrect disclosure',
+	},
+	'ai-images': {
+		id: 'report.type.ai-images',
+		defaultMessage: 'AI-generated images in icon, gallery, or description',
+	},
+	'fully-ai-generated': {
+		id: 'report.type.fully-ai-generated',
+		defaultMessage: 'Fully AI-generated project',
+	},
+})
+
+export function formatReportType(formatMessage: FormatMessage, type: string | undefined): string {
+	if (!type) return ''
+
+	if (type in reportTypeMessages) {
+		return formatMessage(reportTypeMessages[type as keyof typeof reportTypeMessages])
+	}
+
+	return capitalizeString(type.replace('-', ' '))
+}
+
+export const fileItemTypeMessages = defineMessages({
+	file: {
+		id: 'files.item-type.file',
+		defaultMessage: 'file',
+	},
+	files: {
+		id: 'files.item-type.files',
+		defaultMessage: 'files',
+	},
+	folder: {
+		id: 'files.item-type.folder',
+		defaultMessage: 'folder',
+	},
+	folders: {
+		id: 'files.item-type.folders',
+		defaultMessage: 'folders',
+	},
+})
+
+export function formatFileItemType(
+	formatMessage: FormatMessage,
+	type: string | undefined,
+	plural = false,
+): string {
+	if (type === 'directory') {
+		return formatMessage(plural ? fileItemTypeMessages.folders : fileItemTypeMessages.folder)
+	}
+
+	return formatMessage(plural ? fileItemTypeMessages.files : fileItemTypeMessages.file)
+}
+
 export const commonSettingsMessages = defineMessages({
 	account: {
 		id: 'settings.account.title',
@@ -650,6 +1126,10 @@ export const commonSettingsMessages = defineMessages({
 		id: 'settings.billing.title',
 		defaultMessage: 'Billing and subscriptions',
 	},
+	featureFlags: {
+		id: 'settings.feature-flags.title',
+		defaultMessage: 'Feature flags',
+	},
 	language: {
 		id: 'settings.language.title',
 		defaultMessage: 'Language',
@@ -659,12 +1139,16 @@ export const commonSettingsMessages = defineMessages({
 		defaultMessage: 'Personal access tokens',
 	},
 	profile: {
-		id: 'settings.profile.title',
-		defaultMessage: 'Public profile',
+		id: 'settings.profile.navigation-title',
+		defaultMessage: 'Profile',
 	},
 	sessions: {
 		id: 'settings.sessions.title',
 		defaultMessage: 'Sessions',
+	},
+	social: {
+		id: 'settings.social.title',
+		defaultMessage: 'Social',
 	},
 })
 
@@ -676,6 +1160,10 @@ export const commonProjectSettingsMessages = defineMessages({
 	content: {
 		id: 'project.settings.content.title',
 		defaultMessage: 'Content',
+	},
+	disclosures: {
+		id: 'project.settings.disclosures.title',
+		defaultMessage: 'Disclosures',
 	},
 	description: {
 		id: 'project.settings.description.title',
@@ -729,9 +1217,47 @@ export const commonProjectSettingsMessages = defineMessages({
 		id: 'project.settings.versions.title',
 		defaultMessage: 'Versions',
 	},
+	permissions: {
+		id: 'project.settings.versions.permissions',
+		defaultMessage: 'Permissions',
+	},
 	view: {
 		id: 'project.settings.view.title',
 		defaultMessage: 'View',
+	},
+	withheldVersionsWarningResolve: {
+		id: 'project.versions.withheld-versions-warning.resolve-button',
+		defaultMessage: 'Resolve',
+	},
+})
+
+export const disclosureAiUsageMessages = defineMessages({
+	code: {
+		id: 'project.settings.disclosures.ai.types-code',
+		defaultMessage: 'Code',
+	},
+	assets: {
+		id: 'project.settings.disclosures.ai.types-assets',
+		defaultMessage: 'Assets',
+	},
+	text: {
+		id: 'project.settings.disclosures.ai.types-text',
+		defaultMessage: 'Text',
+	},
+})
+
+export const disclosureTelemetryConsentMessages = defineMessages({
+	opt_in: {
+		id: 'project.settings.disclosures.telemetry.consent-opt-in',
+		defaultMessage: 'Opt-in',
+	},
+	opt_out: {
+		id: 'project.settings.disclosures.telemetry.consent-opt-out',
+		defaultMessage: 'Opt-out',
+	},
+	always_active: {
+		id: 'project.settings.disclosures.telemetry.consent-always-active',
+		defaultMessage: 'Always active',
 	},
 })
 
@@ -812,7 +1338,7 @@ export const paymentMethodMessages = defineMessages({
 	},
 	mastercard: {
 		id: 'payment-method.mastercard',
-		defaultMessage: 'MasterCard',
+		defaultMessage: 'Mastercard',
 	},
 	paypal: {
 		id: 'payment-method.paypal',
@@ -867,3 +1393,91 @@ export const paymentMethodMessages = defineMessages({
 		defaultMessage: 'Charities',
 	},
 })
+
+export const externalProjectLicenseStatusMessages = defineMessages({
+	yes: {
+		id: 'external-project-license-status.yes',
+		defaultMessage: 'Yes',
+	},
+	'with-attribution-and-source': {
+		id: 'external-project-license-status.with-attribution-and-source',
+		defaultMessage: 'With attribution and source',
+	},
+	'with-attribution': {
+		id: 'external-project-license-status.with-attribution',
+		defaultMessage: 'With attribution',
+	},
+	no: {
+		id: 'external-project-license-status.no',
+		defaultMessage: 'No',
+	},
+	'permanent-no': {
+		id: 'external-project-license-status.permanent-no',
+		defaultMessage: 'Permanent no',
+	},
+	unidentified: {
+		id: 'external-project-license-status.unidentified',
+		defaultMessage: 'Unidentified',
+	},
+})
+
+export const projectCompatibilityMessages = defineMessages({
+	title: {
+		id: `project.about.compatibility.title`,
+		defaultMessage: 'Compatibility',
+	},
+	minecraftJava: {
+		id: `project.about.compatibility.game.minecraftJava`,
+		defaultMessage: 'Minecraft: Java Edition',
+	},
+	platforms: {
+		id: `project.about.compatibility.platforms`,
+		defaultMessage: 'Platforms',
+	},
+	platformsPlural: {
+		id: `project.about.compatibility.platforms-plural`,
+		defaultMessage: '{count, plural, one {Platform} other {Platforms}}',
+	},
+	environments: {
+		id: `project.about.compatibility.environments`,
+		defaultMessage: 'Supported environments',
+	},
+})
+
+export const fileTypeMessages: Record<
+	Labrinth.Versions.v3.FileType | 'primary',
+	MessageDescriptor
+> = {
+	primary: defineMessage({
+		id: 'version.file-type.primary',
+		defaultMessage: 'Primary',
+	}),
+	unknown: defineMessage({
+		id: 'version.file-type.unknown',
+		defaultMessage: 'Other',
+	}),
+	'required-resource-pack': defineMessage({
+		id: 'version.file-type.required-resource-pack',
+		defaultMessage: 'Required resource pack',
+	}),
+	'optional-resource-pack': defineMessage({
+		id: 'version.file-type.optional-resource-pack',
+		defaultMessage: 'Optional resource pack',
+	}),
+	'sources-jar': defineMessage({
+		id: 'version.file-type.sources-jar',
+		defaultMessage: 'Sources jar',
+	}),
+	'dev-jar': defineMessage({
+		id: 'version.file-type.dev-jar',
+		defaultMessage: 'Dev jar',
+	}),
+	'javadoc-jar': defineMessage({
+		id: 'version.file-type.javadoc-jar',
+		defaultMessage: 'Javadocs jar',
+	}),
+	signature: defineMessage({
+		id: 'version.file-type.signature',
+		defaultMessage: 'Signature file',
+	}),
+}

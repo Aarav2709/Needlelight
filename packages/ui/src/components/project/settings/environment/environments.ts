@@ -30,7 +30,7 @@ export const ENVIRONMENTS_COPY: Record<
 		description: defineMessage({
 			id: 'project.environment.server-only.description',
 			defaultMessage:
-				'All functionality is done server-side and is compatible with vanilla clients.',
+				'All functionality is done server-side and is compatible with vanilla clients. Also works on the internal server in singleplayer.',
 		}),
 	},
 	singleplayer_only: {
@@ -52,7 +52,7 @@ export const ENVIRONMENTS_COPY: Record<
 		description: defineMessage({
 			id: 'project.environment.dedicated-server-only.description',
 			defaultMessage:
-				'All functionality is done server-side and is compatible with vanilla clients.',
+				'All functionality is done server-side and is compatible with vanilla clients. Only works on dedicated servers.',
 		}),
 	},
 	client_and_server: {
@@ -62,8 +62,7 @@ export const ENVIRONMENTS_COPY: Record<
 		}),
 		description: defineMessage({
 			id: 'project.environment.client-and-server.description',
-			defaultMessage:
-				'Has some functionality on both the client and server, even if only partially.',
+			defaultMessage: 'Required on both the client and server.',
 		}),
 	},
 	client_only_server_optional: {
@@ -74,7 +73,7 @@ export const ENVIRONMENTS_COPY: Record<
 		description: defineMessage({
 			id: 'project.environment.client-only-server-optional.description',
 			defaultMessage:
-				'Has some functionality on both the client and server, even if only partially.',
+				'Most functionality is client-side, but installing it on the server enables enhanced functionality.',
 		}),
 	},
 	server_only_client_optional: {
@@ -85,7 +84,7 @@ export const ENVIRONMENTS_COPY: Record<
 		description: defineMessage({
 			id: 'project.environment.server-only-client-optional.description',
 			defaultMessage:
-				'Has some functionality on both the client and server, even if only partially.',
+				'Most functionality is server-side, but installing it on the client enables enhanced functionality.',
 		}),
 	},
 	client_or_server: {
@@ -107,7 +106,7 @@ export const ENVIRONMENTS_COPY: Record<
 		description: defineMessage({
 			id: 'project.environment.client-or-server-prefers-both.description',
 			defaultMessage:
-				'Has some functionality on both the client and server, even if only partially.',
+				'Has some functionality on both the client and server, even if only partially. Installing it on both leads to the best experience.',
 		}),
 	},
 	unknown: {
@@ -209,5 +208,36 @@ export function getEnvironmentTags(
 
 		default:
 			return [{ label: ENVIRONMENT_TAG_LABELS.notApplicable, icon: null }]
+	}
+}
+
+export type EnvironmentFilterValue = 'client' | 'server' | 'client_and_server' | 'singleplayer'
+
+export const ENVIRONMENT_FILTER_VALUES: EnvironmentFilterValue[] = [
+	'client',
+	'server',
+	'client_and_server',
+	'singleplayer',
+]
+
+export function getEnvironmentFilterValue(
+	environment?: Labrinth.Projects.v3.Environment | null,
+): EnvironmentFilterValue | undefined {
+	switch (environment) {
+		case 'client_only':
+			return 'client'
+		case 'server_only':
+		case 'dedicated_server_only':
+			return 'server'
+		case 'client_and_server':
+		case 'client_only_server_optional':
+		case 'server_only_client_optional':
+		case 'client_or_server':
+		case 'client_or_server_prefers_both':
+			return 'client_and_server'
+		case 'singleplayer_only':
+			return 'singleplayer'
+		default:
+			return undefined
 	}
 }

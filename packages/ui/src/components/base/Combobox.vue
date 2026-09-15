@@ -1,137 +1,205 @@
 <template>
 	<div ref="containerRef" class="relative inline-block w-full">
-		<span
+		<!-- Searchable mode: input trigger -->
+		<div v-if="searchable" class="relative w-full rounded-xl">
+			<!-- Selection mirror must match InputFrame's leading and trailing slot geometry. -->
+			<div
+				v-if="searchSelectionOverlayVisible"
+				class="pointer-events-none absolute inset-y-0 left-0 right-0 z-[2] flex min-w-0 items-center gap-2 font-medium text-primary"
+				:class="[showSearchIcon ? 'pl-10' : 'pl-3', showChevron ? 'pr-10' : 'pr-3']"
+				aria-hidden="true"
+			>
+				<span class="min-w-0 truncate">{{ searchQuery }}</span>
+				<slot name="search-selection-affix" :option="selectedOption" />
+			</div>
+			<Input
+				ref="searchTriggerRef"
+				v-model="searchQuery"
+				:icon="showSearchIcon ? SearchIcon : undefined"
+				:type="searchType"
+				:name="searchName"
+				:placeholder="searchPlaceholder || placeholder"
+				:disabled="disabled"
+				:clearable="clearable"
+				:autocomplete="searchAutocomplete"
+				:autocorrect="searchAutocorrect"
+				:autocapitalize="searchAutocapitalize"
+				:spellcheck="searchSpellcheck"
+				:inputmode="searchInputmode"
+				:input-attrs="searchInputAttrs"
+				:appearance="searchInputVariant"
+				wrapper-class="w-full"
+				:input-class="resolvedSearchInputClass"
+				class="relative z-[1]"
+				@input="handleSearchInput"
+				@keydown="handleSearchKeydown"
+				@focusin="handleSearchFocus"
+				@focusout="handleSearchFocusout"
+				@click="handleSearchClick"
+				@clear="handleSearchClear"
+			>
+				<template v-if="showChevron" #trailing>
+					<ChevronLeftIcon
+						class="pointer-events-none size-5 text-secondary transition-transform duration-150"
+						:class="isOpen ? (openDirection === 'down' ? 'rotate-90' : '-rotate-90') : '-rotate-90'"
+					/>
+				</template>
+			</Input>
+		</div>
+
+		<!-- Standard mode: button trigger -->
+		<ButtonFrame
+			v-else
 			ref="triggerRef"
-			role="button"
-			tabindex="0"
-			class="relative flex min-h-5 w-full items-center justify-between overflow-hidden rounded-xl bg-button-bg px-4 py-2.5 text-left transition-all duration-200 text-button-text"
+			as="button"
+			native-type="button"
+			:type="triggerType"
+			:size="triggerSize"
+			:interaction="triggerInteraction"
+			:disabled="disabled"
 			:class="[
-				triggerClasses,
-				{
-					'z-[9999]': isOpen,
-					'rounded-b-none': shouldRoundBottomCorners,
-					'rounded-t-none': shouldRoundTopCorners,
-					'cursor-not-allowed opacity-50': disabled,
-					'cursor-pointer hover:bg-button-bgHover active:bg-button-bgActive': !disabled,
-				},
+				'min-w-full w-full !justify-between overflow-hidden text-left',
+				props.triggerClass,
+				{ 'z-[9999]': isOpen },
 			]"
 			:aria-expanded="isOpen"
 			:aria-haspopup="listbox ? 'listbox' : 'menu'"
 			:aria-disabled="disabled || undefined"
-			@click="handleTriggerClick"
+			@click="handleTriggerClick($event)"
 			@keydown="handleTriggerKeydown"
 		>
-			<div class="flex items-center gap-2">
+			<div class="flex min-w-0 items-center gap-2">
 				<slot name="prefix"></slot>
 				<component
 					:is="selectedOption?.icon"
 					v-if="showIconInSelected && selectedOption?.icon"
-					class="h-5 w-5"
+					class="h-5 w-5 shrink-0"
 				/>
-				<span class="text-primary font-semibold leading-tight">
-					<slot name="selected">{{ triggerText }}</slot>
+				<span
+					v-if="selectedOption"
+					class="min-w-0 truncate font-semibold leading-tight text-inherit"
+				>
+					<slot name="selected" :label="selectedTriggerText">{{ selectedTriggerText }}</slot>
+				</span>
+				<span v-else class="min-w-0 truncate text-secondary opacity-70 font-medium leading-tight">
+					{{ placeholderText }}
 				</span>
 			</div>
-			<div class="flex items-center gap-1">
+			<div class="flex shrink-0 items-center gap-1">
 				<slot name="suffix"></slot>
 				<ChevronLeftIcon
 					v-if="showChevron"
-					class="size-5 shrink-0 transition-transform duration-300"
+					class="size-5 shrink-0 transition-transform duration-150"
 					:class="isOpen ? (openDirection === 'down' ? 'rotate-90' : '-rotate-90') : '-rotate-90'"
 				/>
 			</div>
-		</span>
+		</ButtonFrame>
 
-		<Teleport to="#teleports">
-			<div
-				v-if="isOpen"
-				ref="dropdownRef"
-				class="fixed z-[9999] flex flex-col overflow-hidden rounded-[14px] bg-surface-4 !border-solid border-0 shadow-2xl"
-				:class="[
-					shouldRoundBottomCorners
-						? 'rounded-t-none !border-t-[1px] !border-t-surface-5'
-						: 'rounded-b-none !border-b-[1px] !border-b-surface-5',
-				]"
-				:style="dropdownStyle"
-				:role="listbox ? 'listbox' : 'menu'"
-				@mousedown.stop
-				@keydown="handleDropdownKeydown"
-			>
-				<div v-if="searchable" class="p-4">
-					<StyledInput
-						ref="searchInputRef"
-						v-model="searchQuery"
-						:icon="SearchIcon"
-						type="text"
-						:placeholder="searchPlaceholder"
-						wrapper-class="w-full"
-						input-class="!border !border-solid !border-surface-5"
-						@keydown.stop="handleSearchKeydown"
-						@input="emit('searchInput', searchQuery)"
-					/>
-				</div>
-
-				<div v-if="searchable && filteredOptions.length > 0" class="h-px bg-surface-5"></div>
-
+		<Teleport v-if="isClient" to="#teleports">
+			<Transition name="floating-expand">
 				<div
-					v-if="filteredOptions.length > 0"
-					ref="optionsContainerRef"
-					class="flex flex-col gap-2 overflow-y-auto p-3"
-					:style="{ maxHeight: `${maxHeight}px` }"
+					v-if="shouldRenderDropdown"
+					ref="dropdownRef"
+					class="fixed z-[9999] flex flex-col overflow-hidden rounded-[14px] bg-surface-4 border border-solid border-surface-5"
+					:class="[
+						props.dropdownClass,
+						openDirection === 'up' ? 'shadow-[0_-25px_50px_-12px_rgb(0,0,0,0.25)]' : 'shadow-2xl',
+					]"
+					:style="[dropdownStyle, { transformOrigin: dropdownTransformOrigin }]"
+					:role="listbox ? 'listbox' : 'menu'"
+					@pointerdown.stop
+					@mousedown.stop
+					@keydown="handleDropdownKeydown"
 				>
-					<template v-for="(item, index) in filteredOptions" :key="item.key">
-						<div v-if="item.type === 'divider'" class="h-px bg-surface-5"></div>
-						<component
-							:is="item.type === 'link' ? 'a' : 'span'"
-							v-else
-							:ref="(el: HTMLElement) => setOptionRef(el as HTMLElement, index)"
-							:href="item.type === 'link' && !item.disabled ? item.href : undefined"
-							:target="item.type === 'link' && !item.disabled ? item.target : undefined"
-							:role="listbox ? 'option' : 'menuitem'"
-							:aria-selected="listbox && item.value === modelValue"
-							:aria-disabled="item.disabled || undefined"
-							:data-focused="focusedIndex === index"
-							class="flex items-center gap-2.5 cursor-pointer rounded-xl p-3 text-left transition-colors duration-150 text-contrast hover:bg-surface-5 focus:bg-surface-5"
-							:class="getOptionClasses(item, index)"
-							tabindex="-1"
-							@click="handleOptionClick(item, index)"
-							@mouseenter="!item.disabled && (focusedIndex = index)"
+					<div
+						v-if="filteredOptions.length > 0"
+						ref="optionsScrollbarRef"
+						class="combobox-options-scrollbar bg-surface-4"
+						data-overlayscrollbars-initialize
+						@mousedown.prevent.stop
+					>
+						<div
+							ref="optionsContainerRef"
+							class="overflow-y-auto"
+							:style="{ maxHeight: `${maxHeight}px` }"
+							data-overlayscrollbars-viewport
 						>
-							<slot :name="`option-${item.value}`" :item="item">
-								<div class="flex items-center gap-2">
-									<component :is="item.icon" v-if="item.icon" class="h-5 w-5" />
-									<div class="flex flex-col gap-1.5">
-										<span
-											class="font-semibold leading-tight"
-											:class="item.value === modelValue ? 'text-contrast' : 'text-primary'"
+							<div ref="optionsListRef" class="flex flex-col">
+								<template v-for="(item, index) in filteredOptions" :key="item.key">
+									<div v-if="item.type === 'divider'" class="h-px bg-surface-5"></div>
+									<component
+										:is="item.type === 'link' ? 'a' : 'span'"
+										v-else
+										:ref="(el: HTMLElement) => setOptionRef(el as HTMLElement, index)"
+										:href="item.type === 'link' && !item.disabled ? item.href : undefined"
+										:target="item.type === 'link' && !item.disabled ? item.target : undefined"
+										:role="listbox ? 'option' : 'menuitem'"
+										:aria-selected="listbox && item.value === modelValue"
+										:aria-disabled="item.disabled || undefined"
+										:data-focused="focusedIndex === index"
+										class="group/option flex items-center gap-2.5 cursor-pointer px-4 py-3 text-left transition-all duration-150"
+										:class="getOptionClasses(item, index)"
+										tabindex="-1"
+										@mousedown.prevent
+										@click="handleOptionClick(item, index)"
+										@mouseenter="handleOptionMouseEnter(item, index)"
+									>
+										<slot
+											name="option"
+											:item="item"
+											:index="index"
+											:is-selected="!!(listbox && item.value === modelValue)"
 										>
-											{{ item.label }}
-										</span>
-										<span
-											v-if="item.subLabel"
-											class="text-sm"
-											:class="item.value === modelValue ? 'text-contrast' : 'text-secondary'"
-										>
-											{{ item.subLabel }}
-										</span>
-									</div>
-								</div>
-							</slot>
-						</component>
-					</template>
-				</div>
+											<div class="flex w-full items-center justify-between gap-2">
+												<div class="flex items-center gap-2">
+													<component
+														:is="item.icon"
+														v-if="item.icon"
+														class="h-5 w-5"
+														:class="item.value === modelValue ? 'text-green' : 'text-primary'"
+													/>
+													<div class="flex flex-col gap-1.5">
+														<span
+															class="font-semibold leading-tight"
+															:class="item.value === modelValue ? 'text-green' : 'text-primary'"
+														>
+															{{ item.label }}
+														</span>
+														<span
+															v-if="item.subLabel"
+															class="text-sm"
+															:class="item.value === modelValue ? 'text-green' : 'text-secondary'"
+														>
+															{{ item.subLabel }}
+														</span>
+													</div>
+												</div>
+												<slot name="option-suffix" :item="item"></slot>
+											</div>
+										</slot>
+									</component>
+								</template>
+							</div>
+						</div>
+					</div>
 
-				<div v-else-if="searchQuery" class="p-4 mb-2 text-center text-sm text-secondary">
-					{{ noOptionsMessage }}
+					<div v-else-if="searchQuery" class="p-4 text-center text-sm text-secondary">
+						{{ noOptionsMessage }}
+					</div>
+
+					<slot name="dropdown-footer"></slot>
 				</div>
-			</div>
+			</Transition>
 		</Teleport>
 	</div>
 </template>
 
 <script setup lang="ts" generic="T">
+import 'overlayscrollbars/overlayscrollbars.css'
+
 import { ChevronLeftIcon, SearchIcon } from '@modrinth/assets'
 import { onClickOutside } from '@vueuse/core'
+import { OverlayScrollbars, type PartialOptions } from 'overlayscrollbars'
 import {
 	type Component,
 	computed,
@@ -143,7 +211,14 @@ import {
 	watch,
 } from 'vue'
 
-import StyledInput from './StyledInput.vue'
+import ButtonFrame from './buttons/ButtonFrame.vue'
+import type {
+	ButtonElementHandle,
+	ButtonInteraction,
+	ButtonSize,
+	ButtonType,
+} from './buttons/types'
+import Input from './inputs/Input.vue'
 
 export interface ComboboxOption<T> {
 	value: T
@@ -159,8 +234,30 @@ export interface ComboboxOption<T> {
 	searchTerms?: string[]
 }
 
+export type ComboboxSearchInputVariant = 'surface' | 'button'
+
+type OverlayScrollbarsInstance = NonNullable<ReturnType<typeof OverlayScrollbars>>
+type ViewportRect = {
+	width: number
+	height: number
+	offsetTop: number
+	offsetLeft: number
+}
+
 const DROPDOWN_VIEWPORT_MARGIN = 8
+const DROPDOWN_GAP = 8
 const DEFAULT_MAX_HEIGHT = 300
+const OPTIONS_OVERLAY_SCROLLBARS_OPTIONS = Object.freeze<PartialOptions>({
+	overflow: {
+		x: 'hidden',
+		y: 'scroll',
+	},
+	scrollbars: {
+		theme: 'os-theme-modrinth',
+		autoHide: 'leave',
+		autoHideSuspend: true,
+	},
+})
 
 function isDropdownOption<T>(
 	opt: ComboboxOption<T> | { type: 'divider' },
@@ -179,72 +276,121 @@ const props = withDefaults(
 		placeholder?: string
 		disabled?: boolean
 		searchable?: boolean
+		clearable?: boolean
 		searchPlaceholder?: string
 		listbox?: boolean
 		showChevron?: boolean
 		showIconInSelected?: boolean
 		maxHeight?: number
 		displayValue?: string
-		extraPosition?: 'top' | 'bottom'
+		searchValue?: string
 		triggerClass?: string
+		/** Shared button frame style for non-searchable combobox triggers. */
+		triggerType?: ButtonType
+		triggerSize?: ButtonSize
+		triggerInteraction?: ButtonInteraction
+		dropdownClass?: string
+		/** Additional selectors to ignore when detecting outside clicks */
+		outsideClickIgnore?: string[]
+		/** Width for the teleported dropdown; defaults to the trigger/input width */
+		dropdownWidth?: string | number
+		/** Minimum width for the teleported dropdown */
+		dropdownMinWidth?: string | number
 		forceDirection?: 'up' | 'down'
 		noOptionsMessage?: string
 		disableSearchFilter?: boolean
+		minSearchLengthToOpen?: number
+		/** Keep the selected option's label in the input after selection, and show all options on focus */
+		syncWithSelection?: boolean
+		/** Select the searchable input text when the field receives focus */
+		selectSearchTextOnFocus?: boolean
+		/** Show a search icon in the searchable input */
+		showSearchIcon?: boolean
+		searchType?: 'text' | 'search'
+		searchName?: string
+		searchInputmode?: 'text' | 'search'
+		searchAutocomplete?: string
+		searchAutocorrect?: 'on' | 'off'
+		searchAutocapitalize?: 'none' | 'off' | 'sentences' | 'words' | 'characters'
+		searchSpellcheck?: boolean
+		searchInputAttrs?: Record<string, string | number | boolean | undefined>
+		searchInputVariant?: ComboboxSearchInputVariant
 	}>(),
 	{
 		placeholder: 'Select an option',
 		disabled: false,
 		searchable: false,
+		clearable: false,
 		searchPlaceholder: 'Search...',
 		listbox: true,
 		showChevron: true,
 		showIconInSelected: false,
 		maxHeight: DEFAULT_MAX_HEIGHT,
-		extraPosition: 'bottom',
 		noOptionsMessage: 'No results found',
+		minSearchLengthToOpen: 0,
+		syncWithSelection: true,
+		selectSearchTextOnFocus: false,
+		showSearchIcon: false,
+		searchType: 'text',
+		searchInputVariant: 'surface',
+		triggerType: 'base',
+		triggerSize: 'md',
+		triggerInteraction: 'surface',
+		outsideClickIgnore: () => [],
 	},
 )
 
 const emit = defineEmits<{
 	'update:modelValue': [value: T]
 	select: [option: ComboboxOption<T>]
+	'option-hover': [option: ComboboxOption<T>]
 	open: []
 	close: []
 	searchInput: [query: string]
+	searchBlur: [query: string]
 }>()
 
 const slots = useSlots()
 
 const isOpen = ref(false)
 const searchQuery = ref('')
+const userHasTyped = ref(false)
 const focusedIndex = ref(-1)
 const containerRef = ref<HTMLElement>()
-const triggerRef = ref<HTMLElement>()
+const triggerRef = ref<ButtonElementHandle>()
+const searchTriggerRef = ref<InstanceType<typeof Input>>()
 const dropdownRef = ref<HTMLElement>()
-const searchInputRef = ref<HTMLInputElement>()
+const optionsScrollbarRef = ref<HTMLElement>()
 const optionsContainerRef = ref<HTMLElement>()
+const optionsListRef = ref<HTMLElement>()
 const optionRefs = ref<(HTMLElement | null)[]>([])
 const rafId = ref<number | null>(null)
+const optionsOverlayScrollbars = ref<OverlayScrollbarsInstance | null>(null)
+
+const effectiveTriggerEl = computed(() => {
+	if (props.searchable && searchTriggerRef.value) {
+		return (searchTriggerRef.value as unknown as { $el: HTMLElement }).$el as HTMLElement
+	}
+
+	return triggerRef.value?.element ?? undefined
+})
+const outsideClickIgnoreTargets = computed(() => [
+	effectiveTriggerEl,
+	containerRef,
+	...props.outsideClickIgnore,
+])
 
 const dropdownStyle = ref({
 	top: '0px',
 	left: '0px',
 	width: '0px',
+	minWidth: '0px',
 })
 
 const openDirection = ref<'down' | 'up'>('down')
-
-const triggerClasses = computed(() => {
-	const classes = [props.triggerClass]
-	if (isOpen.value) {
-		if (props.extraPosition === 'bottom' && slots?.extra) {
-			classes.push('!rounded-b-none')
-		} else if (props.extraPosition === 'top' && slots?.extra) {
-			classes.push('!rounded-t-none')
-		}
-	}
-	return classes
-})
+const dropdownTransformOrigin = computed(() =>
+	openDirection.value === 'up' ? 'bottom center' : 'top center',
+)
 
 const selectedOption = computed<ComboboxOption<T> | undefined>(() => {
 	return props.options.find(
@@ -252,11 +398,35 @@ const selectedOption = computed<ComboboxOption<T> | undefined>(() => {
 	)
 })
 
-const triggerText = computed(() => {
+/** Extra content (e.g. channel pill) next to the label while the search field is idle */
+const searchSelectionOverlayVisible = computed(() => {
+	if (!props.searchable || !props.syncWithSelection || !selectedOption.value) return false
+	if (!slots['search-selection-affix']) return false
+	if (isOpen.value || userHasTyped.value) return false
+	return true
+})
+
+const resolvedSearchInputClass = computed(() => {
+	const parts: string[] = []
+	if (searchSelectionOverlayVisible.value) {
+		parts.push('!text-transparent [caret-color:var(--color-text-primary)] selection:bg-transparent')
+	}
+	return parts.join(' ')
+})
+
+const selectedTriggerText = computed(() => {
 	if (props.displayValue !== undefined) return props.displayValue
-	if (selectedOption.value) return selectedOption.value.label
+	return selectedOption.value?.label ?? ''
+})
+
+const placeholderText = computed(() => {
+	if (props.displayValue !== undefined) return props.displayValue
 	return props.placeholder
 })
+
+const hasMinimumSearchLength = computed(
+	() => !props.searchable || searchQuery.value.trim().length >= props.minSearchLengthToOpen,
+)
 
 const optionsWithKeys = computed(() => {
 	return props.options.map((opt, index) => ({
@@ -266,7 +436,7 @@ const optionsWithKeys = computed(() => {
 })
 
 const filteredOptions = computed(() => {
-	if (!searchQuery.value || !props.searchable || props.disableSearchFilter) {
+	if (!searchQuery.value || !props.searchable || props.disableSearchFilter || !userHasTyped.value) {
 		return optionsWithKeys.value
 	}
 
@@ -279,16 +449,22 @@ const filteredOptions = computed(() => {
 	})
 })
 
-const shouldRoundBottomCorners = computed(() => isOpen.value && openDirection.value === 'down')
-const shouldRoundTopCorners = computed(() => isOpen.value && openDirection.value === 'up')
+const hasDropdownContent = computed(() => {
+	return filteredOptions.value.length > 0 || !!searchQuery.value || !!slots['dropdown-footer']
+})
 
-function getOptionClasses(item: ComboboxOption<T> & { key: string }, index: number) {
+const shouldRenderDropdown = computed(() => {
+	return isOpen.value && hasDropdownContent.value
+})
+
+function getOptionClasses(item: ComboboxOption<T> & { key: string }, _index: number) {
+	const isSelected = props.listbox && item.value === props.modelValue
+
 	return [
 		item.class,
 		{
-			'bg-surface-5':
-				(props.listbox && item.value === props.modelValue) ||
-				(focusedIndex.value === index && !(props.listbox && item.value === props.modelValue)),
+			'bg-surface-4 text-contrast hover:brightness-[115%] focus:brightness-[115%]': !isSelected,
+			'bg-highlight-green text-green hover:bg-highlight-green focus:bg-highlight-green': isSelected,
 			'cursor-not-allowed opacity-50 pointer-events-none': item.disabled,
 		},
 	]
@@ -303,112 +479,296 @@ function setInitialFocus() {
 		? props.options.findIndex((opt) => isDropdownOption(opt) && opt.value === props.modelValue)
 		: -1
 
-	if (focusedIndex.value >= 0 && optionRefs.value[focusedIndex.value]) {
-		optionRefs.value[focusedIndex.value]?.scrollIntoView({ block: 'center' })
+	if (focusedIndex.value >= 0) {
+		scrollOptionIntoView(focusedIndex.value, 'center')
 	}
 }
 
-function focusSearchInput() {
-	if (props.searchable && searchInputRef.value) {
-		searchInputRef.value.focus()
+function getOptionsViewport(): HTMLElement | undefined {
+	return optionsOverlayScrollbars.value?.elements().viewport ?? optionsContainerRef.value
+}
+
+function scrollOptionIntoView(index: number, block: 'center' | 'nearest') {
+	const option = optionRefs.value[index]
+	const viewport = getOptionsViewport()
+	if (!option || !viewport) return
+
+	const optionRect = option.getBoundingClientRect()
+	const viewportRect = viewport.getBoundingClientRect()
+	const optionTop = optionRect.top - viewportRect.top + viewport.scrollTop
+	const optionHeight = optionRect.height
+	const viewHeight = viewport.clientHeight
+	const current = viewport.scrollTop
+
+	if (block === 'center') {
+		viewport.scrollTop = Math.max(0, optionTop - (viewHeight - optionHeight) / 2)
+		return
 	}
+
+	if (optionTop < current) {
+		viewport.scrollTop = optionTop
+	} else if (optionTop + optionHeight > current + viewHeight) {
+		viewport.scrollTop = optionTop + optionHeight - viewHeight
+	}
+}
+
+function estimateDropdownHeight(): number {
+	const optionHeight = 44
+	const optionWithSubLabelHeight = 68
+	const dividerHeight = 1
+	let height = 0
+
+	if (filteredOptions.value.length === 0) {
+		if (searchQuery.value) {
+			height += 52
+		}
+	} else {
+		for (const item of filteredOptions.value) {
+			if (isDivider(item)) {
+				height += dividerHeight
+			} else {
+				height += item.subLabel ? optionWithSubLabelHeight : optionHeight
+			}
+		}
+
+		height = Math.min(height, props.maxHeight)
+	}
+
+	if (slots['dropdown-footer']) {
+		height += 48
+	}
+
+	return height
+}
+
+function previewOpenDirection() {
+	if (props.forceDirection) {
+		openDirection.value = props.forceDirection
+		return
+	}
+
+	if (!effectiveTriggerEl.value) return
+
+	const triggerRect = getTriggerRect(effectiveTriggerEl.value)
+	const viewport = getViewportRect()
+	openDirection.value = determineOpenDirection(
+		triggerRect,
+		{ width: triggerRect.width, height: estimateDropdownHeight() },
+		viewport,
+	)
 }
 
 function determineOpenDirection(
 	triggerRect: DOMRect,
-	dropdownRect: DOMRect,
-	viewportHeight: number,
+	dropdownRect: { width: number; height: number },
+	viewport: ViewportRect,
 ): 'up' | 'down' {
 	if (props.forceDirection) {
 		return props.forceDirection
 	}
 
+	const triggerTop = triggerRect.top + viewport.offsetTop
+	const triggerBottom = triggerRect.bottom + viewport.offsetTop
+	const viewportTop = viewport.offsetTop
+	const viewportBottom = viewport.offsetTop + viewport.height
 	const hasSpaceBelow =
-		triggerRect.bottom + dropdownRect.height + DROPDOWN_VIEWPORT_MARGIN <= viewportHeight
-	const hasSpaceAbove = triggerRect.top - dropdownRect.height - DROPDOWN_VIEWPORT_MARGIN > 0
+		triggerBottom + dropdownRect.height + DROPDOWN_GAP + DROPDOWN_VIEWPORT_MARGIN <= viewportBottom
+	const hasSpaceAbove =
+		triggerTop - dropdownRect.height - DROPDOWN_GAP - DROPDOWN_VIEWPORT_MARGIN > viewportTop
 
 	return !hasSpaceBelow && hasSpaceAbove ? 'up' : 'down'
 }
 
 function calculateVerticalPosition(
 	triggerRect: DOMRect,
-	dropdownRect: DOMRect,
+	dropdownRect: { width: number; height: number },
 	direction: 'up' | 'down',
+	viewport: ViewportRect,
 ): number {
-	return direction === 'up' ? triggerRect.top - dropdownRect.height : triggerRect.bottom
+	const top =
+		direction === 'up'
+			? triggerRect.top - dropdownRect.height - DROPDOWN_GAP
+			: triggerRect.bottom + DROPDOWN_GAP
+
+	return top + viewport.offsetTop
 }
 
 function calculateHorizontalPosition(
 	triggerRect: DOMRect,
-	dropdownRect: DOMRect,
-	viewportWidth: number,
+	dropdownRect: { width: number; height: number },
+	viewport: ViewportRect,
 ): number {
-	let left = triggerRect.left
+	const minLeft = viewport.offsetLeft + DROPDOWN_VIEWPORT_MARGIN
+	const maxRight = viewport.offsetLeft + viewport.width - DROPDOWN_VIEWPORT_MARGIN
+	let left = triggerRect.left + viewport.offsetLeft
 
-	if (left + dropdownRect.width > viewportWidth - DROPDOWN_VIEWPORT_MARGIN) {
-		left = Math.max(
-			DROPDOWN_VIEWPORT_MARGIN,
-			viewportWidth - dropdownRect.width - DROPDOWN_VIEWPORT_MARGIN,
-		)
+	if (left + dropdownRect.width > maxRight) {
+		left = Math.max(minLeft, maxRight - dropdownRect.width)
 	}
 
 	return left
 }
 
+function getViewportRect(): ViewportRect {
+	const visualViewport = window.visualViewport
+
+	return {
+		width: visualViewport?.width ?? window.innerWidth,
+		height: visualViewport?.height ?? window.innerHeight,
+		offsetTop: visualViewport?.offsetTop ?? 0,
+		offsetLeft: visualViewport?.offsetLeft ?? 0,
+	}
+}
+
+function getTriggerRect(el: HTMLElement): DOMRect {
+	const rect = el.getBoundingClientRect()
+	const transform = getComputedStyle(el).transform
+	if (!transform || transform === 'none') return rect
+
+	const matrix = new DOMMatrixReadOnly(transform)
+	const scaleX = Math.hypot(matrix.a, matrix.b) || 1
+	const scaleY = Math.hypot(matrix.c, matrix.d) || 1
+	if (Math.abs(scaleX - 1) < 0.001 && Math.abs(scaleY - 1) < 0.001) return rect
+
+	const width = rect.width / scaleX
+	const height = rect.height / scaleY
+	return new DOMRect(
+		rect.left + (rect.width - width) / 2,
+		rect.top + (rect.height - height) / 2,
+		width,
+		height,
+	)
+}
+
+function resolveDropdownWidth(triggerWidth: number): string {
+	if (props.dropdownWidth === undefined) return `${triggerWidth}px`
+	if (typeof props.dropdownWidth === 'number') return `${props.dropdownWidth}px`
+	return props.dropdownWidth
+}
+
+function resolveCssSize(size: string | number | undefined): string | undefined {
+	if (size === undefined) return undefined
+	if (typeof size === 'number') return `${size}px`
+	return size
+}
+
 async function updateDropdownPosition() {
-	if (!triggerRef.value || !dropdownRef.value) return
+	if (!effectiveTriggerEl.value || !dropdownRef.value) return
 
 	await nextTick()
 
-	const triggerRect = triggerRef.value.getBoundingClientRect()
-	const dropdownRect = dropdownRef.value.getBoundingClientRect()
-	const viewportHeight = window.innerHeight
-	const viewportWidth = window.innerWidth
+	const trigger = effectiveTriggerEl.value
+	let triggerRect = getTriggerRect(trigger)
+	const width = resolveDropdownWidth(triggerRect.width)
+	const minWidth = resolveCssSize(props.dropdownMinWidth) ?? '0px'
 
-	const direction = determineOpenDirection(triggerRect, dropdownRect, viewportHeight)
-	const top = calculateVerticalPosition(triggerRect, dropdownRect, direction)
-	const left = calculateHorizontalPosition(triggerRect, dropdownRect, viewportWidth)
+	dropdownStyle.value = {
+		...dropdownStyle.value,
+		width,
+		minWidth,
+	}
+
+	await nextTick()
+
+	triggerRect = getTriggerRect(trigger)
+	const dropdownRect = {
+		width: dropdownRef.value.offsetWidth,
+		height: dropdownRef.value.offsetHeight,
+	}
+	const viewport = getViewportRect()
+
+	const direction = determineOpenDirection(triggerRect, dropdownRect, viewport)
+	const top = calculateVerticalPosition(triggerRect, dropdownRect, direction, viewport)
+	const left = calculateHorizontalPosition(triggerRect, dropdownRect, viewport)
 
 	dropdownStyle.value = {
 		top: `${top}px`,
 		left: `${left}px`,
-		width: `${triggerRect.width}px`,
+		width,
+		minWidth,
 	}
 
 	openDirection.value = direction
 }
 
+async function initializeOptionsOverlayScrollbars() {
+	await nextTick()
+
+	if (!isOpen.value || filteredOptions.value.length === 0) {
+		destroyOptionsOverlayScrollbars()
+		return
+	}
+
+	if (!optionsScrollbarRef.value || !optionsContainerRef.value || !optionsListRef.value) {
+		return
+	}
+
+	if (optionsOverlayScrollbars.value) {
+		optionsOverlayScrollbars.value.update(true)
+		return
+	}
+
+	optionsOverlayScrollbars.value = OverlayScrollbars(
+		{
+			target: optionsScrollbarRef.value,
+			elements: {
+				viewport: optionsContainerRef.value,
+				content: optionsListRef.value,
+			},
+		},
+		OPTIONS_OVERLAY_SCROLLBARS_OPTIONS,
+	)
+}
+
+function updateOptionsOverlayScrollbars() {
+	nextTick(() => {
+		optionsOverlayScrollbars.value?.update(true)
+	})
+}
+
+function destroyOptionsOverlayScrollbars() {
+	optionsOverlayScrollbars.value?.destroy()
+	optionsOverlayScrollbars.value = null
+}
+
 async function openDropdown() {
-	if (props.disabled || isOpen.value) return
+	if (props.disabled || isOpen.value || !hasMinimumSearchLength.value || !hasDropdownContent.value)
+		return
 
+	previewOpenDirection()
 	isOpen.value = true
-	searchQuery.value = ''
-
 	emit('open')
 
 	await nextTick()
 	await updateDropdownPosition()
-
-	setInitialFocus()
-	focusSearchInput()
+	await initializeOptionsOverlayScrollbars()
 	startPositionTracking()
+	setInitialFocus()
+	scheduleDropdownPositionUpdate()
 }
 
 function closeDropdown() {
 	if (!isOpen.value) return
 
 	stopPositionTracking()
+	destroyOptionsOverlayScrollbars()
 	isOpen.value = false
-	searchQuery.value = ''
+	userHasTyped.value = false
 	focusedIndex.value = -1
 	emit('close')
 
-	nextTick(() => {
-		triggerRef.value?.focus()
-	})
+	if (!props.searchable) {
+		nextTick(() => {
+			effectiveTriggerEl.value?.focus()
+		})
+	}
 }
 
-function handleTriggerClick() {
+function handleTriggerClick(event: MouseEvent) {
+	// Ignore synthetic clicks generated by keyboard (Enter/Space on role="button")
+	// since handleTriggerKeydown already handles keyboard interaction
+	if (event.detail === 0) return
+
 	if (isOpen.value) {
 		closeDropdown()
 	} else {
@@ -418,6 +778,12 @@ function handleTriggerClick() {
 
 function handleOptionClick(option: ComboboxOption<T>, index: number) {
 	if (option.disabled || option.type === 'divider') return
+	const isSelected = props.listbox && option.value === props.modelValue
+	if (isSelected) {
+		focusedIndex.value = index
+		if (option.type !== 'link') closeDropdown()
+		return
+	}
 
 	focusedIndex.value = index
 
@@ -432,21 +798,35 @@ function handleOptionClick(option: ComboboxOption<T>, index: number) {
 	emit('select', option)
 
 	if (option.type !== 'link') {
+		if (props.searchable) {
+			searchQuery.value = props.syncWithSelection ? option.label : ''
+		}
 		closeDropdown()
 	}
 }
 
+function handleOptionMouseEnter(option: ComboboxOption<T>, index: number) {
+	if (option.disabled) return
+	focusedIndex.value = index
+	emit('option-hover', option)
+}
+
 function findNextFocusableOption(currentIndex: number, direction: 'next' | 'previous'): number {
 	const length = filteredOptions.value.length
+	if (length === 0) return -1
+
 	let index = currentIndex
-	let option
 
-	do {
+	for (let i = 0; i < length; i++) {
 		index = direction === 'next' ? (index + 1) % length : (index - 1 + length) % length
-		option = filteredOptions.value[index]
-	} while (isDivider(option) || option.disabled)
+		const option = filteredOptions.value[index]
 
-	return index
+		if (!isDivider(option) && !option.disabled) {
+			return index
+		}
+	}
+
+	return -1
 }
 
 function focusOption(index: number) {
@@ -456,8 +836,7 @@ function focusOption(index: number) {
 	if (isDivider(option) || option.disabled) return
 
 	focusedIndex.value = index
-	optionRefs.value[index]?.focus()
-	optionRefs.value[index]?.scrollIntoView({ block: 'nearest' })
+	scrollOptionIntoView(index, 'nearest')
 }
 
 function focusNextOption() {
@@ -471,13 +850,14 @@ function focusPreviousOption() {
 }
 
 function handleTriggerKeydown(event: KeyboardEvent) {
+	if (isOpen.value) {
+		handleDropdownKeydown(event)
+		return
+	}
 	switch (event.key) {
 		case 'Enter':
 		case ' ':
 		case 'ArrowDown':
-			event.preventDefault()
-			openDropdown()
-			break
 		case 'ArrowUp':
 			event.preventDefault()
 			openDropdown()
@@ -526,28 +906,117 @@ function handleSearchKeydown(event: KeyboardEvent) {
 		closeDropdown()
 	} else if (event.key === 'ArrowDown') {
 		event.preventDefault()
+		if (!isOpen.value) {
+			openDropdown()
+		}
 		focusNextOption()
 	} else if (event.key === 'ArrowUp') {
 		event.preventDefault()
+		if (!isOpen.value) {
+			openDropdown()
+		}
 		focusPreviousOption()
+	} else if (event.key === 'Enter') {
+		event.preventDefault()
+		if (focusedIndex.value >= 0) {
+			const option = filteredOptions.value[focusedIndex.value]
+			if (option && !isDivider(option)) {
+				handleOptionClick(option, focusedIndex.value)
+			}
+		}
+	} else if (event.key === 'Tab' && isOpen.value) {
+		event.preventDefault()
+		if (event.shiftKey) {
+			focusPreviousOption()
+		} else {
+			focusNextOption()
+		}
+	}
+}
+
+function handleSearchInput() {
+	userHasTyped.value = true
+	emit('searchInput', searchQuery.value)
+	if (!hasMinimumSearchLength.value) {
+		closeDropdown()
+		return
+	}
+	if (!isOpen.value) {
+		openDropdown()
+	}
+}
+
+function handleSearchClear() {
+	userHasTyped.value = true
+	emit('searchInput', searchQuery.value)
+	closeDropdown()
+}
+
+function handleSearchFocus(event: FocusEvent) {
+	const target = event.target
+	if (props.selectSearchTextOnFocus && target instanceof HTMLInputElement) {
+		window.setTimeout(() => {
+			if (document.activeElement === target) {
+				target.select()
+			}
+		})
+	}
+
+	if (!isOpen.value) {
+		openDropdown()
+	}
+}
+
+function handleSearchFocusout(event: FocusEvent) {
+	const nextTarget = event.relatedTarget
+	if (nextTarget instanceof Node && containerRef.value?.contains(nextTarget)) return
+	if (nextTarget instanceof Node && dropdownRef.value?.contains(nextTarget)) return
+
+	emit('searchBlur', searchQuery.value)
+	if (props.searchValue !== undefined) {
+		searchQuery.value = props.searchValue
+	}
+	closeDropdown()
+}
+
+function handleSearchClick() {
+	if (!isOpen.value) {
+		openDropdown()
 	}
 }
 
 function handleWindowResize() {
 	if (isOpen.value) {
+		scheduleDropdownPositionUpdate()
+	}
+}
+
+function scheduleDropdownPositionUpdate() {
+	if (rafId.value !== null) return
+
+	rafId.value = requestAnimationFrame(() => {
+		rafId.value = null
 		updateDropdownPosition()
+	})
+}
+
+function handleViewportChange() {
+	if (isOpen.value) {
+		scheduleDropdownPositionUpdate()
 	}
 }
 
 function startPositionTracking() {
-	function track() {
-		updateDropdownPosition()
-		rafId.value = requestAnimationFrame(track)
-	}
-	rafId.value = requestAnimationFrame(track)
+	window.addEventListener('scroll', handleViewportChange, true)
+	window.visualViewport?.addEventListener('scroll', handleViewportChange)
+	window.visualViewport?.addEventListener('resize', handleViewportChange)
 }
 
 function stopPositionTracking() {
+	window.removeEventListener('scroll', handleViewportChange, true)
+	window.visualViewport?.removeEventListener('scroll', handleViewportChange)
+	window.visualViewport?.removeEventListener('resize', handleViewportChange)
+
 	if (rafId.value !== null) {
 		cancelAnimationFrame(rafId.value)
 		rafId.value = null
@@ -559,16 +1028,20 @@ onClickOutside(
 	() => {
 		closeDropdown()
 	},
-	{ ignore: [triggerRef] },
+	{ ignore: outsideClickIgnoreTargets },
 )
 
+const isClient = ref(false)
+
 onMounted(() => {
+	isClient.value = true
 	window.addEventListener('resize', handleWindowResize)
 })
 
 onUnmounted(() => {
 	window.removeEventListener('resize', handleWindowResize)
 	stopPositionTracking()
+	destroyOptionsOverlayScrollbars()
 })
 
 watch(isOpen, (value) => {
@@ -577,9 +1050,74 @@ watch(isOpen, (value) => {
 	}
 })
 
+watch(shouldRenderDropdown, (value) => {
+	if (value) {
+		updateDropdownPosition()
+		initializeOptionsOverlayScrollbars()
+	}
+})
+
 watch(filteredOptions, () => {
 	if (isOpen.value) {
 		updateDropdownPosition()
+		if (filteredOptions.value.length > 0) {
+			initializeOptionsOverlayScrollbars()
+		} else {
+			destroyOptionsOverlayScrollbars()
+		}
 	}
 })
+
+watch(hasDropdownContent, (value) => {
+	if (!value && isOpen.value) {
+		closeDropdown()
+	}
+})
+
+watch(hasMinimumSearchLength, (canOpen) => {
+	if (!canOpen) {
+		closeDropdown()
+	}
+})
+
+watch(
+	[() => props.modelValue, () => props.options],
+	([val]) => {
+		if (props.searchable && props.syncWithSelection && !isOpen.value && !userHasTyped.value) {
+			const opt = props.options.find((o) => isDropdownOption(o) && o.value === val)
+			searchQuery.value = opt && isDropdownOption(opt) ? opt.label : ''
+		}
+		if (isOpen.value) {
+			updateOptionsOverlayScrollbars()
+		}
+	},
+	{ immediate: true },
+)
+
+watch(
+	() => props.maxHeight,
+	() => {
+		if (isOpen.value) {
+			updateOptionsOverlayScrollbars()
+		}
+	},
+)
 </script>
+
+<style scoped>
+.combobox-options-scrollbar :deep(.os-theme-modrinth) {
+	--os-size: 8px;
+	--os-padding-perpendicular: 0px;
+	--os-padding-axis: 0px;
+	--os-track-bg: transparent;
+	--os-track-bg-hover: transparent;
+	--os-track-bg-active: transparent;
+	--os-handle-border-radius: 9999px;
+	--os-handle-border: 2px solid var(--color-surface-4);
+	--os-handle-border-hover: 2px solid var(--color-surface-4);
+	--os-handle-border-active: 2px solid var(--color-surface-4);
+	--os-handle-bg: var(--color-scrollbar, var(--color-surface-5));
+	--os-handle-bg-hover: var(--color-scrollbar, var(--color-surface-5));
+	--os-handle-bg-active: var(--color-scrollbar, var(--color-surface-5));
+}
+</style>

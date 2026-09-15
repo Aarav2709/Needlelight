@@ -1,6 +1,7 @@
 <script setup>
 import {
 	ClipboardCopyIcon,
+	ExternalIcon,
 	GlobeIcon,
 	MailIcon,
 	MastodonIcon,
@@ -11,7 +12,13 @@ import {
 import QrcodeVue from 'qrcode.vue'
 import { computed, nextTick, ref } from 'vue'
 
-import { Button, Modal, StyledInput } from '../index'
+import { ButtonLink, IconButton } from '#ui/components/base/buttons'
+import { injectNotificationManager } from '#ui/providers'
+
+import { useDebugLogger } from '../../composables/debug-logger'
+import { NewModal, Textarea } from '../index'
+
+const debug = useDebugLogger('ShareModal')
 
 const props = defineProps({
 	header: {
@@ -38,6 +45,10 @@ const props = defineProps({
 		type: Boolean,
 		default: false,
 	},
+	socialButtons: {
+		type: Boolean,
+		default: true,
+	},
 	onHide: {
 		type: Function,
 		default() {
@@ -47,6 +58,7 @@ const props = defineProps({
 })
 
 const shareModal = ref(null)
+const { addNotification } = injectNotificationManager()
 
 const qrCode = ref(null)
 const qrImage = ref(null)
@@ -74,11 +86,11 @@ const show = async (passedContent) => {
 	if (props.link) {
 		url.value = passedContent
 		nextTick(() => {
-			console.log(qrCode.value)
+			debug(qrCode.value)
 			fetch(qrCode.value.getElementsByTagName('canvas')[0].toDataURL('image/png'))
 				.then((res) => res.blob())
 				.then((blob) => {
-					console.log(blob)
+					debug(blob)
 					qrImage.value = blob
 				})
 		})
@@ -94,7 +106,21 @@ const copyImage = async () => {
 }
 
 const copyText = async () => {
-	await navigator.clipboard.writeText(url.value ?? content.value)
+	try {
+		await navigator.clipboard.writeText(url.value ?? content.value)
+		addNotification({
+			type: 'success',
+			title: 'Link copied',
+			text: 'The link has been copied to your clipboard.',
+		})
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error)
+		addNotification({
+			type: 'error',
+			title: 'Failed to copy text',
+			text: message,
+		})
+	}
 }
 
 const sendEmail = computed(
@@ -125,166 +151,122 @@ defineExpose({
 </script>
 
 <template>
-	<Modal ref="shareModal" :header="header" :noblur="noblur" :on-hide="onHide">
-		<div class="share-body">
-			<div v-if="link" class="qr-wrapper">
-				<div ref="qrCode">
-					<QrcodeVue :value="url" class="qr-code" margin="3" />
+	<NewModal ref="shareModal" :header="header" :noblur="noblur" :on-hide="onHide">
+		<div class="flex flex-col items-center gap-2">
+			<div
+				:class="['flex items-center justify-center', link ? 'flex-wrap gap-4' : 'flex-col gap-2']"
+			>
+				<div v-if="link" class="group relative shrink-0">
+					<div ref="qrCode">
+						<QrcodeVue :value="url" class="!bg-white rounded-[var(--radius-md)]" margin="3" />
+					</div>
+					<IconButton
+						v-tooltip="'Copy QR code'"
+						type="quiet"
+						label="Copy QR code"
+						class="absolute top-0 right-0 m-2"
+						@click="copyImage"
+					>
+						<ClipboardCopyIcon class="h-5 w-5" aria-hidden="true" />
+					</IconButton>
 				</div>
-				<Button
-					v-tooltip="'Copy QR code'"
-					icon-only
-					class="copy-button"
-					aria-label="Copy QR code"
-					@click="copyImage"
+				<Textarea v-else v-model="content" resize="vertical" wrapper-class="h-full w-[30rem]">
+					<template #right>
+						<IconButton
+							v-tooltip="'Copy Text'"
+							type="quiet"
+							label="Copy Text"
+							native-type="button"
+							class="absolute top-0 right-0 m-2"
+							@click="copyText"
+						>
+							<ClipboardCopyIcon class="h-5 w-5" aria-hidden="true" />
+						</IconButton>
+					</template>
+				</Textarea>
+				<div
+					v-if="link || socialButtons"
+					:class="['flex flex-col justify-center gap-2', link ? 'w-64 max-w-full' : 'flex-grow']"
 				>
-					<ClipboardCopyIcon aria-hidden="true" />
-				</Button>
-			</div>
-			<StyledInput v-else v-model="content" multiline resize="vertical" wrapper-class="h-full">
-				<template #right>
-					<Button
-						v-tooltip="'Copy Text'"
-						icon-only
-						aria-label="Copy Text"
-						class="copy-button transparent"
+					<button
+						v-if="link"
+						v-tooltip="'Copy Link'"
+						type="button"
+						aria-label="Copy Link"
+						class="flex h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-xl border-none bg-button-bg px-3 pr-1.5 text-primary transition-all hover:bg-button-bg-hover hover:brightness-125 active:scale-95"
 						@click="copyText"
 					>
-						<ClipboardCopyIcon aria-hidden="true" />
-					</Button>
-				</template>
-			</StyledInput>
-			<div class="all-buttons">
-				<StyledInput v-if="link" type="text" :model-value="url" readonly wrapper-class="w-full">
-					<template #right>
-						<Button v-tooltip="'Copy Text'" aria-label="Copy Text" class="r-btn" @click="copyText">
-							<ClipboardCopyIcon aria-hidden="true" />
-						</Button>
-					</template>
-				</StyledInput>
-				<div class="button-row">
-					<Button v-if="canShare" v-tooltip="'Share'" aria-label="Share" icon-only @click="share">
-						<ShareIcon aria-hidden="true" />
-					</Button>
-					<a
-						v-tooltip="'Send as an email'"
-						class="btn icon-only"
-						:href="sendEmail"
-						:target="targetParameter"
-						aria-label="Send as an email"
-					>
-						<MailIcon aria-hidden="true" />
-					</a>
-					<a
+						<span class="min-w-0 cursor-pointer truncate text-left font-semibold text-primary">
+							{{ url }}
+						</span>
+						<div class="grid h-10 w-10 place-content-center">
+							<ClipboardCopyIcon class="h-5 w-5" aria-hidden="true" />
+						</div>
+					</button>
+					<ButtonLink
 						v-if="link"
-						v-tooltip="'Open link in browser'"
-						class="btn icon-only"
-						:target="targetParameter"
 						:href="url"
-						aria-label="Open link in browser"
+						target="_blank"
+						rel="noopener noreferrer"
+						aria-label="Open in new tab"
+						class="w-full"
 					>
-						<GlobeIcon aria-hidden="true" />
-					</a>
-					<a
-						v-tooltip="'Toot about it'"
-						class="btn mastodon icon-only"
-						:target="targetParameter"
-						:href="sendToot"
-						aria-label="Toot about it"
-					>
-						<MastodonIcon aria-hidden="true" />
-					</a>
-					<a
-						v-tooltip="'Tweet about it'"
-						class="btn twitter icon-only"
-						:target="targetParameter"
-						:href="sendTweet"
-						aria-label="Tweet about it"
-					>
-						<TwitterIcon aria-hidden="true" />
-					</a>
-					<a
-						v-tooltip="'Share on Reddit'"
-						class="btn reddit icon-only"
-						:target="targetParameter"
-						:href="postOnReddit"
-						aria-label="Share on Reddit"
-					>
-						<RedditIcon aria-hidden="true" />
-					</a>
+						Open in new tab
+						<ExternalIcon aria-hidden="true" />
+					</ButtonLink>
+					<div v-if="socialButtons" class="flex flex-row gap-1">
+						<IconButton v-if="canShare" v-tooltip="'Share'" label="Share" @click="share">
+							<ShareIcon aria-hidden="true" />
+						</IconButton>
+						<ButtonLink
+							v-tooltip="'Send as an email'"
+							:href="sendEmail"
+							:target="targetParameter"
+							aria-label="Send as an email"
+							class="!w-9 !px-0 !rounded-full"
+						>
+							<MailIcon aria-hidden="true" />
+						</ButtonLink>
+						<ButtonLink
+							v-if="link"
+							v-tooltip="'Open link in browser'"
+							:target="targetParameter"
+							:href="url"
+							aria-label="Open link in browser"
+							class="!w-9 !px-0 !rounded-full"
+						>
+							<GlobeIcon aria-hidden="true" />
+						</ButtonLink>
+						<ButtonLink
+							v-tooltip="'Toot about it'"
+							:target="targetParameter"
+							:href="sendToot"
+							aria-label="Toot about it"
+							class="!w-9 !px-0 !rounded-full"
+						>
+							<MastodonIcon aria-hidden="true" />
+						</ButtonLink>
+						<ButtonLink
+							v-tooltip="'Tweet about it'"
+							:target="targetParameter"
+							:href="sendTweet"
+							aria-label="Tweet about it"
+							class="!w-9 !px-0 !rounded-full"
+						>
+							<TwitterIcon aria-hidden="true" />
+						</ButtonLink>
+						<ButtonLink
+							v-tooltip="'Share on Reddit'"
+							:target="targetParameter"
+							:href="postOnReddit"
+							aria-label="Share on Reddit"
+							class="!w-9 !px-0 !rounded-full"
+						>
+							<RedditIcon aria-hidden="true" />
+						</ButtonLink>
+					</div>
 				</div>
 			</div>
 		</div>
-	</Modal>
+	</NewModal>
 </template>
-
-<style scoped lang="scss">
-.share-body {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: var(--gap-sm);
-	padding: var(--gap-lg);
-}
-
-.all-buttons {
-	display: flex;
-	flex-direction: column;
-	gap: var(--gap-sm);
-	flex-grow: 1;
-	justify-content: center;
-}
-
-.button-row {
-	display: flex;
-	flex-direction: row;
-	gap: var(--gap-sm);
-
-	.btn {
-		fill: var(--color-contrast);
-		color: var(--color-contrast);
-
-		&.reddit {
-			background-color: #ff4500;
-		}
-
-		&.mastodon {
-			background-color: #563acc;
-		}
-
-		&.twitter {
-			background-color: #1da1f2;
-		}
-	}
-}
-
-.qr-wrapper {
-	position: relative;
-	margin: 0 auto;
-
-	&:hover {
-		.copy-button {
-			opacity: 1;
-		}
-	}
-}
-
-.qr-code {
-	background-color: white !important;
-	border-radius: var(--radius-md);
-}
-
-.copy-button {
-	position: absolute;
-	top: 0;
-	right: 0;
-	margin: var(--gap-sm);
-	transition: all 0.2s ease-in-out;
-	opacity: 0;
-
-	@media (prefers-reduced-motion) {
-		transition: none !important;
-	}
-}
-</style>

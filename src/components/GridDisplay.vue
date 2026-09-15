@@ -13,7 +13,7 @@ import {
 	DropdownSelect,
 	formatLoader,
 	injectNotificationManager,
-	StyledInput,
+	Input,
 	useVIntl,
 } from '@modrinth/ui'
 import { useStorage } from '@vueuse/core'
@@ -249,7 +249,7 @@ const filteredResults = computed(() => {
 </script>
 <template>
 	<div class="flex gap-2">
-		<StyledInput
+		<Input
 			v-model="search"
 			:icon="SearchIcon"
 			type="text"

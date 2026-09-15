@@ -5,15 +5,11 @@ class="p-6 pr-2 pb-4"
 @contextmenu.prevent.stop="(event) => handleRightClick(event, instance.path)"
 >
 <InstanceSettingsModal ref="settingsModal" :instance="instance" :offline="offline" />
-<ContentPageHeader>
-<template #icon>
+<PageHeader :title="instance.name">
+<template #leading>
 <Avatar :src="icon" :alt="instance.name" size="96px" :tint-by="instance.path" />
 </template>
-<template #title>
-{{ instance.name }}
-</template>
-<template #summary> </template>
-<template #stats>
+<template #metadata>
 <div
 class="flex items-center gap-2 font-semibold transform capitalize border-0 border-solid border-divider pr-4 md:border-r"
 >
@@ -23,27 +19,32 @@ Hollow Knight
 </template>
 <template #actions>
 <div class="flex gap-2">
-<ButtonStyled size="large" circular>
-<button v-tooltip="'Instance settings'" @click="settingsModal.show()">
+<IconButton
+size="lg"
+label="Instance settings"
+v-tooltip="'Instance settings'"
+@click="settingsModal.show()"
+>
 <SettingsIcon />
-</button>
-</ButtonStyled>
-<ButtonStyled size="large" type="transparent" circular>
-<OverflowMenu
+</IconButton>
+<TeleportOverflowMenu
+size="lg"
+type="quiet"
+label="More options"
 :options="[
 {
 id: 'open-folder',
+label: 'Open folder',
+icon: FolderOpenIcon,
 action: () => showProfileInFolder(instance.path),
 },
 ]"
 >
 <MoreVerticalIcon />
-<template #open-folder> <FolderOpenIcon /> Open folder </template>
-</OverflowMenu>
-</ButtonStyled>
+</TeleportOverflowMenu>
 </div>
 </template>
-</ContentPageHeader>
+</PageHeader>
 </div>
 <div class="px-6">
 <NavTabs :links="tabs" />
@@ -89,11 +90,11 @@ SettingsIcon,
 } from '@modrinth/assets'
 import {
 Avatar,
-ButtonStyled,
-ContentPageHeader,
+IconButton,
 injectNotificationManager,
 LoadingIndicator,
-OverflowMenu,
+PageHeader,
+TeleportOverflowMenu,
 } from '@modrinth/ui'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { computed, onUnmounted, ref, watch } from 'vue'

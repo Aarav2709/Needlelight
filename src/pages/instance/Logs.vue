@@ -35,7 +35,7 @@ Delete
 </div>
 </div>
 <div class="button-row">
-<StyledInput
+<Input
 id="text-filter"
 v-model="searchFilter"
 autocomplete="off"
@@ -87,7 +87,7 @@ Card,
 Checkbox,
 DropdownSelect,
 injectNotificationManager,
-StyledInput,
+Input,
 } from '@modrinth/ui'
 import dayjs from 'dayjs'
 import isToday from 'dayjs/plugin/isToday'

@@ -1,13 +1,22 @@
 <!-- eslint-disable no-console -->
 <script setup>
-import { formatNumber } from '@modrinth/utils'
 import dayjs from 'dayjs'
-import { defineAsyncComponent, ref } from 'vue'
+import { defineAsyncComponent, onMounted, ref } from 'vue'
 
-import Button from '../base/Button.vue'
+import { useFormatNumber } from '../../composables/index.ts'
+import { IconButton } from '../base/buttons'
 import Checkbox from '../base/Checkbox.vue'
 
 const VueApexCharts = defineAsyncComponent(() => import('vue3-apexcharts'))
+
+// apexcharts touches `window` at module load time, so we must not let SSR
+// resolve the async component. Render only after mount on the client.
+const isClient = ref(false)
+onMounted(() => {
+	isClient.value = true
+})
+
+const formatNumber = useFormatNumber()
 
 const props = defineProps({
 	name: {
@@ -138,8 +147,7 @@ const chartOptions = ref({
 		},
 	},
 	tooltip: {
-		custom({ series, seriesIndex, dataPointIndex, w }) {
-			console.log(seriesIndex, w)
+		custom({ series, dataPointIndex, w }) {
 			return (
 				`<div class="bar-tooltip">` +
 				`<div class="seperated-entry title">` +
@@ -149,7 +157,7 @@ const chartOptions = ref({
 					!props.hideTotal
 						? `<div class="value">
         ${props.prefix}
-        ${formatNumber(series.reduce((a, b) => a + b[dataPointIndex], 0).toString(), false)}
+        ${formatNumber(series.reduce((a, b) => a + b[dataPointIndex], 0).toString())}
         ${props.suffix}
         </div>`
 						: ``
@@ -163,7 +171,7 @@ const chartOptions = ref({
                 </div>
                 <div class="value">
                   ${props.prefix}
-                  ${formatNumber(value[dataPointIndex], false)}
+                  ${formatNumber(value[dataPointIndex])}
                   ${props.suffix}
                 </div>
               </div>`
@@ -222,16 +230,27 @@ defineExpose({
 		<div class="title-bar">
 			<slot />
 			<div v-if="!hideToolbar" class="toolbar">
-				<Button v-tooltip="'Download data as CSV'" icon-only @click="downloadCSV">
+				<IconButton
+					v-tooltip="'Download data as CSV'"
+					label="Download data as CSV"
+					@click="downloadCSV"
+				>
 					<!-- <DownloadIcon /> -->
-				</Button>
-				<Button v-tooltip="'Reset chart'" icon-only @click="resetChart">
+				</IconButton>
+				<IconButton v-tooltip="'Reset chart'" label="Reset chart" @click="resetChart">
 					<!-- <UpdatedIcon /> -->
-				</Button>
+				</IconButton>
 				<slot name="toolbar" />
 			</div>
 		</div>
-		<VueApexCharts ref="chart" :type="type" :options="chartOptions" :series="data" class="chart" />
+		<VueApexCharts
+			v-if="isClient"
+			ref="chart"
+			:type="type"
+			:options="chartOptions"
+			:series="data"
+			class="chart"
+		/>
 		<div v-if="!hideLegend" class="legend">
 			<Checkbox
 				v-for="legend in legendValues"

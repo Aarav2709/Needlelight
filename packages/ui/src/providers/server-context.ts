@@ -1,42 +1,81 @@
-import type { Archon } from '@modrinth/api-client'
-import type { ComputedRef, Reactive, Ref } from 'vue'
+import type { Archon, UploadState } from '@modrinth/api-client'
+import type { ComputedRef, Ref } from 'vue'
+
+import type { MessageDescriptor } from '#ui/composables/i18n'
+import type {
+	ServerInstallationKey,
+	ServerInstallationState,
+} from '#ui/composables/server-installation-tracker'
+import type { FileOperation } from '#ui/layouts/shared/files-tab/types'
 
 import { createContext } from '.'
 
-export type BackupTaskState = {
-	progress: number
-	state: Archon.Backups.v1.BackupState
+export interface BusyReason {
+	reason: MessageDescriptor
 }
-
-export type BackupProgressEntry = {
-	file?: BackupTaskState
-	create?: BackupTaskState
-	restore?: BackupTaskState
-}
-
-export type BackupsState = Map<string, BackupProgressEntry>
 
 export interface FilesystemAuth {
 	url: string
 	token: string
 }
 
+export type CancelUploadHandler = () => void | Promise<void>
+
+export interface ServerStatsSample {
+	cpu_percent: number
+	ram_usage_bytes: number
+	ram_total_bytes: number
+	storage_usage_bytes: number
+	storage_total_bytes: number
+}
+
+export interface ServerStats {
+	current: ServerStatsSample
+	past: ServerStatsSample
+	graph: {
+		cpu: number[]
+		ram: number[]
+	}
+}
+
 export interface ModrinthServerContext {
 	readonly serverId: string
+	readonly worldId: Ref<string | null>
 	readonly server: Ref<Archon.Servers.v0.Server>
+	readonly serverFull: ComputedRef<Archon.Servers.v1.ServerFull | null>
+	readonly currentUserPermissions: ComputedRef<Archon.Servers.v0.UserScope>
 
 	// Websocket state
 	readonly isConnected: Ref<boolean>
+	readonly isWsAuthIncorrect: Ref<boolean>
 	readonly powerState: Ref<Archon.Websocket.v0.PowerState>
+	readonly powerStateDetails: Ref<{ oom_killed?: boolean; exit_code?: number } | undefined>
 	readonly isServerRunning: ComputedRef<boolean>
-	readonly backupsState: Reactive<BackupsState>
-	markBackupCancelled: (backupId: string) => void
+	readonly stats: Ref<ServerStats>
+	readonly uptimeSeconds: Ref<number>
+	readonly installProgressItems: Ref<Archon.Websocket.v0.InstallProgressItem[]>
+	readonly installation: ComputedRef<ServerInstallationState | null>
+	beginInstallation: (key: ServerInstallationKey) => void
+	cancelOptimisticInstallation: () => void
+	dismissInstallation: (id: string) => void
+
+	// Busy state — when non-empty, all write operations should be disabled
+	readonly busyReasons: ComputedRef<BusyReason[]>
 
 	// Filesystem state
 	readonly fsAuth: Ref<FilesystemAuth | null>
 	readonly fsOps: Ref<Archon.Websocket.v0.FilesystemOperation[]>
 	readonly fsQueuedOps: Ref<Archon.Websocket.v0.QueuedFilesystemOp[]>
 	refreshFsAuth: () => Promise<void>
+
+	// File upload state
+	readonly uploadState: Ref<UploadState>
+	readonly cancelUpload: Ref<CancelUploadHandler | null>
+
+	// File operations (extract, move, etc.)
+	readonly activeOperations: ComputedRef<FileOperation[]>
+	dismissOperation: (opId: string, action: 'dismiss' | 'cancel') => Promise<void>
+	upsertLocalFileOperation?: (operation: FileOperation) => void
 }
 
 export const [injectModrinthServerContext, provideModrinthServerContext] =

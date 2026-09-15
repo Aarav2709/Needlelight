@@ -1,10 +1,10 @@
 <template>
-	<NewModal ref="modal" header="Renaming backup" @show="focusInput">
-		<div class="flex flex-col gap-2 md:w-[600px]">
+	<NewModal ref="modal" header="Renaming backup" width="500px" @show="focusInput">
+		<div class="flex flex-col gap-2">
 			<label for="backup-name-input">
 				<span class="text-lg font-semibold text-contrast"> Name </span>
 			</label>
-			<StyledInput
+			<Input
 				id="backup-name-input"
 				ref="input"
 				v-model="backupName"
@@ -20,9 +20,19 @@
 				</span>
 			</div>
 		</div>
-		<div class="mt-2 flex justify-start gap-2">
-			<ButtonStyled color="brand">
-				<button :disabled="renameMutation.isPending.value || nameExists" @click="renameBackup">
+		<template #actions>
+			<div class="flex gap-2 justify-end">
+				<Button type="outlined" @click="hide">
+					<XIcon />
+					Cancel
+				</Button>
+				<Button
+					v-tooltip="renameDisabledTooltip"
+					type="colored"
+					color="brand"
+					:disabled="renameDisabled"
+					@click="renameBackup"
+				>
 					<template v-if="renameMutation.isPending.value">
 						<SpinnerIcon class="animate-spin" />
 						Renaming...
@@ -31,15 +41,9 @@
 						<SaveIcon />
 						Save changes
 					</template>
-				</button>
-			</ButtonStyled>
-			<ButtonStyled>
-				<button @click="hide">
-					<XIcon />
-					Cancel
-				</button>
-			</ButtonStyled>
-		</div>
+				</Button>
+			</div>
+		</template>
 	</NewModal>
 </template>
 
@@ -49,29 +53,42 @@ import { IssuesIcon, SaveIcon, SpinnerIcon, XIcon } from '@modrinth/assets'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, nextTick, ref } from 'vue'
 
+import { Button } from '#ui/components/base/buttons'
+
+import { useVIntl } from '../../../composables/i18n'
 import {
 	injectModrinthClient,
 	injectModrinthServerContext,
 	injectNotificationManager,
 } from '../../../providers'
-import ButtonStyled from '../../base/ButtonStyled.vue'
-import StyledInput from '../../base/StyledInput.vue'
+import { commonMessages } from '../../../utils'
+import Input from '../../base/inputs/Input.vue'
 import NewModal from '../../modal/NewModal.vue'
 
 const { addNotification } = injectNotificationManager()
+const { formatMessage } = useVIntl()
 const client = injectModrinthClient()
 const queryClient = useQueryClient()
 const ctx = injectModrinthServerContext()
 
-const props = defineProps<{
-	backups?: Archon.Backups.v1.Backup[]
-}>()
+const props = withDefaults(
+	defineProps<{
+		backups?: Archon.BackupsQueue.v1.BackupQueueBackup[]
+		canRename?: boolean
+		permissionDeniedMessage?: string
+	}>(),
+	{
+		backups: undefined,
+		canRename: true,
+		permissionDeniedMessage: undefined,
+	},
+)
 
-const backupsQueryKey = ['backups', 'list', ctx.serverId]
+const backupsQueryKey = ['backups', 'queue', ctx.serverId]
 
 const renameMutation = useMutation({
 	mutationFn: ({ backupId, name }: { backupId: string; name: string }) =>
-		client.archon.backups_v0.rename(ctx.serverId, backupId, { name }),
+		client.archon.backups_v1.rename(ctx.serverId, ctx.worldId.value!, backupId, { name }),
 	onSuccess: () => queryClient.invalidateQueries({ queryKey: backupsQueryKey }),
 })
 
@@ -80,7 +97,7 @@ const input = ref<HTMLInputElement>()
 const backupName = ref('')
 const originalName = ref('')
 
-const currentBackup = ref<Archon.Backups.v1.Backup | null>(null)
+const currentBackup = ref<Archon.BackupsQueue.v1.BackupQueueBackup | null>(null)
 
 const trimmedName = computed(() => backupName.value.trim())
 
@@ -97,6 +114,14 @@ const nameExists = computed(() => {
 		(backup) => backup.name.trim().toLowerCase() === trimmedName.value.toLowerCase(),
 	)
 })
+const renameDisabled = computed(
+	() => renameMutation.isPending.value || nameExists.value || !props.canRename,
+)
+const renameDisabledTooltip = computed(() =>
+	props.canRename
+		? undefined
+		: (props.permissionDeniedMessage ?? formatMessage(commonMessages.noPermissionAction)),
+)
 
 const backupNumber = computed(
 	() => (props.backups?.findIndex((b) => b.id === currentBackup.value?.id) ?? 0) + 1,
@@ -110,7 +135,7 @@ const focusInput = () => {
 	})
 }
 
-function show(backup: Archon.Backups.v1.Backup) {
+function show(backup: Archon.BackupsQueue.v1.BackupQueueBackup) {
 	currentBackup.value = backup
 	backupName.value = backup.name
 	originalName.value = backup.name
@@ -122,6 +147,7 @@ function hide() {
 }
 
 const renameBackup = () => {
+	if (!props.canRename) return
 	if (!currentBackup.value) {
 		addNotification({
 			type: 'error',

@@ -1,20 +1,36 @@
+import type { Component } from 'vue'
+
 import { createContext } from '.'
+
+export interface WebNotificationButton {
+	label: string
+	action: () => void | Promise<void>
+	icon?: Component
+	color?: 'brand' | 'red' | 'orange' | 'green' | 'blue' | 'standard'
+	keepOpen?: boolean
+}
 
 export interface WebNotification {
 	id: string | number
 	title?: string
 	text?: string
-	type?: 'error' | 'warning' | 'success' | 'info'
+	type?: 'error' | 'warning' | 'success' | 'info' | 'neutral'
 	errorCode?: string
 	count?: number
+	autoCloseMs?: number | null // null means do not dismiss automatically
 	timer?: NodeJS.Timeout
 	supportData?: Record<string, unknown>
+	containerClass?: string
+	noIcon?: boolean
+	buttons?: WebNotificationButton[]
+	dismissible?: boolean
+	copyable?: boolean
 }
 
 export type NotificationPanelLocation = 'left' | 'right'
 
 export abstract class AbstractWebNotificationManager {
-	protected readonly AUTO_DISMISS_DELAY_MS = 3 * 1000
+	protected readonly DEFAULT_AUTO_DISMISS_DELAY_MS = 30 * 1000
 
 	abstract getNotifications(): WebNotification[]
 	abstract getNotificationLocation(): NotificationPanelLocation
@@ -90,9 +106,13 @@ export abstract class AbstractWebNotificationManager {
 
 		this.clearNotificationTimer(notification)
 
+		if (notification.autoCloseMs === null) return
+
+		const delay = notification.autoCloseMs ?? this.DEFAULT_AUTO_DISMISS_DELAY_MS
+
 		notification.timer = setTimeout(() => {
 			this.removeNotification(notification.id)
-		}, this.AUTO_DISMISS_DELAY_MS)
+		}, delay)
 	}
 
 	stopNotificationTimer = (notification: WebNotification): void => {

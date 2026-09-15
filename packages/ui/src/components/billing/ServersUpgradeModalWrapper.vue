@@ -9,8 +9,7 @@
 		:customer="customer"
 		:payment-methods="paymentMethods"
 		:currency="selectedCurrency"
-		:return-url="`${props.siteUrl}/hosting/manage`"
-		:pings="regionPings"
+		:return-url="checkoutReturnUrl"
 		:regions="regionsData"
 		:refresh-payment-methods="fetchPaymentData"
 		:fetch-stock="fetchStock"
@@ -40,9 +39,13 @@ import { computed, ref, watch } from 'vue'
 
 const props = defineProps<{
 	stripePublishableKey: string
-	siteUrl: string
+	siteUrl?: string
 	products: Labrinth.Billing.Internal.Product[]
 }>()
+
+const checkoutReturnUrl = computed(() => {
+	return props.siteUrl ? `${props.siteUrl}/hosting/manage` : undefined
+})
 
 const { addNotification } = injectNotificationManager()
 const { labrinth, archon } = injectModrinthClient()
@@ -58,20 +61,17 @@ const customer = ref<any>(null)
 const paymentMethods = ref<any[]>([])
 const selectedCurrency = ref<string>('USD')
 
-const regionPings = ref<
-	{
-		region: string
-		ping: number
-	}[]
->([])
-
-const pyroProducts = (props.products as Labrinth.Billing.Internal.Product[])
-	.filter((p) => p?.metadata?.type === 'pyro' || p?.metadata?.type === 'medal')
-	.sort((a, b) => {
-		const aRam = a?.metadata?.type === 'pyro' || a?.metadata?.type === 'medal' ? a.metadata.ram : 0
-		const bRam = b?.metadata?.type === 'pyro' || b?.metadata?.type === 'medal' ? b.metadata.ram : 0
-		return aRam - bRam
-	})
+const pyroProducts = computed(() =>
+	(props.products as Labrinth.Billing.Internal.Product[])
+		.filter((p) => p?.metadata?.type === 'pyro' || p?.metadata?.type === 'medal')
+		.sort((a, b) => {
+			const aRam =
+				a?.metadata?.type === 'pyro' || a?.metadata?.type === 'medal' ? a.metadata.ram : 0
+			const bRam =
+				b?.metadata?.type === 'pyro' || b?.metadata?.type === 'medal' ? b.metadata.ram : 0
+			return aRam - bRam
+		}),
+)
 
 function handleError(err: unknown) {
 	debug('Purchase modal error:', err)
@@ -108,18 +108,6 @@ watch(
 	{ immediate: true },
 )
 
-watch(
-	regionsData,
-	(newRegions) => {
-		if (newRegions) {
-			newRegions.forEach((region) => {
-				runPingTest(region)
-			})
-		}
-	},
-	{ immediate: true },
-)
-
 async function fetchPaymentData() {
 	await refetchPaymentMethods()
 }
@@ -132,68 +120,11 @@ async function fetchStock(
 	return result.available
 }
 
-const PING_COUNT = 20
-const PING_INTERVAL = 200
-const MAX_PING_TIME = 1000
-
-function runPingTest(region: Archon.Servers.v1.Region, index = 1) {
-	if (index > 10) {
-		regionPings.value.push({
-			region: region.shortcode,
-			ping: -1,
-		})
-		return
-	}
-
-	const wsUrl = `wss://${region.shortcode}${index}.${region.zone}/pingtest`
-	try {
-		const socket = new WebSocket(wsUrl)
-		const pings: number[] = []
-
-		socket.onopen = () => {
-			for (let i = 0; i < PING_COUNT; i++) {
-				setTimeout(() => {
-					socket.send(String(performance.now()))
-				}, i * PING_INTERVAL)
-			}
-			setTimeout(
-				() => {
-					socket.close()
-					const median = Math.round([...pings].sort((a, b) => a - b)[Math.floor(pings.length / 2)])
-					if (median) {
-						regionPings.value.push({
-							region: region.shortcode,
-							ping: median,
-						})
-					}
-				},
-				PING_COUNT * PING_INTERVAL + MAX_PING_TIME,
-			)
-		}
-
-		socket.onmessage = (event) => {
-			const start = Number(event.data)
-			pings.push(performance.now() - start)
-		}
-
-		socket.onerror = () => {
-			runPingTest(region, index + 1)
-		}
-	} catch {
-		// ignore
-	}
-}
-
 const subscription = ref<Labrinth.Billing.Internal.UserSubscription | null>(null)
-// Dry run state
-const dryRunResponse = ref<{
-	requires_payment: boolean
-	required_payment_is_proration: boolean
-} | null>(null)
 const pendingDowngradeBody = ref<Labrinth.Billing.Internal.EditSubscriptionRequest | null>(null)
 const currentPlanFromSubscription = computed<Labrinth.Billing.Internal.Product | undefined>(() => {
 	return subscription.value
-		? (pyroProducts.find((p) =>
+		? (pyroProducts.value.find((p) =>
 				p.prices.some((price) => price.id === subscription.value?.price_id),
 			) ?? undefined)
 		: undefined
@@ -246,20 +177,16 @@ async function initiatePayment(
 				dry: true,
 			})
 
-			if (dry && typeof dry === 'object' && 'payment_intent_id' in dry) {
-				dryRunResponse.value = {
-					requires_payment: !!dry.payment_intent_id,
-					required_payment_is_proration: true,
-				}
-				pendingDowngradeBody.value = transformedBody
-				if (dry.payment_intent_id) {
-					return await finalizeImmediate(transformedBody)
-				} else {
-					return null
-				}
-			} else {
-				// Fallback if dry run not supported
+			const requiresPayment =
+				dry && typeof dry === 'object' && 'requires_payment' in dry && dry.requires_payment
+
+			if (requiresPayment) {
+				// Upgrade: requires payment — finalize to create the payment intent
 				return await finalizeImmediate(transformedBody)
+			} else {
+				// Downgrade or no payment change — defer until user confirms
+				pendingDowngradeBody.value = transformedBody
+				return null
 			}
 		} catch (e) {
 			debug('Dry run failed, attempting immediate patch', e)
@@ -291,8 +218,10 @@ async function finalizeImmediate(body: Labrinth.Billing.Internal.EditSubscriptio
 }
 
 async function finalizeDowngrade() {
-	if (!subscription.value || !pendingDowngradeBody.value) return
 	try {
+		if (!subscription.value || !pendingDowngradeBody.value)
+			throw new Error('Missing subscription or pending downgrade body')
+
 		await finalizeImmediate(pendingDowngradeBody.value)
 		addNotification({
 			title: 'Subscription updated',
@@ -307,7 +236,6 @@ async function finalizeDowngrade() {
 		})
 		throw e
 	} finally {
-		dryRunResponse.value = null
 		pendingDowngradeBody.value = null
 	}
 }

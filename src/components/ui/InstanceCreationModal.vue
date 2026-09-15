@@ -16,7 +16,7 @@ Remove icon
 </div>
 <div class="input-row">
 <p class="input-label">Name</p>
-<StyledInput
+<Input
 v-model="profile_name"
 autocomplete="off"
 type="text"
@@ -49,7 +49,7 @@ import {
 Avatar,
 Button,
 injectNotificationManager,
-StyledInput,
+Input,
 } from '@modrinth/ui'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'

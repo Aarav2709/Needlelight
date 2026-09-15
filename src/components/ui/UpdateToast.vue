@@ -7,9 +7,11 @@ import {
   XIcon,
 } from "@modrinth/assets";
 import {
-  ButtonStyled,
+  Button,
+  ButtonLink,
   commonMessages,
   defineMessages,
+  IconButton,
   ProgressBar,
   useVIntl,
 } from "@modrinth/ui";
@@ -97,14 +99,14 @@ const messages = defineMessages({
           )
         }}
       </h2>
-      <ButtonStyled size="small" circular>
-        <button
-          v-tooltip="formatMessage(commonMessages.closeButton)"
-          @click="emit('close')"
-        >
-          <XIcon />
-        </button>
-      </ButtonStyled>
+      <IconButton
+        size="sm"
+        label="Close"
+        v-tooltip="formatMessage(commonMessages.closeButton)"
+        @click="emit('close')"
+      >
+        <XIcon />
+      </IconButton>
     </div>
     <p class="text-sm mt-2 mb-0">
       {{
@@ -127,32 +129,30 @@ const messages = defineMessages({
       </template>
     </p>
     <div class="flex gap-2 mt-4">
-      <ButtonStyled color="brand">
-        <button
-          v-if="metered && progress < 1"
-          :disabled="downloading"
-          @click="download"
-        >
-          <SpinnerIcon v-if="downloading" class="animate-spin" />
-          <DownloadIcon v-else />
-          {{
-            formatMessage(
-              downloading ? messages.downloading : messages.download,
-              {
-                size: formatBytes(size ?? 0),
-              },
-            )
-          }}
-        </button>
-        <button v-else @click="emit('restart')">
-          <RefreshCwIcon /> {{ formatMessage(messages.reload) }}
-        </button>
-      </ButtonStyled>
-      <ButtonStyled>
-        <a href="https://modrinth.com/news/changelog?filter=app">
-          {{ formatMessage(messages.changelog) }} <ExternalIcon />
-        </a>
-      </ButtonStyled>
+      <Button
+        v-if="metered && progress < 1"
+        type="colored"
+        color="brand"
+        :disabled="downloading"
+        @click="download"
+      >
+        <SpinnerIcon v-if="downloading" class="animate-spin" />
+        <DownloadIcon v-else />
+        {{
+          formatMessage(
+            downloading ? messages.downloading : messages.download,
+            {
+              size: formatBytes(size ?? 0),
+            },
+          )
+        }}
+      </Button>
+      <Button v-else type="colored" color="brand" @click="emit('restart')">
+        <RefreshCwIcon /> {{ formatMessage(messages.reload) }}
+      </Button>
+      <ButtonLink href="https://modrinth.com/news/changelog?filter=app">
+        {{ formatMessage(messages.changelog) }} <ExternalIcon />
+      </ButtonLink>
     </div>
   </div>
 </template>

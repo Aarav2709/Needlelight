@@ -1,0 +1,84 @@
+<template>
+	<NewModal ref="modal" fade="danger" :header="formatMessage(messages.header)" max-width="500px">
+		<Admonition type="critical" class="md:min-w-[400px]">
+			<template #header>{{ formatMessage(messages.deletingName, { name: item?.name }) }}</template>
+			{{
+				formatMessage(
+					item?.type === 'directory' ? messages.deleteFolderWarning : messages.deleteFileWarning,
+				)
+			}}
+		</Admonition>
+		<template #actions>
+			<div class="flex gap-2 justify-end">
+				<Button type="outlined" @click="hide">
+					<XIcon class="h-5 w-5" />
+					{{ formatMessage(commonMessages.cancelButton) }}
+				</Button>
+				<Button type="colored" color="red" @click="handleSubmit">
+					<TrashIcon class="h-5 w-5" />
+					{{ formatMessage(commonMessages.deleteLabel) }}
+				</Button>
+			</div>
+		</template>
+	</NewModal>
+</template>
+
+<script setup lang="ts">
+import { TrashIcon, XIcon } from '@modrinth/assets'
+import { ref } from 'vue'
+
+import Admonition from '#ui/components/base/Admonition.vue'
+import { Button } from '#ui/components/base/buttons'
+import NewModal from '#ui/components/modal/NewModal.vue'
+import { defineMessages, useVIntl } from '#ui/composables/i18n'
+import { commonMessages } from '#ui/utils/common-messages'
+
+import type { FileItem } from '../../types'
+
+const { formatMessage } = useVIntl()
+
+const messages = defineMessages({
+	header: {
+		id: 'files.delete-modal.header',
+		defaultMessage: 'Delete file',
+	},
+	deletingName: {
+		id: 'files.delete-modal.deleting-name',
+		defaultMessage: 'Deleting "{name}"',
+	},
+	deleteFileWarning: {
+		id: 'files.delete-modal.warning.file',
+		defaultMessage: 'This file will be permanently deleted. This action cannot be undone.',
+	},
+	deleteFolderWarning: {
+		id: 'files.delete-modal.warning.folder',
+		defaultMessage:
+			'This folder and all its contents will be permanently deleted. This action cannot be undone.',
+	},
+})
+
+defineProps<{
+	item: Pick<FileItem, 'name' | 'type'> | null
+}>()
+
+const emit = defineEmits<{
+	delete: []
+}>()
+
+const modal = ref<InstanceType<typeof NewModal>>()
+
+const handleSubmit = () => {
+	emit('delete')
+	hide()
+}
+
+const show = () => {
+	modal.value?.show()
+}
+
+const hide = () => {
+	modal.value?.hide()
+}
+
+defineExpose({ show, hide })
+</script>

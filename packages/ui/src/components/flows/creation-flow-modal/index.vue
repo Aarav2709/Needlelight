@@ -1,0 +1,121 @@
+<template>
+	<MultiStageModal
+		ref="modal"
+		:stages="ctx.stageConfigs"
+		:context="ctx"
+		:fade="fade"
+		disable-progress
+		@hide="handleHide"
+	/>
+</template>
+
+<script setup lang="ts">
+import { computed, useTemplateRef } from 'vue'
+import type { ComponentExposed } from 'vue-component-type-helpers'
+
+import MultiStageModal from '../../base/MultiStageModal.vue'
+import {
+	createCreationFlowContext,
+	type CreationFlowContextValue,
+	type FlowType,
+	type LoaderManifestResolver,
+	type ProjectInstallCreateData,
+	type ProjectInstallSelection,
+	type ProjectSearchResult,
+	provideCreationFlowContext,
+} from './creation-flow-context'
+
+const props = withDefaults(
+	defineProps<{
+		type?: FlowType
+		availableLoaders?: string[]
+		showSnapshotToggle?: boolean
+		disableClose?: boolean
+		isInitialSetup?: boolean
+		initialLoader?: string
+		initialGameVersion?: string
+		fetchExistingInstanceNames?: () => Promise<string[]>
+		onBack?: (() => void) | null
+		fade?: 'standard' | 'warning' | 'danger'
+		searchProjects?: (query: string, limit?: number) => Promise<ProjectSearchResult>
+		prepareProjectInstall?: (
+			projectId: string,
+			projectType: string,
+		) => Promise<ProjectInstallSelection | null>
+		createProjectInstall?: (data: ProjectInstallCreateData) => Promise<void>
+		getProjectVersions?: (projectId: string) => Promise<{ id: string }[]>
+		getLoaderManifest?: LoaderManifestResolver
+		randomizeInstanceIcon?: () => Promise<{ path: string; previewUrl: string } | null>
+		customizeInstanceIcon?: () => void
+		finishDisabled?: boolean
+		finishDisabledTooltip?: string
+	}>(),
+	{
+		type: 'world',
+		availableLoaders: () => ['fabric', 'neoforge', 'forge', 'quilt'],
+		showSnapshotToggle: false,
+		disableClose: false,
+		isInitialSetup: false,
+		initialLoader: undefined,
+		initialGameVersion: undefined,
+		fetchExistingInstanceNames: undefined,
+		onBack: null,
+		randomizeInstanceIcon: undefined,
+		customizeInstanceIcon: undefined,
+	},
+)
+
+const emit = defineEmits<{
+	(e: 'hide' | 'browse-modpacks'): void
+	(e: 'create', config: CreationFlowContextValue): void
+}>()
+
+const modal = useTemplateRef<ComponentExposed<typeof MultiStageModal>>('modal')
+
+const ctx = createCreationFlowContext(
+	modal,
+	props.type,
+	{
+		browseModpacks: () => emit('browse-modpacks'),
+		create: (config) => emit('create', config),
+	},
+	{
+		availableLoaders: props.availableLoaders,
+		showSnapshotToggle: props.showSnapshotToggle,
+		disableClose: props.disableClose,
+		isInitialSetup: props.isInitialSetup,
+		initialLoader: props.initialLoader,
+		initialGameVersion: props.initialGameVersion,
+		fetchExistingInstanceNames: props.fetchExistingInstanceNames,
+		onBack: props.onBack ?? undefined,
+		searchProjects: props.searchProjects,
+		prepareProjectInstall: props.prepareProjectInstall,
+		createProjectInstall: props.createProjectInstall,
+		getProjectVersions: props.getProjectVersions,
+		getLoaderManifest: props.getLoaderManifest,
+		randomizeInstanceIcon: props.randomizeInstanceIcon,
+		customizeInstanceIcon: props.customizeInstanceIcon,
+		finishDisabled: computed(() => props.finishDisabled ?? false),
+		finishDisabledTooltip: computed(() => props.finishDisabledTooltip),
+	},
+)
+provideCreationFlowContext(ctx)
+
+async function show() {
+	await ctx.reset()
+	void ctx.prefetchLoaderMetadata()
+	modal.value?.setStage(0)
+	modal.value?.show()
+}
+
+function hide() {
+	modal.value?.hide()
+}
+
+function handleHide() {
+	ctx.cancelBackup.value?.()
+	emit('hide')
+}
+
+defineExpose({ show, hide, ctx })
+</script>
