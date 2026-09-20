@@ -19,18 +19,21 @@ import { ref } from 'vue'
 import GeneralSettings from '@/components/ui/instance_settings/GeneralSettings.vue'
 import HooksSettings from '@/components/ui/instance_settings/HooksSettings.vue'
 import InstallationSettings from '@/components/ui/instance_settings/InstallationSettings.vue'
-import ModalWrapper from '@/components/ui/modal/ModalWrapper.vue'
 
 import type { InstanceSettingsTabProps } from '../../../helpers/types'
 
+// NOTE (Needlelight): current Modrinth's TabbedModal wraps NewModal internally and is meant to
+// be used directly as the top-level modal, not nested inside a separate Modal/ModalWrapper.
+// Nesting produced two independent Teleport-to-body overlays stacked on top of each other,
+// which is what was causing this modal to render as a tiny, broken box.
 const { formatMessage } = useVIntl()
 
 const props = defineProps<InstanceSettingsTabProps>()
 
-// NOTE (Needlelight): @modrinth/ui's Tab type is no longer generic and no longer carries a
-// per-tab `props` field, so tab content is rendered by TabbedModal with no props forwarded.
-// We therefore render the active tab ourselves via the new #content slot (below) and bind
-// the instance settings props explicitly.
+// @modrinth/ui's Tab type is no longer generic and no longer carries a per-tab `props` field,
+// so tab content is rendered by TabbedModal with no props forwarded. We therefore render the
+// active tab ourselves via the #content slot (below) and bind the instance settings props
+// explicitly.
 const tabs: TabbedModalTab[] = [
 {
 name: defineMessage({
@@ -58,16 +61,16 @@ content: HooksSettings,
 },
 ]
 
-const modal = ref()
+const modal = ref<InstanceType<typeof TabbedModal> | null>(null)
 
 function show() {
-modal.value.show()
+modal.value?.show()
 }
 
 defineExpose({ show })
 </script>
 <template>
-<ModalWrapper ref="modal">
+<TabbedModal ref="modal" :tabs="tabs" width="min(860px, calc(100vw - 6rem))">
 <template #title>
 <span class="flex items-center gap-2 text-lg font-semibold text-primary">
 <Avatar
@@ -81,11 +84,8 @@ formatMessage(commonMessages.settingsLabel)
 }}</span>
 </span>
 </template>
-
-<TabbedModal :tabs="tabs">
 <template #content="{ tab }">
 <component :is="tab.content" v-if="tab?.content" v-bind="props" />
 </template>
 </TabbedModal>
-</ModalWrapper>
 </template>

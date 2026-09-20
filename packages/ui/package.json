@@ -59,7 +59,7 @@
 		"@codemirror/language": "^6.9.3",
 		"@codemirror/state": "^6.3.2",
 		"@codemirror/view": "^6.22.1",
-		"@modrinth/api-client": "workspace:*",
+		"@modrinth/api-client": "^0.71.0",
 		"@modrinth/assets": "workspace:*",
 		"@modrinth/utils": "workspace:*",
 		"@tanstack/vue-query": "5.101.4",

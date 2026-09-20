@@ -1,11 +1,17 @@
 packages:
   - .
   - packages/*
+# @modrinth/utils depends on highlightjs-mcfunction via a git URL (a real, direct
+# dependency, not a stray transitive one). Newer pnpm blocks git/URL-sourced deps by
+# default; this is also set in .npmrc for pnpm <11, which stopped reading non-auth
+# .npmrc keys, so this is now the version-agnostic place for it to live.
+blockExoticSubdeps: false
 allowBuilds:
   '@parcel/watcher': true
   core-js: true
   esbuild: true
   protobufjs: true
   sharp: true
+  unrs-resolver: true
   vue-demi: true
   workerd: true

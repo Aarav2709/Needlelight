@@ -16,7 +16,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@modrinth/api-client": "file:packages/api-client",
+    "@modrinth/api-client": "^0.71.0",
     "@modrinth/assets": "file:packages/assets",
     "@modrinth/ui": "file:packages/ui",
     "@modrinth/utils": "file:packages/utils",
