@@ -3,6 +3,37 @@
 version = 4
 
 [[package]]
+name = "Needlelight"
+version = "8.0.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "log",
+ "quick-xml 0.37.5",
+ "regex",
+ "reqwest 0.12.28",
+ "roxmltree",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tauri-plugin-os",
+ "tauri-plugin-shell",
+ "tauri-plugin-window-state",
+ "thiserror 2.0.18",
+ "tokio",
+ "url",
+ "urlencoding",
+ "walkdir",
+ "zip",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2515,37 +2546,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys",
-]
-
-[[package]]
-name = "Needlelight"
-version = "8.0.0"
-dependencies = [
- "chrono",
- "hex",
- "log",
- "quick-xml 0.37.5",
- "regex",
- "reqwest 0.12.28",
- "roxmltree",
- "serde",
- "serde_json",
- "sha2",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-plugin-os",
- "tauri-plugin-shell",
- "tauri-plugin-window-state",
- "thiserror 2.0.18",
- "tokio",
- "url",
- "urlencoding",
- "walkdir",
- "zip",
 ]
 
 [[package]]
