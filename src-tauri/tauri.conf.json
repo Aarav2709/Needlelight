@@ -26,13 +26,20 @@
       "csp": null,
       "capabilities": [
         "default"
-      ]
+      ],
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$CONFIG/HKModInstaller/**",
+          "$LOCALDATA/HKModInstaller/**"
+        ]
+      }
     }
   },
   "bundle": {
     "active": true,
     "publisher": "Aarav Gupta",
-    "copyright": "Copyright © 2026 Aarav Gupta",
+    "copyright": "Copyright \u00a9 2026 Aarav Gupta",
     "icon": [
       "icons/icon-512.png",
       "icons/icon.icns",

@@ -31,7 +31,15 @@ impl GameKey {
     pub fn display_name(&self) -> &'static str {
         match self {
             GameKey::HollowKnight => "Hollow Knight",
-            GameKey::Silksong => "Silksong",
+            GameKey::Silksong => "Hollow Knight: Silksong",
+        }
+    }
+
+    pub fn from_str(key: &str) -> Option<GameKey> {
+        match key {
+            "hollow_knight" => Some(GameKey::HollowKnight),
+            "silksong" => Some(GameKey::Silksong),
+            _ => None,
         }
     }
 
@@ -63,6 +71,11 @@ pub struct AppSettings {
     pub github_mirror_format: String,
     #[serde(default)]
     pub low_storage_mode: bool,
+    /// Runtime-only: when set, the installed-mods database is read from / written to this
+    /// path instead of the per-game global one. Modpacks use this to point the shared
+    /// installer at a database stored inside the modpack's own folder. Never persisted.
+    #[serde(skip)]
+    pub installed_db_override: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -83,6 +96,7 @@ impl Default for AppSettings {
             use_github_mirror: false,
             github_mirror_format: String::new(),
             low_storage_mode: false,
+            installed_db_override: None,
         }
     }
 }
@@ -161,6 +175,27 @@ impl AppSettings {
         let mut copy = self.clone();
         copy.managed_folder = Self::normalize_managed_folder(&self.managed_folder, &self.game);
         copy
+    }
+
+    /// Route a GitHub download through the configured mirror, when the mirror is enabled.
+    /// The mirror format either contains `{url}` (replaced by the original URL) or is a prefix
+    /// the original URL is appended to. Non-GitHub URLs are returned unchanged.
+    pub fn mirrored_url(&self, url: &str) -> String {
+        let format = self.github_mirror_format.trim();
+        if !self.use_github_mirror || format.is_empty() {
+            return url.to_string();
+        }
+        let is_github = ["https://github.com/", "https://raw.githubusercontent.com/", "https://objects.githubusercontent.com/", "https://codeload.github.com/"]
+            .iter()
+            .any(|prefix| url.starts_with(prefix));
+        if !is_github {
+            return url.to_string();
+        }
+        if format.contains("{url}") {
+            format.replace("{url}", url)
+        } else {
+            format!("{}/{}", format.trim_end_matches('/'), url)
+        }
     }
 
     pub fn managed_folder_for(&self, game: &GameKey) -> String {
@@ -271,6 +306,9 @@ impl AppSettings {
     }
 
     pub fn installed_mods_path(&self) -> AppResult<PathBuf> {
+        if let Some(path) = &self.installed_db_override {
+            return Ok(path.clone());
+        }
         let key = match self.game {
             GameKey::HollowKnight => "hollow_knight",
             GameKey::Silksong => "silksong",

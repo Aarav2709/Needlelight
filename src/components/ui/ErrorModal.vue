@@ -1,10 +1,9 @@
 <script setup>
-import { CopyIcon, CheckIcon, DropdownIcon, XIcon } from "@modrinth/assets";
+import { CheckIcon, CopyIcon, DropdownIcon } from "@modrinth/assets";
 import { Collapsible, IconButton } from "@modrinth/ui";
 import { computed, ref } from "vue";
 
 import ModalWrapper from "@/components/ui/modal/ModalWrapper.vue";
-import { handleSevereError } from "@/store/error.js";
 
 const errorModal = ref();
 const error = ref();

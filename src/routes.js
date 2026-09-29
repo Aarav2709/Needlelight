@@ -1,69 +1,61 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import * as Instance from '@/pages/instance'
-import * as Library from '@/pages/library'
-import ModdingApi from '@/pages/ModdingApi.vue'
+import Modpacks from '@/pages/modpacks/Index.vue'
+import ModpacksOverview from '@/pages/modpacks/Overview.vue'
 
 /**
  * Configures application routing for Needlelight - Hollow Knight & Silksong Mod Manager.
+ * The app opens on Modpacks; a modpack has two pages: its installed mods, and Browse for finding
+ * more to install.
  */
 export default new createRouter({
   history: createWebHistory(),
   routes: [
     {
-      path: '/',
-      redirect: '/library',
-    },
-    {
-      path: '/library',
-      name: 'Library',
-      component: Library.Index,
-      meta: {
-        breadcrumb: [{ name: 'Library' }],
-      },
-    },
-    {
-      path: '/modding-api',
-      name: 'Modding API',
-      component: ModdingApi,
-      meta: {
-        breadcrumb: [{ name: 'Modding API' }],
-      },
-    },
-    {
-      path: '/instance/:id',
-      name: 'Instance',
-      component: Instance.Index,
-      props: true,
+      path: '/modpacks',
+      component: Modpacks,
       children: [
         {
           path: '',
-          name: 'Mods',
-          component: Instance.Mods,
+          name: 'Modpacks',
+          component: ModpacksOverview,
           meta: {
-            useRootContext: true,
-            breadcrumb: [{ name: '?Instance', link: '/instance/{id}/' }, { name: 'Content' }],
+            breadcrumb: [{ name: 'Modpacks' }],
           },
         },
         {
-          path: 'projects/:type',
-          name: 'ModsFilter',
-          component: Instance.Mods,
-          meta: {
-            useRootContext: true,
-            breadcrumb: [{ name: '?Instance', link: '/instance/{id}/' }, { name: 'Content' }],
-          },
-        },
-        {
-          path: 'logs',
-          name: 'Logs',
-          component: Instance.Logs,
-          meta: {
-            useRootContext: true,
-            breadcrumb: [{ name: '?Instance', link: '/instance/{id}/' }, { name: 'Logs' }],
-          },
+          path: ':path',
+          component: () => import('@/pages/modpacks/ModpackShell.vue'),
+          children: [
+            {
+              path: '',
+              name: 'Modpack',
+              component: () => import('@/pages/modpacks/Modpack.vue'),
+              meta: {
+                breadcrumb: [{ name: 'Modpacks', link: '/modpacks' }, { name: '?modpack' }],
+              },
+            },
+            {
+              path: 'browse',
+              name: 'ModpackBrowse',
+              component: () => import('@/pages/modpacks/Browse.vue'),
+              meta: {
+                breadcrumb: [
+                  { name: 'Modpacks', link: '/modpacks' },
+                  { name: '?modpack', link: '..' },
+                  { name: 'Browse mods' },
+                ],
+              },
+            },
+          ],
         },
       ],
+    },
+    {
+      // The app opens on Modpacks; old links (the removed Home, Library and Modding API pages)
+      // land there too.
+      path: '/:pathMatch(.*)*',
+      redirect: '/modpacks',
     },
   ],
   linkActiveClass: 'router-link-active',

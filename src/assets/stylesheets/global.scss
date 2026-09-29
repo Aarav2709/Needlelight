@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 @import '@modrinth/ui/src/styles/tailwind-utilities.css';
+@import './needlelight.scss';
 
 :root {
   font-family: var(--font-standard, sans-serif), sans-serif;

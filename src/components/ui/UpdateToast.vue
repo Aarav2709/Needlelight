@@ -100,9 +100,9 @@ const messages = defineMessages({
         }}
       </h2>
       <IconButton
+        v-tooltip="formatMessage(commonMessages.closeButton)"
         size="sm"
         label="Close"
-        v-tooltip="formatMessage(commonMessages.closeButton)"
         @click="emit('close')"
       >
         <XIcon />

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -39,6 +39,23 @@ pub struct ModItem {
     #[serde(default)]
     pub authors: Vec<String>,
     pub state: ModState,
+    /// Minimum version each dependency asks for, keyed like `dependencies`. Only catalogs that
+    /// publish it (Thunderstore) fill this in.
+    #[serde(default)]
+    pub dependency_versions: BTreeMap<String, String>,
+    /// Icon URL, when the catalog provides one (Thunderstore).
+    #[serde(default)]
+    pub icon: Option<String>,
+    /// Total downloads across all versions, when the catalog provides them (Thunderstore).
+    #[serde(default)]
+    pub downloads: Option<u64>,
+    /// Last time the project was updated (RFC 3339), when the catalog provides it.
+    #[serde(default)]
+    pub updated_at: Option<String>,
+    /// The project's own website (often its source repository), when the catalog lists one
+    /// separately from `repository` (Thunderstore).
+    #[serde(default)]
+    pub homepage: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

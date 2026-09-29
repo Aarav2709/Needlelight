@@ -16,7 +16,7 @@ const { updateColorTheme, currentTheme, themeOptions, systemThemeColor } = defin
 }>()
 
 const themeLabels: Record<string, string> = {
-	system: 'Sync with system',
+	system: 'System',
 	light: 'Light',
 	dark: 'Dark',
 	oled: 'OLED',
@@ -71,7 +71,7 @@ function getPreviewClass(option: T): string {
 <style scoped lang="scss">
 .theme-options {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(6.75rem, 1fr));
 	gap: var(--gap-lg);
 
 	.preview {
