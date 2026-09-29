@@ -40,12 +40,10 @@ export default defineConfig({
     },
   },
   resolve: {
+    // One copy of Vue for everything. (There used to also be an alias pointing `vue` at the raw
+    // runtime file; that bypassed pre-bundling and could load a second, separate runtime.)
     dedupe: ['vue'],
     alias: [
-      {
-        find: 'vue',
-        replacement: resolve(projectRootDir, 'node_modules/vue/dist/vue.runtime.esm-bundler.js'),
-      },
       {
         find: 'fuse.js/dist/fuse.basic',
         replacement: 'fuse.js/dist/fuse.basic.esm.js',
@@ -117,7 +115,11 @@ export default defineConfig({
   },
   optimizeDeps: {
     entries: ['index.html'],
-    exclude: ['@modrinth/assets', '@modrinth/ui', '@modrinth/utils'],
+    // No `exclude` for the @modrinth/* packages: they're aliased to local source (outside
+    // node_modules), so Vite already treats them as source code and never pre-bundles them.
+    // Excluding them only stopped the startup scan from seeing their dependencies, which were
+    // then discovered mid-session, forcing repeated re-optimizations + reloads that left two
+    // copies of Vue's runtime loaded ("resolveComponent can only be used in render() or setup()").
     include: [
       'dayjs',
       'dayjs/plugin/duration',

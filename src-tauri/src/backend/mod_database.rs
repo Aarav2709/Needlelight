@@ -47,6 +47,8 @@ struct ThunderstorePackage {
     #[serde(default)]
     pub is_deprecated: bool,
     #[serde(default)]
+    pub date_updated: String,
+    #[serde(default)]
     pub versions: Vec<ThunderstoreVersion>,
 }
 
@@ -62,6 +64,8 @@ struct ThunderstoreVersion {
     pub downloads: i64,
     #[serde(default)]
     pub dependencies: Vec<String>,
+    #[serde(default)]
+    pub website_url: String,
 }
 
 #[derive(Debug, Clone)]
@@ -129,6 +133,11 @@ impl CatalogCache {
                     installed: state.installed,
                     modlinks_mod: state.modlinks_mod,
                 },
+                dependency_versions: Default::default(),
+                icon: None,
+                downloads: None,
+                updated_at: None,
+                homepage: None,
             });
         }
 
@@ -207,19 +216,23 @@ impl CatalogCache {
             let latest = &pkg.versions[0];
             let name = pkg.full_name.clone();
 
-            // Keep dependency identifiers as owner-mod pairs (full_name without version)
-            let dependencies: Vec<String> = latest
-                .dependencies
-                .iter()
-                .filter_map(|dep| {
-                    let parts: Vec<&str> = dep.split('-').collect();
-                    if parts.len() >= 2 {
-                        Some(format!("{}-{}", parts[0], parts[1]))
-                    } else {
-                        Some(dep.clone())
+            // Keep dependency identifiers as owner-mod pairs (full_name without version), and
+            // remember the minimum version each one asks for.
+            let mut dependencies: Vec<String> = Vec::with_capacity(latest.dependencies.len());
+            let mut dependency_versions = std::collections::BTreeMap::new();
+            for dep in &latest.dependencies {
+                let parts: Vec<&str> = dep.split('-').collect();
+                if parts.len() >= 2 {
+                    let key = format!("{}-{}", parts[0], parts[1]);
+                    if parts.len() >= 3 && !parts[2].is_empty() {
+                        dependency_versions.insert(key.clone(), parts[2..].join("-"));
                     }
-                })
-                .collect();
+                    dependencies.push(key);
+                } else {
+                    dependencies.push(dep.clone());
+                }
+            }
+            let downloads: u64 = pkg.versions.iter().map(|v| v.downloads.max(0) as u64).sum();
 
             let state = installed.state_for_manifest(&name, &latest.version_number);
 
@@ -243,6 +256,13 @@ impl CatalogCache {
                 integrations: vec![],
                 authors: vec![pkg.owner.clone()],
                 state,
+                dependency_versions,
+                icon: Some(latest.icon.clone()).filter(|icon| !icon.trim().is_empty()),
+                downloads: Some(downloads),
+                updated_at: Some(pkg.date_updated.clone()).filter(|date| !date.trim().is_empty()),
+                homepage: Some(latest.website_url.trim().to_string()).filter(|url| {
+                    url.starts_with("https://") || url.starts_with("http://")
+                }),
             });
         }
 
@@ -303,7 +323,7 @@ async fn fetch_modlinks_xml(
         GameKey::Silksong => SS_MODLINKS.iter().map(|url| url.to_string()).collect(),
     };
 
-    fetch_first_ok(client, &urls).await
+    fetch_first_ok(client, &with_mirror(settings, urls)).await
 }
 
 async fn fetch_apilinks_xml(client: &reqwest::Client, settings: &AppSettings) -> AppResult<String> {
@@ -316,7 +336,21 @@ async fn fetch_apilinks_xml(client: &reqwest::Client, settings: &AppSettings) ->
         GameKey::Silksong => SS_APILINKS.iter().map(|url| url.to_string()).collect(),
     };
 
-    fetch_first_ok(client, &urls).await
+    fetch_first_ok(client, &with_mirror(settings, urls)).await
+}
+
+/// When the GitHub mirror is enabled, try the mirrored copy of each URL first and keep the
+/// originals as fallbacks.
+fn with_mirror(settings: &AppSettings, urls: Vec<String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::with_capacity(urls.len() * 2);
+    for url in &urls {
+        let mirrored = settings.mirrored_url(url);
+        if mirrored != *url && !out.contains(&mirrored) {
+            out.push(mirrored);
+        }
+    }
+    out.extend(urls);
+    out
 }
 
 fn parse_env_urls(var_name: &str) -> Option<Vec<String>> {
@@ -468,6 +502,11 @@ fn parse_mod_items(xml: &str, installed: &InstalledModsStore) -> AppResult<Vec<M
             tags,
             integrations,
             authors,
+            dependency_versions: Default::default(),
+            icon: None,
+            downloads: None,
+            updated_at: None,
+            homepage: None,
         });
     }
 

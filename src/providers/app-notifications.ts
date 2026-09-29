@@ -13,6 +13,16 @@ export class AppNotificationManager extends AbstractWebNotificationManager {
 		super()
 		this.state = ref<WebNotification[]>([])
 		this.locationState = ref<NotificationPanelLocation>('right')
+
+		// Routine confirmations ("Added X") shouldn't linger for the default 30s; warnings and
+		// errors keep the longer default so there's time to read them.
+		const setTimer = this.setNotificationTimer
+		this.setNotificationTimer = (notification: WebNotification) => {
+			if (notification && notification.type === 'success' && notification.autoCloseMs === undefined) {
+				notification.autoCloseMs = 6000
+			}
+			setTimer(notification)
+		}
 	}
 
 	public getNotificationLocation(): NotificationPanelLocation {

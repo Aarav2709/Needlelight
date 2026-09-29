@@ -150,13 +150,14 @@ defineExpose({ open: openMenu, close: closeMenu })
 </script>
 
 <template>
+	<!-- NOTE (Needlelight): aria-label used to be bound as undefined for icon-only triggers,
+	     which overrode IconButton's own aria-label and left the button without a name. -->
 	<component
 		:is="triggerComponent"
 		ref="triggerButton"
-		v-bind="$attrs"
+		v-bind="{ ...$attrs, ...(props.iconOnly ? {} : { 'aria-label': props.label }) }"
 		v-tooltip="props.tooltip"
 		:label="props.iconOnly ? props.label : undefined"
-		:aria-label="props.iconOnly ? undefined : props.label"
 		:circular="props.iconOnly ? props.circular : undefined"
 		:type="props.type"
 		:color="props.color"

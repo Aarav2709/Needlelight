@@ -2,8 +2,10 @@ use crate::{
     backend::{
         errors::AppResult,
         installer,
+        installed_mods::InstalledModsStore,
         mod_database::CatalogCache,
-        pack_manager,
+        modpacks::{self, LaunchExtras},
+        profiles,
         settings::{AppSettings, GameKey},
         url_scheme,
     },
@@ -17,9 +19,37 @@ fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
     result.map_err(|e| format_user_error(&e.to_string()))
 }
 
+/// Replace low-level error prefixes with something a player can act on. The original text
+/// still goes to the install log where it's useful.
+fn friendly_error(message: &str) -> Option<String> {
+    if message.starts_with("Network error") {
+        installer::write_install_log(message);
+        return Some(
+            "Couldn't reach the download server. Check your internet connection and try again."
+                .to_string(),
+        );
+    }
+    if message.starts_with("Zip error") {
+        installer::write_install_log(message);
+        return Some("A download was damaged. Try again.".to_string());
+    }
+    if message.starts_with("Failed to parse") {
+        installer::write_install_log(message);
+        return Some("The mod catalog sent something unexpected. Try again later.".to_string());
+    }
+    if let Some(detail) = message.strip_prefix("I/O error: ") {
+        installer::write_install_log(message);
+        return Some(format!("Couldn't update files on disk ({}).", detail.trim_end_matches('.')));
+    }
+    None
+}
+
 // most AppError messages are lowercase fragments meant for logs, not people;
 // capitalize the first letter and make sure it ends with punctuation
 fn format_user_error(message: &str) -> String {
+    if let Some(friendly) = friendly_error(message.trim()) {
+        return friendly;
+    }
     let trimmed = message.trim();
     if trimmed.is_empty() {
         return "Something went wrong.".to_string();
@@ -48,18 +78,28 @@ async fn ensure_no_running_games(state: &State<'_, AppState>) -> Result<(), Stri
     if running.is_empty() {
         return Ok(());
     }
-    let active = running.keys().cloned().collect::<Vec<_>>().join(", ");
-    Err(format!(
-        "Cannot modify installed files while a game is running ({active}). Close the game and try again."
-    ))
+    let active = running
+        .keys()
+        .map(|key| GameKey::from_str(key).map(|g| g.display_name()).unwrap_or("The game"))
+        .collect::<Vec<_>>()
+        .join(" and ");
+    Err(format!("Close {active} before changing mods."))
 }
 
 #[tauri::command]
 pub async fn load_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
     let mut settings = sync_managed_folder(state.settings.read().await.clone());
 
-    // auto-detect the managed folder on cold load if nothing is configured
-    if settings.managed_folder.trim().is_empty() {
+    // auto-detect the managed folder on cold load if nothing is configured. The detection can
+    // walk whole drives, so it runs at most once per game per session; after that the folder
+    // is chosen (or detected on request) from Settings.
+    let first_attempt = settings.managed_folder.trim().is_empty()
+        && state
+            .auto_detected
+            .write()
+            .await
+            .insert(settings.game.as_str().to_string());
+    if first_attempt {
         if let Some(path) = map_err(AppSettings::auto_detect(&settings.game).await)? {
             settings.managed_folder = AppSettings::normalize_managed_folder(&path, &settings.game);
             let game = settings.game.clone();
@@ -234,62 +274,21 @@ pub async fn parse_download_command(
 }
 
 #[tauri::command]
-pub async fn list_packs(state: State<'_, AppState>) -> Result<Vec<String>, String> {
-    let settings = state.settings.read().await.clone();
-    map_err(pack_manager::list_packs(&settings).await)
-}
-
-#[tauri::command]
-pub async fn save_pack(
-    state: State<'_, AppState>,
-    name: String,
-    description: String,
-    authors: String,
-) -> Result<(), String> {
-    let settings = state.settings.read().await.clone();
-    let installed = state.installed.read().await.clone();
-    map_err(pack_manager::save_pack(&settings, &installed, &name, &description, &authors).await)
-}
-
-#[tauri::command]
-pub async fn load_pack(
-    state: State<'_, AppState>,
-    name: String,
-    additive: bool,
-) -> Result<bool, String> {
-    let settings = state.settings.read().await.clone();
-    let mut installed = state.installed.write().await;
-    map_err(pack_manager::load_pack(&settings, &mut installed, &name, additive).await)
-}
-
-#[tauri::command]
-pub async fn import_pack(
-    state: State<'_, AppState>,
-    code: String,
-) -> Result<Option<String>, String> {
-    let settings = state.settings.read().await.clone();
-    let mut installed = state.installed.write().await;
-    map_err(pack_manager::import_pack(&settings, &mut installed, &code).await)
-}
-
-#[tauri::command]
 pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<String, String> {
     let settings = sync_managed_folder(state.settings.read().await.clone());
-    if settings.managed_folder.trim().is_empty() {
-        installer::write_install_log("Game launch failed: no managed folder is configured.");
-        return Err("Game folder not configured. Go to Settings > Game to set it up.".to_string());
-    }
+    launch_with_settings(&state, settings, modded, LaunchExtras::default()).await
+}
 
+/// The game's executable inside its install folder, if the game is there.
+fn find_game_exe(settings: &AppSettings) -> Option<std::path::PathBuf> {
+    if settings.managed_folder.trim().is_empty() {
+        return None;
+    }
     let game_root = settings.game_root_path();
     if !game_root.is_dir() {
-        installer::write_install_log(format!(
-            "Game launch failed: game root is not a directory: {}",
-            game_root.display()
-        ));
-        return Err(format!("Game folder is invalid: {}", game_root.display()));
+        return None;
     }
-
-    let exe_candidates: Vec<std::path::PathBuf> = match settings.game {
+    let candidates: Vec<std::path::PathBuf> = match settings.game {
         GameKey::HollowKnight => vec![
             game_root.join("hollow_knight.x86_64"),
             game_root.join("hollow_knight"),
@@ -308,16 +307,34 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
             game_root.join("Hollow Knight Silksong.app/Contents/MacOS/Hollow Knight Silksong"),
         ],
     };
+    candidates.into_iter().find(|path| path.is_file())
+}
 
-    let exe = exe_candidates
-        .iter()
-        .find(|p| p.is_file())
-        .ok_or_else(|| {
-            let message = format!("Could not find game executable in {}", game_root.display());
-            installer::write_install_log(format!("Game launch failed: {message}"));
-            message
-        })?
-        .clone();
+/// Launch the game described by `settings`. Shared by the regular launch and modpack
+/// launches, which pass extra Doorstop arguments / environment through `extras`.
+async fn launch_with_settings(
+    state: &State<'_, AppState>,
+    settings: AppSettings,
+    modded: bool,
+    extras: LaunchExtras,
+) -> Result<String, String> {
+    let not_found = format!(
+        "{} wasn't found on this computer. Open Settings → Games to locate it.",
+        settings.game.display_name()
+    );
+    if settings.managed_folder.trim().is_empty() {
+        installer::write_install_log("Game launch failed: no managed folder is configured.");
+        return Err(not_found);
+    }
+
+    let game_root = settings.game_root_path();
+    let exe = find_game_exe(&settings).ok_or_else(|| {
+        installer::write_install_log(format!(
+            "Game launch failed: no game executable in {}",
+            game_root.display()
+        ));
+        not_found.clone()
+    })?;
 
     let game_key = settings.game.as_str().to_string();
     {
@@ -378,6 +395,8 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
         // Steamworks workaround for launchers that spawn the exe themselves
         .env("SteamAppId", settings.game.steam_app_id())
         .env("SteamGameId", settings.game.steam_app_id())
+        .args(&extras.args)
+        .envs(extras.envs.iter().map(|(key, value)| (key.as_str(), value.as_str())))
         .spawn()
     {
         Ok(child) => child,
@@ -445,4 +464,368 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
         "Launched {} ({mode}, process {pid}).",
         exe.file_name().unwrap_or_default().to_string_lossy()
     ))
+}
+
+// ─── Modpacks ───────────────────────────────────────────────────────────────
+//
+// A modpack is a profile folder (see backend::profiles). Mods are installed into it with the
+// regular installer via modpacks::profile_settings; launching follows each game's reference
+// launcher (see backend::modpacks for the details).
+
+fn modpack_dir(path: &str) -> Result<std::path::PathBuf, String> {
+    let dir = std::path::PathBuf::from(path);
+    if !dir.is_dir() {
+        return Err("This modpack no longer exists.".to_string());
+    }
+    Ok(dir)
+}
+
+/// Settings rooted at the modpack, the modpack's own installed-mods store, and its game.
+async fn modpack_context(
+    state: &State<'_, AppState>,
+    path: &str,
+) -> Result<(std::path::PathBuf, AppSettings, InstalledModsStore, GameKey), String> {
+    let dir = modpack_dir(path)?;
+    let meta = map_err(profiles::load_profile_meta(&dir))?;
+    let base = state.settings.read().await.clone();
+    let settings = modpacks::profile_settings(&base, &dir, &meta.game);
+    let installed = map_err(InstalledModsStore::load(&settings).await)?;
+    Ok((dir, settings, installed, meta.game))
+}
+
+/// Reload the global installed-mods store when `game` is the active game, so the rest of the
+/// app sees changes made to that game's real mods folder.
+async fn reload_active_store(state: &State<'_, AppState>, game: &GameKey) -> Result<(), String> {
+    let base = sync_managed_folder(state.settings.read().await.clone());
+    if &base.game == game {
+        let store = map_err(InstalledModsStore::load(&base).await)?;
+        *state.installed.write().await = store;
+    }
+    Ok(())
+}
+
+/// Silksong modpacks carry their own BepInEx; reinstall it if it went missing.
+async fn ensure_modpack_bepinex(
+    settings: &AppSettings,
+    dir: &std::path::Path,
+    game: &GameKey,
+) -> Result<(), String> {
+    if game.is_silksong() && modpacks::silksong_preloader(dir).is_none() {
+        crate::profile_create_plugin::install_bepinex_pack(settings, dir).await?;
+    }
+    Ok(())
+}
+
+/// The mod catalog for one game, independent of any modpack (every item is reported as not
+/// installed). The UI combines it with each modpack's installed state from
+/// [`modpack_installed`], so switching modpacks or toggling mods never refetches the catalog.
+#[tauri::command]
+pub async fn game_catalog(
+    state: State<'_, AppState>,
+    game: GameKey,
+) -> Result<crate::backend::models::CatalogResponse, String> {
+    let base = state.settings.read().await.clone();
+    let settings = modpacks::game_settings(&base, &game);
+    let fetch_official = !settings.use_custom_modlinks;
+    let cache = map_err(
+        CatalogCache::build(&settings, &InstalledModsStore::default(), fetch_official).await,
+    )?;
+    // Catalog sources log fetch failures and hand back an empty list; surface that as an
+    // error so the UI can offer a retry instead of claiming there are no mods.
+    if cache.response.items.is_empty() {
+        return Err(format!(
+            "Couldn't load the {} mod catalog. Check your internet connection and try again.",
+            game.display_name()
+        ));
+    }
+    Ok(cache.response)
+}
+
+/// A modpack's installed mods (reconciled with what is actually on disk).
+#[tauri::command]
+pub async fn modpack_installed(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<crate::backend::models::PersistedInstalled, String> {
+    let (_, _, installed, _) = modpack_context(&state, &path).await?;
+    Ok(installed.db)
+}
+
+/// The mod catalog for a modpack's game, with install state computed from that modpack.
+#[tauri::command]
+pub async fn modpack_catalog(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<crate::backend::models::CatalogResponse, String> {
+    let (_, settings, installed, _) = modpack_context(&state, &path).await?;
+    let fetch_official = !settings.use_custom_modlinks;
+    let cache = map_err(CatalogCache::build(&settings, &installed, fetch_official).await)?;
+    Ok(cache.response)
+}
+
+/// Install (or update to the latest version) a mod and its dependencies into a modpack.
+#[tauri::command]
+pub async fn modpack_install_mod(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+    name: String,
+) -> Result<(), String> {
+    modpack_install_mods(app, state, path, vec![name]).await
+}
+
+/// Install or update several mods (and their dependencies) into a modpack with a single
+/// catalog fetch. Used by "Update all" and "Install missing dependencies".
+#[tauri::command]
+pub async fn modpack_install_mods(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+    names: Vec<String>,
+) -> Result<(), String> {
+    let _guard = state.modpack_lock.lock().await;
+    let (dir, settings, mut installed, game) = modpack_context(&state, &path).await?;
+    ensure_modpack_bepinex(&settings, &dir, &game).await?;
+    let fetch_official = !settings.use_custom_modlinks;
+    let catalog = map_err(CatalogCache::build(&settings, &installed, fetch_official).await)?;
+    let mut visited = std::collections::HashSet::new();
+    for name in &names {
+        let result = installer::install_mod_with_deps(
+            &app,
+            &settings,
+            &mut installed,
+            &catalog.response,
+            name,
+            &mut visited,
+        )
+        .await;
+        if let Err(error) = &result {
+            installer::write_install_log(format!("Modpack install failed for {name}: {error}"));
+            return map_err(result);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn modpack_uninstall_mod(
+    state: State<'_, AppState>,
+    path: String,
+    name: String,
+) -> Result<(), String> {
+    let _guard = state.modpack_lock.lock().await;
+    let (_, settings, mut installed, _) = modpack_context(&state, &path).await?;
+    map_err(installer::uninstall_mod(&settings, &mut installed, &name).await)
+}
+
+#[tauri::command]
+pub async fn modpack_toggle_mod(
+    state: State<'_, AppState>,
+    path: String,
+    name: String,
+    enable: bool,
+) -> Result<(), String> {
+    let _guard = state.modpack_lock.lock().await;
+    let (_, settings, mut installed, _) = modpack_context(&state, &path).await?;
+    map_err(installer::toggle_mod(&settings, &mut installed, &name, enable).await)
+}
+
+/// Launch a modpack. Silksong runs it in place through Doorstop; Hollow Knight mirrors its
+/// enabled mods into the game's Mods folder first.
+#[tauri::command]
+pub async fn modpack_launch(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<String, String> {
+    ensure_no_running_games(&state).await?;
+    let _guard = state.modpack_lock.lock().await;
+    let (dir, profile, _, game) = modpack_context(&state, &path).await?;
+    let base = state.settings.read().await.clone();
+    let real = modpacks::game_settings(&base, &game);
+    if real.managed_folder.trim().is_empty() {
+        return Err(format!(
+            "{} wasn't found on this computer. Open Settings → Games to locate it.",
+            game.display_name()
+        ));
+    }
+
+    let extras = if game.is_silksong() {
+        ensure_modpack_bepinex(&profile, &dir, &game).await?;
+        map_err(modpacks::silksong_launch_extras(&real, &dir))?
+    } else {
+        let mut store = map_err(InstalledModsStore::load(&real).await)?;
+        if !installer::is_api_installed(&real, &store) {
+            let catalog =
+                map_err(CatalogCache::build(&real, &store, !real.use_custom_modlinks).await)?;
+            map_err(installer::install_api(&app, &real, &mut store, &catalog.response).await)?;
+        }
+        map_err(modpacks::apply_hk_modpack(&real, &dir))?;
+        reload_active_store(&state, &game).await?;
+        LaunchExtras::default()
+    };
+
+    let mut meta = map_err(profiles::load_profile_meta(&dir))?;
+    meta.last_played = Some(chrono::Utc::now());
+    map_err(profiles::save_profile_meta(&dir, &meta))?;
+
+    launch_with_settings(&state, real, true, extras).await
+}
+
+/// Hollow Knight: put back the mods the game had before the first modpack was applied.
+#[tauri::command]
+pub async fn modpack_restore_original_mods(state: State<'_, AppState>) -> Result<bool, String> {
+    ensure_no_running_games(&state).await?;
+    let base = state.settings.read().await.clone();
+    let real = modpacks::game_settings(&base, &GameKey::HollowKnight);
+    let restored = map_err(modpacks::restore_hk_original(&real))?;
+    reload_active_store(&state, &GameKey::HollowKnight).await?;
+    Ok(restored)
+}
+
+/// Hollow Knight: the modpack currently applied to the game folder, if any.
+#[tauri::command]
+pub async fn modpack_active_hk() -> Result<Option<String>, String> {
+    Ok(modpacks::active_hk_modpack())
+}
+
+#[derive(serde::Serialize)]
+pub struct AppPaths {
+    pub config_dir: String,
+    pub install_log: String,
+    pub profiles_dir: String,
+}
+
+/// Where Needlelight keeps its data, for the "show in folder" actions in Settings.
+#[tauri::command]
+pub async fn app_paths() -> Result<AppPaths, String> {
+    let config = map_err(AppSettings::config_dir())?;
+    Ok(AppPaths {
+        config_dir: config.to_string_lossy().to_string(),
+        install_log: config
+            .join("Needlelight-install.log")
+            .to_string_lossy()
+            .to_string(),
+        profiles_dir: config.join("profiles").to_string_lossy().to_string(),
+    })
+}
+
+#[derive(serde::Serialize)]
+pub struct GameAvailability {
+    pub game: GameKey,
+    /// The game was found at its saved location.
+    pub found: bool,
+}
+
+/// Whether each supported game is installed where Needlelight expects it.
+#[tauri::command]
+pub async fn game_availability(
+    state: State<'_, AppState>,
+) -> Result<Vec<GameAvailability>, String> {
+    let base = state.settings.read().await.clone();
+    Ok([GameKey::HollowKnight, GameKey::Silksong]
+        .into_iter()
+        .map(|game| {
+            let settings = modpacks::game_settings(&base, &game);
+            let found = find_game_exe(&settings).is_some();
+            GameAvailability { game, found }
+        })
+        .collect())
+}
+
+/// Check that `folder` really contains `game` (used when the player locates a game by hand).
+#[tauri::command]
+pub async fn game_folder_valid(
+    state: State<'_, AppState>,
+    game: GameKey,
+    folder: String,
+) -> Result<bool, String> {
+    let mut settings = modpacks::game_settings(&state.settings.read().await.clone(), &game);
+    settings.managed_folder = AppSettings::normalize_managed_folder(&folder, &game);
+    Ok(find_game_exe(&settings).is_some())
+}
+
+#[derive(serde::Serialize)]
+pub struct ModReadme {
+    pub markdown: String,
+    /// Base for resolving relative image paths in the markdown.
+    pub image_base: Option<String>,
+    /// Base for resolving relative links in the markdown.
+    pub link_base: Option<String>,
+}
+
+/// The long description (README) of a mod, from its Thunderstore package page or GitHub
+/// repository. `None` when the project doesn't publish one somewhere Needlelight can read.
+#[tauri::command]
+pub async fn mod_readme(url: String, version: String) -> Result<Option<ModReadme>, String> {
+    let client = map_err(installer::http_client())?;
+    let timeout = std::time::Duration::from_secs(20);
+
+    if let Some(rest) = url.strip_prefix("https://thunderstore.io/c/") {
+        // https://thunderstore.io/c/<community>/p/<owner>/<name>/
+        let parts: Vec<&str> = rest.split('/').filter(|s| !s.is_empty()).collect();
+        if parts.len() < 4 || parts[1] != "p" || version.trim().is_empty() {
+            return Ok(None);
+        }
+        let api = format!(
+            "https://thunderstore.io/api/experimental/package/{}/{}/{}/readme/",
+            parts[2],
+            parts[3],
+            version.trim()
+        );
+        #[derive(serde::Deserialize)]
+        struct Readme {
+            markdown: String,
+        }
+        let response = client.get(&api).timeout(timeout).send().await;
+        let Ok(response) = response else { return Ok(None) };
+        if !response.status().is_success() {
+            return Ok(None);
+        }
+        return Ok(response
+            .json::<Readme>()
+            .await
+            .ok()
+            .filter(|r| !r.markdown.trim().is_empty())
+            .map(|r| ModReadme {
+                markdown: r.markdown,
+                image_base: None,
+                link_base: None,
+            }));
+    }
+
+    if let Some(rest) = url
+        .strip_prefix("https://github.com/")
+        .or_else(|| url.strip_prefix("http://github.com/"))
+    {
+        let parts: Vec<&str> = rest.split('/').filter(|s| !s.is_empty()).collect();
+        if parts.len() < 2 {
+            return Ok(None);
+        }
+        let owner = parts[0];
+        let repo = parts[1].trim_end_matches(".git");
+        let raw_base = format!("https://raw.githubusercontent.com/{owner}/{repo}/HEAD/");
+        for file in ["README.md", "readme.md", "Readme.md", "README.MD", "README"] {
+            let response = client
+                .get(format!("{raw_base}{file}"))
+                .timeout(timeout)
+                .send()
+                .await;
+            let Ok(response) = response else { return Ok(None) };
+            if !response.status().is_success() {
+                continue;
+            }
+            let Ok(markdown) = response.text().await else { return Ok(None) };
+            if markdown.trim().is_empty() {
+                return Ok(None);
+            }
+            return Ok(Some(ModReadme {
+                markdown,
+                image_base: Some(raw_base.clone()),
+                link_base: Some(format!("https://github.com/{owner}/{repo}/blob/HEAD/")),
+            }));
+        }
+    }
+
+    Ok(None)
 }
