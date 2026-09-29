@@ -17,10 +17,13 @@ pub struct Hooks {
 pub struct GameInstance {
     pub path: String,
     pub install_stage: String,
+    pub game: GameKey,
 
     pub name: String,
     #[serde(default)]
     pub icon_path: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
 
     pub game_version: String,
     pub loader: String,
@@ -66,6 +69,8 @@ pub struct ProfileMeta {
     pub name: String,
     pub game: GameKey,
     #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
     pub groups: Vec<String>,
     pub created: DateTime<Utc>,
     pub modified: DateTime<Utc>,
@@ -107,6 +112,7 @@ pub fn load_profile_meta(profile_dir: &Path) -> AppResult<ProfileMeta> {
                 .unwrap_or("Profile")
                 .to_string(),
             game: GameKey::HollowKnight,
+            description: None,
             groups: vec![],
             created: now,
             modified: now,
@@ -136,8 +142,10 @@ pub fn profile_to_instance(profile_dir: &Path, meta: &ProfileMeta) -> GameInstan
     GameInstance {
         path: profile_dir.to_string_lossy().to_string(),
         install_stage: "installed".to_string(),
+        game: meta.game.clone(),
         name: meta.name.clone(),
         icon_path,
+        description: meta.description.clone(),
         game_version: "".to_string(),
         loader: "vanilla".to_string(),
         loader_version: None,

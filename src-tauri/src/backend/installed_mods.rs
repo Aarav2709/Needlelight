@@ -14,7 +14,12 @@ impl InstalledModsStore {
     pub async fn load(settings: &AppSettings) -> AppResult<Self> {
         let game_path = settings.installed_mods_path()?;
         let legacy_path = AppSettings::config_dir()?.join("InstalledMods.json");
-        let path = if game_path.exists() { game_path } else { legacy_path };
+        // A modpack's own database must never fall back to the global legacy file.
+        let path = if game_path.exists() || settings.installed_db_override.is_some() {
+            game_path
+        } else {
+            legacy_path
+        };
 
         let mut parsed = if path.exists() {
             let content = tokio::fs::read_to_string(path).await?;

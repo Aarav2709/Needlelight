@@ -1,143 +1,90 @@
-import type { ModrinthId } from '@modrinth/utils'
+// Types mirroring the Tauri backend (src-tauri/src/backend). Keep these in sync with the Rust
+// structs they name; serde serializes Option<T> as `T | null`.
 
-type GameInstance = {
-	path: string
-	install_stage: InstallStage
+import type { GameKey } from '@/helpers/games'
 
+// Mirrors backend/models.rs::ModState (serde tag = "kind", rename_all = "snake_case").
+export type ModState =
+	| { kind: 'installed'; enabled: boolean; pinned: boolean; version: string; updated: boolean }
+	| { kind: 'not_installed'; installing?: boolean }
+	| {
+			kind: 'not_in_modlinks'
+			enabled: boolean
+			pinned: boolean
+			installed: boolean
+			modlinks_mod: boolean
+	  }
+
+// Mirrors backend/models.rs::ModItem.
+export type ModItem = {
 	name: string
-	icon_path?: string
-
-	game_version: string
-	loader: InstanceLoader
-	loader_version?: string
-
-	groups: string[]
-
-	linked_data?: LinkedData
-
-	created: Date
-	modified: Date
-	last_played?: Date
-
-	submitted_time_played: number
-	recent_time_played: number
-
-	java_path?: string
-	extra_launch_args?: string[]
-	custom_env_vars?: [string, string][]
-
-	memory?: MemorySettings
-	force_fullscreen?: boolean
-	game_resolution?: [number, number]
-	hooks: Hooks
+	description: string
+	version: string
+	/** Required dependencies, by mod name. */
+	dependencies: string[]
+	link: string
+	sha256: string
+	repository: string
+	issues: string
+	tags: string[]
+	/** Mods this one has optional integration with (Hollow Knight ModLinks only). */
+	integrations: string[]
+	authors: string[]
+	state: ModState
+	/** Minimum version per dependency, when the catalog publishes it (Thunderstore). */
+	dependency_versions?: Record<string, string>
+	icon?: string | null
+	downloads?: number | null
+	updated_at?: string | null
+	/** The project's own website, when listed separately from `repository`. */
+	homepage?: string | null
 }
 
-type InstallStage =
-	| 'installed'
-	| 'minecraft_installing'
-	| 'pack_installed'
-	| 'pack_installing'
-	| 'not_installed'
-
-type LinkedData = {
-	project_id: ModrinthId
-	version_id: ModrinthId
-
-	locked: boolean
-}
-
-type InstanceLoader = 'vanilla' | 'forge' | 'fabric' | 'quilt' | 'neoforge'
-
-type ContentFile = {
-	hash: string
-	file_name: string
-	size: number
-	metadata?: FileMetadata
-	update_version_id?: string
-	project_type: ContentFileProjectType
-}
-
-type FileMetadata = {
-	project_id: string
-	version_id: string
-}
-
-type ContentFileProjectType = 'mod' | 'datapack' | 'resourcepack' | 'shaderpack'
-
-type CacheBehaviour =
-	// Serve expired data. If fetch fails / launcher is offline, errors are ignored
-	| 'stale_while_revalidate_skip_offline'
-	// Serve expired data, revalidate in background
-	| 'stale_while_revalidate'
-	// Must revalidate if data is expired
-	| 'must_revalidate'
-	// Ignore cache- always fetch updated data from origin
-	| 'bypass'
-
-type MemorySettings = {
-	maximum: number
-}
-
-type WindowSize = {
-	width: number
-	height: number
-}
-
-type Hooks = {
-	// Rust side is Option<String>, which serde serializes as `string | null`.
-	pre_launch?: string | null
-	wrapper?: string | null
-	post_exit?: string | null
-}
-
-type Manifest = {
-	gameVersions: ManifestGameVersion[]
-}
-
-type ManifestGameVersion = {
-	id: string
-	stable: boolean
-	loaders: ManifestLoaderVersion[]
-}
-
-type ManifestLoaderVersion = {
-	id: string
+export type ApiInfo = {
 	url: string
-	stable: boolean
+	version: string
+	sha256: string
 }
 
-type AppSettings = {
-	max_concurrent_downloads: number
-	max_concurrent_writes: number
-
-	theme: 'dark' | 'light' | 'oled'
-	default_page: 'Home' | 'Library'
-	collapsed_navigation: boolean
-	advanced_rendering: boolean
-	native_decorations: boolean
-	worlds_in_home: boolean
-
-	telemetry: boolean
-	discord_rpc: boolean
-	developer_mode: boolean
-	personalized_ads: boolean
-
-	onboarded: boolean
-
-	extra_launch_args: string[]
-	custom_env_vars: [string, string][]
-	memory: MemorySettings
-	force_fullscreen: boolean
-	game_resolution: [number, number]
-	hide_on_process_start: boolean
-	hooks: Hooks
-
-	custom_dir?: string
-	prev_custom_dir?: string
-	migrated: boolean
+export type CatalogResponse = {
+	items: ModItem[]
+	api: ApiInfo
+	api_installed: boolean
+	api_enabled: boolean
 }
 
-export type InstanceSettingsTabProps = {
-	instance: GameInstance
-	offline?: boolean
+// Mirrors backend/models.rs::PersistedInstalled: one modpack's installed-mods database.
+export type InstalledDb = {
+	mods: Record<string, { enabled: boolean; version: string; pinned: boolean }>
+	not_in_modlinks_mods: Record<
+		string,
+		{ enabled: boolean; pinned: boolean; installed: boolean; modlinks_mod: boolean }
+	>
+}
+
+// Mirrors backend/settings.rs::AppSettings (the fields the UI reads or writes).
+export type BackendSettings = {
+	managed_folder: string
+	game: GameKey
+	managed_folders: Partial<Record<GameKey, string>>
+	use_custom_modlinks: boolean
+	custom_modlinks_uri: string
+	custom_modlinks_by_game: Partial<Record<GameKey, { enabled: boolean; uri: string }>>
+	use_github_mirror: boolean
+	github_mirror_format: string
+	low_storage_mode: boolean
+}
+
+export type GameAvailability = {
+	game: GameKey
+	/** The game was found where Needlelight expects it. */
+	found: boolean
+}
+
+export type ModReadme = {
+	markdown: string
+	/** Base for resolving relative image paths. */
+	image_base: string | null
+	/** Base for resolving relative links. */
+	link_base: string | null
 }

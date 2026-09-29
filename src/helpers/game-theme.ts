@@ -12,4 +12,11 @@ export function applyGameTheme(game: string) {
   } else {
     html.classList.add('game-hollow-knight')
   }
+
+  // Remembered so the next launch's loading screen (index.html) already has the right color.
+  try {
+    localStorage.setItem('needlelight.game', game)
+  } catch {
+    /* storage unavailable: the loading screen just uses the default color */
+  }
 }

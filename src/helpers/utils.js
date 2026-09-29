@@ -1,7 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
 
-import { get_full_path, get_mod_full_path } from '@/helpers/profile'
-
 export async function isDev() {
   return false
 }
@@ -80,17 +78,6 @@ export async function showLauncherLogsFolder() {
   } catch {
     return null
   }
-}
-
-// Opens a profile's folder in the OS file explorer
-export async function showProfileInFolder(path) {
-  const fullPath = await get_full_path(path)
-  return await openPath(fullPath)
-}
-
-export async function highlightModInProfile(profilePath, projectPath) {
-  const fullPath = await get_mod_full_path(profilePath, projectPath)
-  return await highlightInFolder(fullPath)
 }
 
 export async function restartApp() {
