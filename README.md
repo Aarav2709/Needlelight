@@ -43,7 +43,7 @@ A modern desktop mod manager for Hollow Knight and Hollow Knight: Silksong, buil
 - Needlelight is not associated with Lumafly.
 - The current codebase is a fresh rewrite built around Tauri and Rust. It does not use the legacy Lumafly implementation as runtime code.
 - The project was inspired by the work that came before it.
-- ***Blog post regarding the controversy is out on my <a href="https://aarav2709.github.io/blog/needlelight">portfolio</a> now!***
+- ***Blog post regarding the controversy is out on my <a href="https://aarav2709.github.io/blog/needlelight">portfolio</a> now! Fianlly, the repo is mine, thank you Github Support!***
 
 ### Reference and Investigation Sources
 
