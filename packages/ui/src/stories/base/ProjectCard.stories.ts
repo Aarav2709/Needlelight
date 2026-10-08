@@ -63,7 +63,7 @@ export const AllTypes: Story = {
 					:followers="25000"
 					date-updated="2023-06-01T00:00:00Z"
 					:tags="['utility']"
-					:environment="{ clientSide: 'unsupported', serverSide: 'required' }"
+					environment="server_only"
 				/>
 				<ProjectCard
 					link="/modpack/example-modpack"
@@ -124,6 +124,31 @@ export const WithStatus: Story = {
 			</div>
 		`,
 	}),
+}
+
+export const ServerProject: Story = {
+	args: {
+		link: '/server/example-server',
+		layout: 'grid',
+		title: 'Example Server',
+		author: { name: 'ServerAdmin', link: '/user/ServerAdmin' },
+		summary: 'A live multiplayer server with required content and regional metadata.',
+		iconUrl: 'https://cdn.modrinth.com/data/AANobbMI/icon.png',
+		isServerProject: true,
+		serverOnlinePlayers: 128,
+		serverStatusOnline: true,
+		serverRecentPlays: 8420,
+		serverPing: 42,
+		serverRegion: 'us',
+		serverModpackContent: {
+			name: 'Example Modpack',
+			icon: 'https://cdn.modrinth.com/data/AANobbMI/icon.png',
+			showCustomModpackTooltip: true,
+		},
+		tags: ['adventure', 'multiplayer', 'quests'],
+		allTags: ['adventure', 'multiplayer', 'quests', 'economy', 'roleplay', 'survival'],
+		dateUpdated: '2024-01-15T00:00:00Z',
+	},
 }
 
 export const DisplayModes: StoryObj = {

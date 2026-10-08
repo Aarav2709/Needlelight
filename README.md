@@ -4,27 +4,7 @@
 A modern desktop mod manager for Hollow Knight and Hollow Knight: Silksong, built with Tauri and Rust.
 </p>
 
-<div align="center">
-<table>
-<tr>
-<td align="center">
-  <img src="screenshots/main.png" alt="Needlelight Main Interface" width="300"/>
-  <br />
-  <b>Main Interface</b>
-</td>
-<td align="center">
-  <img src="screenshots/api.png" alt="Needlelight API Interface" width="300"/>
-  <br />
-  <b>API</b>
-</td>
-<td align="center">
-  <img src="screenshots/settings.png" alt="Needlelight Settings" width="300"/>
-  <br />
-  <b>Settings</b>
-</td>
-</tr>
-</table>
-</div>
+<img src = "ss.png" align = "center">
 
 <div align="center">
 

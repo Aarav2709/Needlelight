@@ -40,5 +40,16 @@
       "icons/icon.ico"
     ],
     "targets": "all"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/Aarav2709/Needlelight/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

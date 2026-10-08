@@ -1,49 +1,34 @@
 <template>
-	<div data-tauri-drag-region class="flex items-center gap-1 pl-3">
-		<Button v-if="false" class="breadcrumbs__back transparent" icon-only @click="$router.back()">
-			<ChevronLeftIcon />
-		</Button>
-		<Button
-			v-if="false"
-			class="breadcrumbs__forward transparent"
-			icon-only
-			@click="$router.forward()"
-		>
-			<ChevronRightIcon />
-		</Button>
+	<nav data-tauri-drag-region class="flex min-w-0 items-center gap-1 pl-3" aria-label="Breadcrumb">
 		{{ breadcrumbData.resetToNames(breadcrumbs) }}
-		<template v-for="breadcrumb in breadcrumbs" :key="breadcrumb.name">
+		<template v-for="(breadcrumb, index) in breadcrumbs" :key="breadcrumb.name">
 			<router-link
 				v-if="breadcrumb.link"
-				:to="{
-					path: breadcrumb.link.replace('{id}', encodeURIComponent($route.params.id)),
-					query: breadcrumb.query,
-				}"
-				class="text-primary"
-				>{{
-					breadcrumb.name.charAt(0) === '?'
-						? breadcrumbData.getName(breadcrumb.name.slice(1))
-						: breadcrumb.name
-				}}
-			</router-link>
+				:to="target(breadcrumb.link)"
+				class="crumb min-w-0 shrink truncate text-secondary hover:text-contrast"
+				:title="label(breadcrumb)"
+				>{{ label(breadcrumb) }}</router-link
+			>
 			<span
 				v-else
 				data-tauri-drag-region
-				class="text-contrast font-semibold cursor-default select-none"
-				>{{
-					breadcrumb.name.charAt(0) === '?'
-						? breadcrumbData.getName(breadcrumb.name.slice(1))
-						: breadcrumb.name
-				}}</span
+				class="crumb min-w-0 cursor-default select-none truncate font-semibold text-contrast"
+				:title="label(breadcrumb)"
+				:aria-current="index === breadcrumbs.length - 1 ? 'page' : undefined"
+				>{{ label(breadcrumb) }}</span
 			>
-			<ChevronRightIcon v-if="breadcrumb.link" data-tauri-drag-region class="w-5 h-5" />
+			<ChevronRightIcon
+				v-if="index < breadcrumbs.length - 1"
+				data-tauri-drag-region
+				class="h-4 w-4 shrink-0 text-secondary"
+				aria-hidden="true"
+			/>
 		</template>
-	</div>
+	</nav>
 </template>
 
 <script setup>
-import { ChevronLeftIcon, ChevronRightIcon } from '@modrinth/assets'
-import { Button } from '@modrinth/ui'
+import { ChevronRightIcon } from '@modrinth/assets'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -52,13 +37,25 @@ import { useBreadcrumbs } from '@/store/breadcrumbs'
 const route = useRoute()
 
 const breadcrumbData = useBreadcrumbs()
-const breadcrumbs = computed(() => {
-	const additionalContext =
-		route.meta.useContext === true
-			? breadcrumbData.context
-			: route.meta.useRootContext === true
-				? breadcrumbData.rootContext
-				: null
-	return additionalContext ? [additionalContext, ...route.meta.breadcrumb] : route.meta.breadcrumb
-})
+const breadcrumbs = computed(() => route.meta.breadcrumb ?? [])
+
+// a .. link goes to the parent page, like from browse back to the modpack
+function target(link) {
+	return link === '..' ? route.path.replace(/\/[^/]+\/?$/, '') : link
+}
+
+function label(breadcrumb) {
+	return breadcrumb.name.charAt(0) === '?'
+		? breadcrumbData.getName(breadcrumb.name.slice(1)) || '…'
+		: breadcrumb.name
+}
 </script>
+
+<style scoped>
+.crumb {
+	max-width: 28rem;
+	font-size: 0.9375rem;
+	text-decoration: none;
+	transition: color 0.12s ease;
+}
+</style>

@@ -9,9 +9,9 @@ const config: Config = {
 		'./src/plugins/**/*.{js,ts}',
 		'./src/App.vue',
 		'./src/error.vue',
-		// monorepo - TODO: migrate this to its own package
-		'../../packages/**/*.{js,vue,ts}',
-		'!../../packages/**/node_modules/**',
+		// scan the local packages folder too, the old modrinth glob pointed outside this repo so classes unique to the packages were never generated
+		'./packages/**/*.{js,vue,ts}',
+		'!./packages/**/node_modules/**',
 	],
 	presets: [preset],
 }

@@ -20,17 +20,42 @@ fn ensure_valid_hk_managed_folder(settings: &AppSettings) -> AppResult<()> {
     let managed = PathBuf::from(&settings.managed_folder);
     if !managed.exists() {
         return Err(AppError::InvalidInput(
-            "Managed folder does not exist. Go to Settings > Game to set it up.".to_string(),
+            "Hollow Knight wasn't found on this computer. Open Settings → Games to locate it."
+                .to_string(),
         ));
     }
 
     let assembly = managed.join("Assembly-CSharp.dll");
     if !assembly.exists() {
         return Err(AppError::InvalidInput(
-            "Managed folder is invalid (Assembly-CSharp.dll not found). Go to Settings > Game to set it up.".to_string(),
+            "Hollow Knight's installation looks incomplete. Verify the game's files in Steam, or \
+             open Settings → Games to locate it."
+                .to_string(),
         ));
     }
 
+    Ok(())
+}
+
+fn require_game_folder(settings: &AppSettings) -> AppResult<()> {
+    if settings.managed_folder.trim().is_empty() {
+        return Err(AppError::InvalidInput(format!(
+            "{} wasn't found on this computer. Open Settings → Games to locate it.",
+            settings.game.display_name()
+        )));
+    }
+    Ok(())
+}
+
+// fails when a download doesn't match the sha256 the catalog published, if it published one
+fn verify_sha256(bytes: &[u8], expected: &str) -> AppResult<()> {
+    if expected.trim().is_empty() {
+        return Ok(());
+    }
+    let actual = hex::encode_upper(Sha256::digest(bytes));
+    if actual != expected.trim().to_uppercase() {
+        return Err(AppError::HashMismatch);
+    }
     Ok(())
 }
 
@@ -39,7 +64,7 @@ fn looks_like_zip(data: &[u8]) -> bool {
 }
 
 fn filename_from_url(url: &str) -> Option<String> {
-    let base = url.split('/').last()?;
+    let base = url.rsplit('/').next()?;
     let base = base.split('?').next().unwrap_or(base);
     let base = base.split('#').next().unwrap_or(base);
     let base = base.trim();
@@ -48,6 +73,18 @@ fn filename_from_url(url: &str) -> Option<String> {
     } else {
         Some(base.to_string())
     }
+}
+
+// one shared http client so connections and dns lookups are reused between downloads
+pub(crate) fn http_client() -> AppResult<reqwest::Client> {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    if let Some(client) = CLIENT.get() {
+        return Ok(client.clone());
+    }
+    let client = reqwest::Client::builder()
+        .user_agent("Needlelight")
+        .build()?;
+    Ok(CLIENT.get_or_init(|| client).clone())
 }
 
 pub(crate) fn write_install_log(message: impl AsRef<str>) {
@@ -77,38 +114,6 @@ pub(crate) fn write_install_log(message: impl AsRef<str>) {
     }
 }
 
-pub async fn install_mod<R: tauri::Runtime>(
-    app: &AppHandle<R>,
-    settings: &AppSettings,
-    installed: &mut InstalledModsStore,
-    catalog: &CatalogResponse,
-    mod_name: &str,
-) -> AppResult<()> {
-    write_install_log(format!(
-        "Starting mod install: {mod_name} (game: {})",
-        settings.game.as_str()
-    ));
-    if settings.managed_folder.trim().is_empty() {
-        return Err(AppError::InvalidInput(
-            "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
-        ));
-    }
-
-    if !settings.game.is_silksong() {
-        ensure_valid_hk_managed_folder(settings)?;
-        if !is_api_installed(settings, installed) {
-            install_api(app, settings, installed, catalog).await?;
-        }
-        ensure_hk_api_enabled(settings).await?;
-    } else if !is_api_installed(settings, installed) {
-        write_install_log("Modding API is missing; installing it before the mod.");
-        install_api(app, settings, installed, catalog).await?;
-    }
-
-    let mut visited = HashSet::new();
-    install_mod_with_deps(app, settings, installed, catalog, mod_name, &mut visited).await
-}
-
 pub async fn uninstall_mod(
     settings: &AppSettings,
     installed: &mut InstalledModsStore,
@@ -118,11 +123,7 @@ pub async fn uninstall_mod(
         "Starting mod uninstall: {mod_name} (game: {})",
         settings.game.as_str()
     ));
-    if settings.managed_folder.trim().is_empty() {
-        return Err(AppError::InvalidInput(
-            "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
-        ));
-    }
+    require_game_folder(settings)?;
     if settings.game.is_silksong() {
         remove_silksong_mod(settings, mod_name).await?;
         installed.mark_uninstalled(mod_name);
@@ -151,11 +152,7 @@ pub async fn toggle_mod(
     mod_name: &str,
     enable: bool,
 ) -> AppResult<()> {
-    if settings.managed_folder.trim().is_empty() {
-        return Err(AppError::InvalidInput(
-            "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
-        ));
-    }
+    require_game_folder(settings)?;
     if settings.game.is_silksong() {
         set_silksong_mod_enabled(settings, mod_name, enable)?;
         installed.set_enabled(mod_name, enable);
@@ -235,11 +232,7 @@ pub async fn install_api<R: tauri::Runtime>(
         "Starting Modding API install (game: {}).",
         settings.game.as_str()
     ));
-    if settings.managed_folder.trim().is_empty() {
-        return Err(AppError::InvalidInput(
-            "Game folder not configured. Go to Settings > Game to set it up.".to_string(),
-        ));
-    }
+    require_game_folder(settings)?;
 
     if !settings.game.is_silksong() {
         ensure_valid_hk_managed_folder(settings)?;
@@ -254,10 +247,12 @@ pub async fn install_api<R: tauri::Runtime>(
 
     let runtime_name = api_runtime_name(settings);
     emit_api_progress(app, 0, format!("Downloading {runtime_name}..."));
-    let client = reqwest::Client::builder()
-        .user_agent("Needlelight")
-        .build()?;
-    let mut response = client.get(&api.url).send().await?.error_for_status()?;
+    let client = http_client()?;
+    let mut response = client
+        .get(settings.mirrored_url(&api.url))
+        .send()
+        .await?
+        .error_for_status()?;
     let total = response.content_length();
     let mut downloaded = 0u64;
     let mut bytes = Vec::new();
@@ -278,14 +273,7 @@ pub async fn install_api<R: tauri::Runtime>(
     ));
     emit_api_progress(app, 72, "Verifying download...");
 
-    if !api.sha256.trim().is_empty() {
-        let mut hasher = Sha256::new();
-        hasher.update(&bytes);
-        let actual = hex::encode_upper(hasher.finalize());
-        if actual != api.sha256.to_uppercase() {
-            return Err(AppError::HashMismatch);
-        }
-    }
+    verify_sha256(&bytes, &api.sha256)?;
 
     emit_api_progress(app, 82, format!("Installing {runtime_name} files..."));
     if settings.game.is_silksong() {
@@ -308,7 +296,7 @@ pub async fn install_api<R: tauri::Runtime>(
             "Modding API verification failed after extraction to {install_target}."
         ));
         return Err(AppError::InvalidInput(
-            "Modding API files were not found after installation. See Needlelight-install.log for details.".to_string(),
+            "Needlelight couldn't finish preparing the game for mods. Try again, or verify the game's files in Steam.".to_string(),
         ));
     }
 
@@ -328,8 +316,7 @@ pub async fn install_api<R: tauri::Runtime>(
     Ok(())
 }
 
-// logs the extracted BepInEx tree (bounded depth) so a verification
-// failure shows exactly what actually landed on disk instead of a guess
+// logs the extracted bepinex tree so a failed verification shows what actually landed on disk
 fn log_extracted_tree(root: &Path, max_depth: usize) {
     if !root.is_dir() {
         write_install_log(format!(
@@ -362,7 +349,8 @@ async fn install_hk_api_payload(
     let current = managed.join("Assembly-CSharp.dll");
     if !current.exists() {
         return Err(AppError::InvalidInput(
-            "Managed folder is invalid (Assembly-CSharp.dll not found).".to_string(),
+            "Hollow Knight's installation looks incomplete. Verify the game's files in Steam."
+                .to_string(),
         ));
     }
 
@@ -371,19 +359,19 @@ async fn install_hk_api_payload(
     let staged_state_dir = managed.join(".needlelight-api-staging");
     let staged_manifest_path = staged_state_dir.join("manifest.json");
 
-    // manifest-backed installs can always be safely refreshed
+    // installs with a backup manifest can always be refreshed safely
     if manifest_path.is_file() {
         restore_hk_vanilla(settings).await?;
     } else if managed.join("Assembly-CSharp.dll.m").exists() {
         return Err(AppError::InvalidInput(
-            "An older API installation without a complete backup was found. Verify Hollow Knight's files in Steam, then reinstall the Modding API.".to_string(),
+            "Hollow Knight has an older mod setup that Needlelight can't safely replace. Verify the game's files in Steam, then try again.".to_string(),
         ));
     }
 
     let relative_files = collect_api_archive_files(data)?;
     if relative_files.is_empty() {
         return Err(AppError::InvalidInput(
-            "The Modding API archive contains no installable files.".to_string(),
+            "The mod loader download was empty. Try again later.".to_string(),
         ));
     }
 
@@ -425,10 +413,14 @@ async fn install_hk_api_payload(
         let relative = PathBuf::from(&file.relative_path);
         let installed_path = managed.join(&relative);
         if !installed_path.is_file() {
-            return Err(AppError::InvalidInput(format!(
+            write_install_log(format!(
                 "Modding API installation is missing {}.",
                 file.relative_path
-            )));
+            ));
+            return Err(AppError::InvalidInput(
+                "Needlelight couldn't finish preparing Hollow Knight for mods. Try again."
+                    .to_string(),
+            ));
         }
         let modded_path = modded_dir.join(&relative);
         if let Some(parent) = modded_path.parent() {
@@ -498,20 +490,9 @@ pub async fn recover_pending_hk_api_restore(settings: &AppSettings) -> AppResult
     Ok(())
 }
 
-// must match extract_zip_guarded's wrapped-root stripping, or the manifest
-// paths won't match what actually lands on disk
+// must strip the wrapper folder exactly like extract_zip_guarded so manifest paths match the disk
 fn collect_api_archive_files(data: &[u8]) -> AppResult<Vec<PathBuf>> {
-    let names = {
-        let reader = std::io::Cursor::new(data);
-        let mut archive = ZipArchive::new(reader)?;
-        let mut collected = Vec::new();
-        for i in 0..archive.len() {
-            collected.push(archive.by_index(i)?.name().to_string());
-        }
-        collected
-    };
-
-    let wrapped_root = detect_wrapped_root(&names, &[]);
+    let wrapped_root = detect_wrapped_root(&archive_names(data)?, &[]);
 
     let reader = std::io::Cursor::new(data);
     let mut archive = ZipArchive::new(reader)?;
@@ -539,17 +520,20 @@ fn collect_api_archive_files(data: &[u8]) -> AppResult<Vec<PathBuf>> {
     Ok(files)
 }
 
-async fn restore_hk_vanilla(settings: &AppSettings) -> AppResult<()> {
+async fn read_hk_manifest(settings: &AppSettings) -> AppResult<HkApiBackupManifest> {
     let manifest_path = hk_api_manifest(settings);
     if !manifest_path.is_file() {
         return Err(AppError::InvalidInput(
             "Hollow Knight API backup manifest is missing.".to_string(),
         ));
     }
-
     let manifest_bytes = tokio::fs::read(&manifest_path).await?;
-    let manifest: HkApiBackupManifest = serde_json::from_slice(&manifest_bytes)
-        .map_err(|e| AppError::InvalidInput(format!("could not read API backup manifest: {e}")))?;
+    serde_json::from_slice(&manifest_bytes)
+        .map_err(|e| AppError::InvalidInput(format!("could not read API backup manifest: {e}")))
+}
+
+async fn restore_hk_vanilla(settings: &AppSettings) -> AppResult<()> {
+    let manifest = read_hk_manifest(settings).await?;
     let managed = PathBuf::from(&settings.managed_folder);
     let vanilla_dir = hk_api_state_dir(settings).join("vanilla");
 
@@ -559,10 +543,15 @@ async fn restore_hk_vanilla(settings: &AppSettings) -> AppResult<()> {
         if file.vanilla_existed {
             let backup = vanilla_dir.join(&relative);
             if !backup.is_file() {
-                return Err(AppError::InvalidInput(format!(
+                write_install_log(format!(
                     "Missing vanilla API backup for {}.",
                     relative.display()
-                )));
+                ));
+                return Err(AppError::InvalidInput(
+                    "Hollow Knight can't start without mods because its original files are \
+                     missing. Verify the game's files in Steam."
+                        .to_string(),
+                ));
             }
             if let Some(parent) = current.parent() {
                 tokio::fs::create_dir_all(parent).await?;
@@ -577,16 +566,7 @@ async fn restore_hk_vanilla(settings: &AppSettings) -> AppResult<()> {
 }
 
 async fn restore_hk_modded(settings: &AppSettings) -> AppResult<()> {
-    let manifest_path = hk_api_manifest(settings);
-    if !manifest_path.is_file() {
-        return Err(AppError::InvalidInput(
-            "Hollow Knight API backup manifest is missing.".to_string(),
-        ));
-    }
-
-    let manifest_bytes = tokio::fs::read(&manifest_path).await?;
-    let manifest: HkApiBackupManifest = serde_json::from_slice(&manifest_bytes)
-        .map_err(|e| AppError::InvalidInput(format!("could not read API backup manifest: {e}")))?;
+    let manifest = read_hk_manifest(settings).await?;
     let managed = PathBuf::from(&settings.managed_folder);
     let modded_dir = hk_api_state_dir(settings).join("modded");
 
@@ -595,10 +575,15 @@ async fn restore_hk_modded(settings: &AppSettings) -> AppResult<()> {
         let backup = modded_dir.join(&relative);
         let current = managed.join(&relative);
         if !backup.is_file() {
-            return Err(AppError::InvalidInput(format!(
+            write_install_log(format!(
                 "Missing Modding API backup for {}.",
                 relative.display()
-            )));
+            ));
+            return Err(AppError::InvalidInput(
+                "Hollow Knight's mod setup is incomplete. Verify the game's files in Steam, \
+                 then launch a modpack again."
+                    .to_string(),
+            ));
         }
         if let Some(parent) = current.parent() {
             tokio::fs::create_dir_all(parent).await?;
@@ -614,7 +599,7 @@ pub async fn ensure_hk_api_enabled(settings: &AppSettings) -> AppResult<()> {
         return Ok(());
     }
 
-    if is_hk_api_current(settings)? {
+    if is_hk_api_enabled(settings) {
         return Ok(());
     }
 
@@ -623,14 +608,16 @@ pub async fn ensure_hk_api_enabled(settings: &AppSettings) -> AppResult<()> {
         return Ok(());
     }
 
-    // legacy single-file backup, kept for old installs
+    // legacy single file backup kept for old installs
     let managed = PathBuf::from(&settings.managed_folder);
     let current = managed.join("Assembly-CSharp.dll");
     let vanilla = managed.join("Assembly-CSharp.dll.v");
     let modded = managed.join("Assembly-CSharp.dll.m");
     if !modded.exists() {
         return Err(AppError::InvalidInput(
-            "The Modding API is installed but its API backup is missing.".to_string(),
+            "Hollow Knight's mod setup is incomplete. Verify the game's files in Steam, then \
+             launch a modpack again."
+                .to_string(),
         ));
     }
     replace_file(&current, &vanilla).await?;
@@ -643,7 +630,7 @@ pub async fn ensure_hk_api_disabled(settings: &AppSettings) -> AppResult<()> {
         return Ok(());
     }
 
-    if !is_hk_api_current(settings)? {
+    if !is_hk_api_enabled(settings) {
         return Ok(());
     }
 
@@ -658,7 +645,8 @@ pub async fn ensure_hk_api_disabled(settings: &AppSettings) -> AppResult<()> {
     let modded = managed.join("Assembly-CSharp.dll.m");
     if !vanilla.exists() {
         return Err(AppError::InvalidInput(
-            "Cannot disable the Modding API because the vanilla Assembly-CSharp backup is missing."
+            "Hollow Knight can't start without mods because its original files are missing. \
+             Verify the game's files in Steam."
                 .to_string(),
         ));
     }
@@ -675,26 +663,12 @@ async fn replace_file(source: &Path, destination: &Path) -> AppResult<()> {
     Ok(())
 }
 
-fn is_hk_api_current(settings: &AppSettings) -> AppResult<bool> {
-    if settings.game.is_silksong() || settings.managed_folder.trim().is_empty() {
-        return Ok(false);
-    }
-    let current = PathBuf::from(&settings.managed_folder).join("Assembly-CSharp.dll");
-    Ok(matches!(detect_api_version(&current), Ok(Some(_))))
-}
-
-fn extract_zip_guarded(data: &[u8], destination: &Path, preserve_roots: &[&str]) -> AppResult<()> {
-    let names = {
-        let reader = std::io::Cursor::new(data);
-        let mut archive = ZipArchive::new(reader)?;
-        let mut collected = Vec::new();
-        for i in 0..archive.len() {
-            collected.push(archive.by_index(i)?.name().to_string());
-        }
-        collected
-    };
-
-    let wrapped_root = detect_wrapped_root(&names, preserve_roots);
+pub(crate) fn extract_zip_guarded(
+    data: &[u8],
+    destination: &Path,
+    preserve_roots: &[&str],
+) -> AppResult<()> {
+    let wrapped_root = detect_wrapped_root(&archive_names(data)?, preserve_roots);
 
     let reader = std::io::Cursor::new(data);
     let mut archive = ZipArchive::new(reader)?;
@@ -734,6 +708,13 @@ fn extract_zip_guarded(data: &[u8], destination: &Path, preserve_roots: &[&str])
     Ok(())
 }
 
+fn archive_names(data: &[u8]) -> AppResult<Vec<String>> {
+    let mut archive = ZipArchive::new(std::io::Cursor::new(data))?;
+    (0..archive.len())
+        .map(|i| Ok(archive.by_index(i)?.name().to_string()))
+        .collect()
+}
+
 fn detect_wrapped_root(names: &[String], preserve_roots: &[&str]) -> Option<String> {
     let mut first_root: Option<String> = None;
     let mut found_nested_entry = false;
@@ -752,16 +733,14 @@ fn detect_wrapped_root(names: &[String], preserve_roots: &[&str]) -> Option<Stri
             continue;
         };
 
-        // Ignore top-level directory entries like "BepInExPack/".
+        // ignore top level folder entries like bepinexpack
         if components.next().is_none() {
             continue;
         }
 
         found_nested_entry = true;
 
-        let Some(root) = root.as_os_str().to_str() else {
-            return None;
-        };
+        let root = root.as_os_str().to_str()?;
 
         if let Some(existing) = &first_root {
             if !existing.eq_ignore_ascii_case(root) {
@@ -863,8 +842,7 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
         if !core.is_dir() {
             return false;
         }
-        // different BepInEx releases have shipped different core dll names;
-        // accept known runtime markers only.
+        // bepinex releases ship different core dll names, so accept any known marker
         let known_markers = [
             "BepInEx.dll",
             "BepInEx.Core.dll",
@@ -885,8 +863,7 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
         return true;
     }
 
-    // installed-but-disabled: check the backup's real content, not just
-    // that a manifest file exists, so a stale backup can't be trusted
+    // installed but disabled, so check the backup's real content instead of trusting a stale manifest
     let managed = PathBuf::from(&settings.managed_folder);
     let manifest_modded = hk_api_state_dir(settings)
         .join("modded")
@@ -897,7 +874,7 @@ pub fn is_api_installed(settings: &AppSettings, _installed: &InstalledModsStore)
         || matches!(detect_api_version(&legacy_modded), Ok(Some(_)))
 }
 
-async fn install_mod_with_deps<R: tauri::Runtime>(
+pub(crate) async fn install_mod_with_deps<R: tauri::Runtime>(
     app: &AppHandle<R>,
     settings: &AppSettings,
     installed: &mut InstalledModsStore,
@@ -916,12 +893,8 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
                     .find(|x| x.name == current)
                     .ok_or_else(|| AppError::NotFound(format!("mod '{current}' not found")))?;
 
-                if let Some(state) = installed.db.mods.get(&item.name) {
-                    if state.version == item.version
-                        && installed_mod_exists_on_disk(settings, &item.name)
-                    {
-                        continue;
-                    }
+                if is_current(settings, installed, &item.name, &item.version) {
+                    continue;
                 }
 
                 (
@@ -934,12 +907,13 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
             };
 
             if item_link.trim().is_empty() {
-                return Err(AppError::InvalidInput(
-                    "mod has no download link".to_string(),
-                ));
+                return Err(AppError::InvalidInput(format!(
+                    "{item_name} has no download available."
+                )));
             }
 
-            let bytes = download_mod_bytes(app, &item_name, &item_link, &item_sha256).await?;
+            let download_url = settings.mirrored_url(&item_link);
+            let bytes = download_mod_bytes(app, &item_name, &download_url, &item_sha256).await?;
             write_install_log(format!(
                 "Downloaded mod {item_name} ({} bytes).",
                 bytes.len()
@@ -949,6 +923,7 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
                 if looks_like_zip(bytes.as_ref()) {
                     install_silksong_mod_archive(settings, &item_name, bytes.as_ref()).await?;
                 } else {
+                    remove_silksong_mod(settings, &item_name).await?;
                     let folder = settings.mods_folder().join(&item_name);
                     tokio::fs::create_dir_all(&folder).await?;
                     let file_name = filename_from_url(&item_link)
@@ -958,8 +933,12 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
                 }
             } else {
                 let folder = InstalledModsStore::mod_folder(settings, &item_name, true);
-                if folder.exists() {
-                    tokio::fs::remove_dir_all(&folder).await?;
+                // a leftover disabled copy would win when the mod folders are reread
+                let disabled = InstalledModsStore::mod_folder(settings, &item_name, false);
+                for stale in [&folder, &disabled] {
+                    if stale.exists() {
+                        tokio::fs::remove_dir_all(stale).await?;
+                    }
                 }
                 tokio::fs::create_dir_all(&folder).await?;
                 if looks_like_zip(bytes.as_ref()) {
@@ -981,7 +960,9 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
                 write_install_log(format!(
                     "Mod verification failed: {item_name} is missing after extraction."
                 ));
-                return Err(AppError::InvalidInput(format!("{item_name} was not found after installation. See Needlelight-install.log for details.")));
+                return Err(AppError::InvalidInput(format!(
+                    "{item_name} couldn't be installed. Try again."
+                )));
             }
             write_install_log(format!("Installed mod {item_name} version {item_version}."));
             continue;
@@ -998,10 +979,8 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
             .find(|x| x.name == current)
             .ok_or_else(|| AppError::NotFound(format!("mod '{current}' not found")))?;
 
-        if let Some(state) = installed.db.mods.get(&item.name) {
-            if state.version == item.version {
-                continue;
-            }
+        if is_current(settings, installed, &item.name, &item.version) {
+            continue;
         }
 
         let dependencies: Vec<String> = item
@@ -1018,6 +997,21 @@ async fn install_mod_with_deps<R: tauri::Runtime>(
     }
 
     Ok(())
+}
+
+// the mod is recorded at this version and its files are still on disk
+fn is_current(
+    settings: &AppSettings,
+    installed: &InstalledModsStore,
+    mod_name: &str,
+    version: &str,
+) -> bool {
+    installed
+        .db
+        .mods
+        .get(mod_name)
+        .is_some_and(|state| state.version == version)
+        && installed_mod_exists_on_disk(settings, mod_name)
 }
 
 fn installed_mod_exists_on_disk(settings: &AppSettings, mod_name: &str) -> bool {
@@ -1038,9 +1032,7 @@ async fn download_mod_bytes<R: tauri::Runtime>(
     sha256: &str,
 ) -> AppResult<Vec<u8>> {
     emit_mod_progress(app, item_name, 0);
-    let client = reqwest::Client::builder()
-        .user_agent("Needlelight")
-        .build()?;
+    let client = http_client()?;
     let mut response = client.get(url).send().await?.error_for_status()?;
     let total = response.content_length();
     let mut downloaded = 0u64;
@@ -1060,14 +1052,9 @@ async fn download_mod_bytes<R: tauri::Runtime>(
 
     emit_mod_progress(app, item_name, 96);
 
-    if !sha256.trim().is_empty() {
-        let mut hasher = Sha256::new();
-        hasher.update(&bytes);
-        let actual = hex::encode_upper(hasher.finalize());
-        if actual != sha256.to_uppercase() {
-            emit_mod_progress(app, item_name, 0);
-            return Err(AppError::HashMismatch);
-        }
+    if let Err(error) = verify_sha256(&bytes, sha256) {
+        emit_mod_progress(app, item_name, 0);
+        return Err(error);
     }
 
     emit_mod_progress(app, item_name, 100);
@@ -1102,7 +1089,7 @@ async fn install_silksong_mod_archive(
             continue;
         }
 
-        // Strip leading BepInEx folder if present
+        // strip a leading bepinex folder if present
         if let Some(first) = path
             .components()
             .next()
@@ -1133,7 +1120,7 @@ async fn install_silksong_mod_archive(
             _ => (bepinex_root.join("plugins").join(mod_name), path),
         };
 
-        let output = target_base.join(relative).to_path_buf();
+        let output = target_base.join(relative);
         if !output.starts_with(&target_base) {
             return Err(AppError::InvalidInput(
                 "zip entry path traversal blocked".to_string(),

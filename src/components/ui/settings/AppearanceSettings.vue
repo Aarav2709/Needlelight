@@ -1,79 +1,59 @@
 <script setup lang="ts">
-import { ThemeSelector, Toggle } from '@modrinth/ui'
-import { onMounted, ref, watch } from 'vue'
+import type { ComboboxOption } from '@modrinth/ui'
+import { Toggle } from '@modrinth/ui'
+import { usePreferredDark } from '@vueuse/core'
 
-import { get, set } from '@/helpers/settings.ts'
-import { useTheming } from '@/store/state'
-import type { ColorTheme } from '@/store/theme.ts'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
+import SettingRow from '@/components/ui/settings/SettingRow.vue'
+import SettingsGroup from '@/components/ui/settings/SettingsGroup.vue'
+import ThemeSelector from '@/components/ui/settings/ThemeSelector.vue'
+import { type Density, usePreferences } from '@/store/preferences'
+import { THEME_OPTIONS } from '@/store/theme'
 
-const themeStore = useTheming()
+const { prefs } = usePreferences()
+const prefersDark = usePreferredDark()
 
-const settings = ref<Record<string, any> | null>(null)
-const ready = ref(false)
-
-onMounted(async () => {
-	try { settings.value = await get() } catch { /* ignore */ }
-	if (settings.value?.theme === 'system') {
-		settings.value.theme = 'dark'
-		themeStore.setThemeState('dark')
-	}
-	ready.value = true
-})
-
-watch(
-	settings,
-	async (val) => {
-		if (val) await set(val)
-	},
-	{ deep: true },
-)
+const densityOptions: ComboboxOption<Density>[] = [
+	{ value: 'comfortable', label: 'Comfortable' },
+	{ value: 'compact', label: 'Compact' },
+]
 </script>
+
 <template>
-	<div v-if="!ready" class="text-secondary text-sm p-4">Loading appearance settings...</div>
-	<div v-else-if="settings">
-	<h2 class="m-0 text-lg font-extrabold text-contrast">Color theme</h2>
-	<p class="m-0 mt-1">Select your preferred color theme for Needlelight.</p>
-
-	<ThemeSelector
-		:update-color-theme="
-			(theme: ColorTheme) => {
-				themeStore.setThemeState(theme)
-				settings.theme = theme
-			}
-		"
-		:current-theme="settings.theme"
-		:theme-options="themeStore.getThemeOptions().filter((theme) => theme !== 'system')"
-		system-theme-color="system"
-	/>
-
-	<div class="mt-4 flex items-center justify-between">
-		<div>
-			<h2 class="m-0 text-lg font-extrabold text-contrast">Advanced rendering</h2>
-			<p class="m-0 mt-1">
-				Enables advanced rendering such as blur effects that may cause performance issues without
-				hardware-accelerated rendering.
+	<div class="flex flex-col gap-6">
+		<section class="flex flex-col gap-2">
+			<h3 class="nl-section-label">Theme</h3>
+			<ThemeSelector
+				class="!mt-0"
+				:update-color-theme="(theme) => (prefs.theme = theme)"
+				:current-theme="prefs.theme"
+				:theme-options="THEME_OPTIONS"
+				:system-theme-color="prefersDark ? 'dark' : 'light'"
+			/>
+			<p class="m-0 text-xs text-secondary">
+				Accents follow the game you're working on: purple for Hollow Knight, red for Hollow Knight:
+				Silksong.
 			</p>
-		</div>
+		</section>
 
-		<Toggle
-			id="advanced-rendering"
-			:model-value="themeStore.advancedRendering"
-			@update:model-value="
-				(e) => {
-					themeStore.advancedRendering = !!e
-					settings.advanced_rendering = themeStore.advancedRendering
-				}
-			"
-		/>
-	</div>
-
-	<div class="mt-4 flex items-center justify-between">
-		<div>
-			<h2 class="m-0 text-lg font-extrabold text-contrast">Minimize launcher</h2>
-			<p class="m-0 mt-1">Minimize the launcher when the game starts.</p>
-		</div>
-		<Toggle id="minimize-launcher" v-model="settings.hide_on_process_start" />
-	</div>
-
+		<SettingsGroup title="Layout and motion">
+			<SettingRow
+				title="Density"
+				description="Compact fits more mods on screen by tightening lists and margins."
+			>
+				<template #control>
+					<SelectMenu v-model="prefs.density" :options="densityOptions" aria-label="Density" />
+				</template>
+			</SettingRow>
+			<SettingRow
+				title="Reduce motion"
+				description="Turn off animations and transitions. Your system's reduced-motion setting is always respected."
+				label-for="pref-motion"
+			>
+				<template #control>
+					<Toggle id="pref-motion" v-model="prefs.reduceMotion" />
+				</template>
+			</SettingRow>
+		</SettingsGroup>
 	</div>
 </template>

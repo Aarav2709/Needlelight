@@ -1,182 +1,127 @@
 <script setup lang="ts">
 import {
-  GameIcon,
-  PaintbrushIcon,
-  ReportIcon,
-  SettingsIcon,
-  ShieldIcon,
-  XIcon,
-} from "@modrinth/assets";
-import {
-  defineMessage,
-  defineMessages,
-  ProgressBar,
-  TabbedModal,
-  useVIntl,
-} from "@modrinth/ui";
-import { onMounted, computed, ref, watch } from "vue";
+	CodeIcon,
+	GameIcon,
+	LayersIcon,
+	PaintbrushIcon,
+	RefreshCwIcon,
+	Settings2Icon,
+	SettingsIcon,
+} from '@modrinth/assets'
+import { Button, defineMessage, ProgressBar, TabbedModal } from '@modrinth/ui'
+import { computed, ref } from 'vue'
 
-import ModalWrapper from "@/components/ui/modal/ModalWrapper.vue";
-import AppearanceSettings from "@/components/ui/settings/AppearanceSettings.vue";
-import FeatureFlagSettings from "@/components/ui/settings/FeatureFlagSettings.vue";
-import GameSettings from "@/components/ui/settings/GameSettings.vue";
-import { get, set } from "@/helpers/settings.ts";
-import { injectAppUpdateDownloadProgress } from "@/providers/download-progress.ts";
-import { useTheming } from "@/store/state";
+import AdvancedSettings from '@/components/ui/settings/AdvancedSettings.vue'
+import AppearanceSettings from '@/components/ui/settings/AppearanceSettings.vue'
+import GameSettings from '@/components/ui/settings/GameSettings.vue'
+import GeneralSettings from '@/components/ui/settings/GeneralSettings.vue'
+import ModpackSettings from '@/components/ui/settings/ModpackSettings.vue'
+import { APP_VERSION } from '@/helpers/version'
+import type { SettingsTab } from '@/store/ui'
+import { useUpdater } from '@/store/updater'
 
-const themeStore = useTheming();
-
-const { formatMessage } = useVIntl();
-
-const devModeCounter = ref(0);
-
-const developerModeEnabled = defineMessage({
-  id: "app.settings.developer-mode-enabled",
-  defaultMessage: "Developer mode enabled.",
-});
+// modrinth's tabbed modal already wraps a modal, so it is used directly to avoid stacking two overlays
+const updater = useUpdater()
 
 const tabs = [
-  {
-    name: defineMessage({
-      id: "app.settings.tabs.appearance",
-      defaultMessage: "Appearance",
-    }),
-    icon: PaintbrushIcon,
-    content: AppearanceSettings,
-  },
-  {
-    name: defineMessage({
-      id: "app.settings.tabs.game",
-      defaultMessage: "Game",
-    }),
-    icon: GameIcon,
-    content: GameSettings,
-  },
-  {
-    name: defineMessage({
-      id: "app.settings.tabs.feature-flags",
-      defaultMessage: "Feature flags",
-    }),
-    icon: ReportIcon,
-    content: FeatureFlagSettings,
-    developerOnly: true,
-  },
-];
+	{
+		key: 'general' as SettingsTab,
+		name: defineMessage({ id: 'app.settings.tabs.general', defaultMessage: 'General' }),
+		icon: Settings2Icon,
+		content: GeneralSettings,
+	},
+	{
+		key: 'appearance' as SettingsTab,
+		name: defineMessage({ id: 'app.settings.tabs.appearance', defaultMessage: 'Appearance' }),
+		icon: PaintbrushIcon,
+		content: AppearanceSettings,
+	},
+	{
+		key: 'games' as SettingsTab,
+		name: defineMessage({ id: 'app.settings.tabs.games', defaultMessage: 'Games' }),
+		icon: GameIcon,
+		content: GameSettings,
+	},
+	{
+		key: 'modpacks' as SettingsTab,
+		name: defineMessage({ id: 'app.settings.tabs.modpacks', defaultMessage: 'Modpacks' }),
+		icon: LayersIcon,
+		content: ModpackSettings,
+	},
+	{
+		key: 'advanced' as SettingsTab,
+		name: defineMessage({ id: 'app.settings.tabs.advanced', defaultMessage: 'Advanced' }),
+		icon: CodeIcon,
+		content: AdvancedSettings,
+	},
+]
 
-const modal = ref();
+const modal = ref<InstanceType<typeof TabbedModal> | null>(null)
 
-function show() {
-  modal.value?.show();
+function show(tab?: SettingsTab) {
+	modal.value?.show()
+	const index = tab ? tabs.findIndex((t) => t.key === tab) : -1
+	if (index >= 0) modal.value?.setTab(index)
 }
 
-const isOpen = computed(() => modal.value?.isOpen);
-
-defineExpose({ show, isOpen });
-
-const { progress, version: downloadingVersion } =
-  injectAppUpdateDownloadProgress();
-
-const settings = ref<Record<string, any> | null>(null);
-const ready = ref(false);
-
-onMounted(async () => {
-  try {
-    settings.value = await get();
-  } catch { /* ignore */ }
-  ready.value = true;
-});
-
-watch(
-  settings,
-  async (val) => {
-    if (val) await set(val);
-  },
-  { deep: true },
-);
-
-function devModeCount() {
-  devModeCounter.value++;
-  if (devModeCounter.value > 5) {
-    themeStore.devMode = !themeStore.devMode;
-    if (settings.value) settings.value.developer_mode = !!themeStore.devMode;
-    devModeCounter.value = 0;
-
-    if (!themeStore.devMode && tabs[modal.value?.selectedTab]?.developerOnly) {
-      modal.value?.setTab(0);
-    }
-  }
+function hide() {
+	modal.value?.hide()
 }
 
-const messages = defineMessages({
-  downloading: {
-    id: "app.settings.downloading",
-    defaultMessage: "Downloading v{version}",
-  },
-});
+defineExpose({ show, hide })
+
+const updateLine = computed(() => {
+	switch (updater.status) {
+		case 'checking':
+			return 'Checking for updates…'
+		case 'none':
+			return "You're up to date"
+		case 'downloading':
+			return `Downloading ${updater.version}`
+		case 'ready':
+			return `${updater.version} is ready to install`
+		case 'installing':
+			return 'Restarting…'
+		case 'error':
+			return "Couldn't install the update"
+		default:
+			return null
+	}
+})
 </script>
 <template>
-  <ModalWrapper ref="modal" hide-header>
-    <div class="relative p-6 pb-4">
-      <span
-        class="flex items-center gap-2 text-lg font-extrabold text-contrast"
-      >
-        <SettingsIcon /> Settings
-      </span>
-      <button
-        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-button-bg border-none cursor-pointer text-secondary hover:text-contrast hover:brightness-125 transition-all active:scale-90"
-        aria-label="Close"
-        @click="modal?.hide()"
-      >
-        <XIcon class="w-4 h-4" />
-      </button>
-    </div>
-
-    <TabbedModal
-      v-if="ready"
-      :tabs="tabs.filter((t) => !t.developerOnly || themeStore.devMode)"
-      content-width="min(720px, calc(100vw - 6rem))"
-    >
-      <template #footer>
-        <div class="mt-auto text-secondary text-sm">
-          <div class="mb-3">
-            <template v-if="progress > 0 && progress < 1">
-              <p class="m-0 mb-2">
-                {{
-                  formatMessage(messages.downloading, {
-                    version: downloadingVersion,
-                  })
-                }}
-              </p>
-              <ProgressBar :progress="progress" />
-            </template>
-          </div>
-          <p
-            v-if="themeStore.devMode"
-            class="text-brand font-semibold m-0 mb-2"
-          >
-            {{ formatMessage(developerModeEnabled) }}
-          </p>
-          <div class="flex items-center gap-3">
-            <button
-              class="p-0 m-0 bg-transparent border-none cursor-pointer button-animation"
-              :class="{
-                'text-brand': themeStore.devMode,
-                'text-secondary': !themeStore.devMode,
-              }"
-              @click="devModeCount"
-            >
-              <ShieldIcon class="w-6 h-6" />
-            </button>
-            <div class="flex items-center gap-2">
-              <span class="font-semibold underline decoration-brand/60">Needlelight</span>
-              <span class="px-2 py-0.5 rounded bg-button-bg text-contrast text-xs font-bold">
-                v8.0.0.0
-              </span>
-            </div>
-          </div>
-        </div>
-      </template>
-    </TabbedModal>
-    <div v-else class="p-8 text-center text-secondary">Loading settings...</div>
-  </ModalWrapper>
+	<TabbedModal ref="modal" :tabs="tabs" width="min(54rem, calc(100vw - 6rem))">
+		<template #title>
+			<span class="flex items-center gap-2 text-xl font-extrabold text-contrast">
+				<SettingsIcon class="h-5 w-5" /> Settings
+			</span>
+		</template>
+		<template #footer>
+			<div class="mt-auto flex flex-col gap-3 pt-3 text-sm text-secondary">
+				<ProgressBar
+					v-if="updater.status === 'downloading' && updater.progress != null"
+					:progress="updater.progress"
+					class="px-4"
+				/>
+				<div class="flex flex-col gap-2 px-4">
+					<div class="flex items-center gap-2">
+						<span class="font-bold text-contrast">Needlelight</span>
+						<span class="nl-badge nl-badge--neutral">v{{ APP_VERSION }}</span>
+					</div>
+					<p v-if="updateLine" class="m-0 text-xs" :title="updater.error ?? undefined">
+						{{ updateLine }}
+					</p>
+					<Button
+						v-if="updater.status === 'ready'"
+						size="sm"
+						color="brand"
+						type="colored"
+						@click="updater.installAndRestart()"
+					>
+						<RefreshCwIcon /> Restart to update
+					</Button>
+				</div>
+			</div>
+		</template>
+	</TabbedModal>
 </template>

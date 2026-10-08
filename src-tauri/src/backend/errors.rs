@@ -8,8 +8,6 @@ pub enum AppError {
     Network(#[from] reqwest::Error),
     #[error("Failed to parse JSON: {0}")]
     Json(#[from] serde_json::Error),
-    #[error("Failed to parse XML: {0}")]
-    Xml(#[from] quick_xml::de::DeError),
     #[error("Zip error: {0}")]
     Zip(#[from] zip::result::ZipError),
     #[error("Hash mismatch - the downloaded file may be corrupted.")]

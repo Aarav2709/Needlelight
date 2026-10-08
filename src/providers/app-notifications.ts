@@ -13,6 +13,15 @@ export class AppNotificationManager extends AbstractWebNotificationManager {
 		super()
 		this.state = ref<WebNotification[]>([])
 		this.locationState = ref<NotificationPanelLocation>('right')
+
+		// routine success toasts close after 6 seconds, warnings and errors keep the longer default
+		const setTimer = this.setNotificationTimer
+		this.setNotificationTimer = (notification: WebNotification) => {
+			if (notification && notification.type === 'success' && notification.autoCloseMs === undefined) {
+				notification.autoCloseMs = 6000
+			}
+			setTimer(notification)
+		}
 	}
 
 	public getNotificationLocation(): NotificationPanelLocation {

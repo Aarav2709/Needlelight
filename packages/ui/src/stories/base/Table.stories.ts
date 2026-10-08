@@ -1,10 +1,9 @@
 import { EditIcon, MoreVerticalIcon, TrashIcon } from '@modrinth/assets'
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import Badge from '../../components/base/Badge.vue'
-import ButtonStyled from '../../components/base/ButtonStyled.vue'
-import OverflowMenu from '../../components/base/OverflowMenu.vue'
+import { Button, TeleportOverflowMenu } from '../../components/base/buttons'
 import Table from '../../components/base/Table.vue'
 
 interface User {
@@ -28,6 +27,20 @@ const sampleUsers: User[] = [
 		role: 'Admin',
 	},
 ]
+const rangeSelectionUsers: User[] = Array.from({ length: 10 }, (_, index): User => {
+	const id = String(index + 1)
+	const paddedId = id.padStart(2, '0')
+	const statuses: User['status'][] = ['active', 'inactive', 'pending']
+	const roles = ['Admin', 'Editor', 'Maintainer', 'Reviewer', 'User']
+
+	return {
+		id,
+		name: `Member ${paddedId}`,
+		email: `member-${paddedId}@example.com`,
+		status: statuses[index % statuses.length],
+		role: roles[index % roles.length],
+	}
+})
 
 const meta = {
 	title: 'Base/Table',
@@ -40,7 +53,7 @@ export default meta
 export const Default: StoryObj = {
 	args: {},
 	render: () => ({
-		components: { Table },
+		components: { Table, TeleportOverflowMenu },
 		setup() {
 			const columns = [
 				{ key: 'name', label: 'Name' },
@@ -57,10 +70,10 @@ export const Default: StoryObj = {
 	}),
 }
 
-export const WithSelection: StoryObj = {
+export const HorizontalOverflow: StoryObj = {
 	args: {},
 	render: () => ({
-		components: { Table },
+		components: { Table, TeleportOverflowMenu },
 		setup() {
 			const columns = [
 				{ key: 'name', label: 'Name' },
@@ -69,6 +82,61 @@ export const WithSelection: StoryObj = {
 				{ key: 'role', label: 'Role' },
 			]
 			const data = sampleUsers
+			return { columns, data }
+		},
+		template: /* html */ `
+			<div class="max-w-80">
+				<Table :columns="columns" :data="data" table-min-width="44rem">
+					<template #header>
+						<div class="flex items-center justify-between gap-4">
+							<div class="text-lg font-semibold text-contrast">Members</div>
+							<div class="text-sm text-secondary">{{ data.length }} rows</div>
+						</div>
+					</template>
+				</Table>
+			</div>
+		`,
+	}),
+}
+
+export const CustomClasses: StoryObj = {
+	args: {},
+	render: () => ({
+		components: { Table, TeleportOverflowMenu },
+		setup() {
+			const columns = [
+				{ key: 'name', label: 'Name', cellClass: '!overflow-visible py-3' },
+				{ key: 'email', label: 'Email' },
+				{
+					key: 'status',
+					label: 'Status',
+					headerClass: 'text-center',
+					cellClass: 'text-center',
+				},
+				{ key: 'role', label: 'Role' },
+			]
+			const data = sampleUsers
+			const rowClass = (_row: User, index: number) => (index === 0 ? 'font-semibold' : '')
+			return { columns, data, rowClass }
+		},
+		template: /* html */ `
+			<Table :columns="columns" :data="data" :row-class="rowClass" />
+		`,
+	}),
+}
+
+export const WithSelection: StoryObj = {
+	args: {},
+	render: () => ({
+		components: { Table, TeleportOverflowMenu },
+		setup() {
+			const columns = [
+				{ key: 'name', label: 'Name' },
+				{ key: 'email', label: 'Email' },
+				{ key: 'status', label: 'Status' },
+				{ key: 'role', label: 'Role' },
+			]
+			const data = rangeSelectionUsers
 			const selectedIds = ref<string[]>([])
 			return { columns, data, selectedIds }
 		},
@@ -81,6 +149,73 @@ export const WithSelection: StoryObj = {
 					row-key="id"
 					v-model:selected-ids="selectedIds"
 				/>
+				<p class="text-secondary text-sm">Click a checkbox, then Shift-click another checkbox to select or clear the range.</p>
+				<p class="text-secondary">Selected IDs: {{ selectedIds.join(', ') || 'None' }}</p>
+			</div>
+		`,
+	}),
+}
+
+export const WithSelectionData: StoryObj = {
+	args: {},
+	render: () => ({
+		components: { Table, TeleportOverflowMenu },
+		setup() {
+			const columns = [
+				{ key: 'name', label: 'Name' },
+				{ key: 'email', label: 'Email' },
+				{ key: 'status', label: 'Status' },
+				{ key: 'role', label: 'Role' },
+			]
+			const selectionData = rangeSelectionUsers
+			const data = selectionData.filter((_, index) => index === 1 || index === 5)
+			const selectedIds = ref<string[]>([])
+			return { columns, data, selectionData, selectedIds }
+		},
+		template: /* html */ `
+			<div class="space-y-4">
+				<Table
+					:columns="columns"
+					:data="data"
+					:selection-data="selectionData"
+					show-selection
+					row-key="id"
+					v-model:selected-ids="selectedIds"
+				/>
+				<p class="text-secondary text-sm">Only rows 2 and 6 are visible; Shift-clicking between them selects IDs 2 through 6 from selectionData.</p>
+				<p class="text-secondary">Selected IDs: {{ selectedIds.join(', ') || 'None' }}</p>
+			</div>
+		`,
+	}),
+}
+
+export const WithSelectionIds: StoryObj = {
+	args: {},
+	render: () => ({
+		components: { Table, TeleportOverflowMenu },
+		setup() {
+			const columns = [
+				{ key: 'name', label: 'Name' },
+				{ key: 'email', label: 'Email' },
+				{ key: 'status', label: 'Status' },
+				{ key: 'role', label: 'Role' },
+			]
+			const data = rangeSelectionUsers.filter((_, index) => index === 1 || index === 5)
+			const selectionIds = rangeSelectionUsers.map((user) => user.id)
+			const selectedIds = ref<string[]>([])
+			return { columns, data, selectionIds, selectedIds }
+		},
+		template: /* html */ `
+			<div class="space-y-4">
+				<Table
+					:columns="columns"
+					:data="data"
+					:selection-ids="selectionIds"
+					show-selection
+					row-key="id"
+					v-model:selected-ids="selectedIds"
+				/>
+				<p class="text-secondary text-sm">Only rows 2 and 6 are visible; Shift-clicking between them selects IDs 2 through 6 from selectionIds.</p>
 				<p class="text-secondary">Selected IDs: {{ selectedIds.join(', ') || 'None' }}</p>
 			</div>
 		`,
@@ -89,8 +224,15 @@ export const WithSelection: StoryObj = {
 
 export const WithSorting: StoryObj = {
 	args: {},
+	parameters: {
+		docs: {
+			description: {
+				story: 'Sortable header hover and click targets are scoped to the label and sort icon.',
+			},
+		},
+	},
 	render: () => ({
-		components: { Table },
+		components: { Table, TeleportOverflowMenu },
 		setup() {
 			const columns = [
 				{ key: 'name', label: 'Name', enableSorting: true },
@@ -126,7 +268,7 @@ export const WithSorting: StoryObj = {
 export const WithColumnAlignment: StoryObj = {
 	args: {},
 	render: () => ({
-		components: { Table },
+		components: { Table, TeleportOverflowMenu },
 		setup() {
 			const columns = [
 				{ key: 'name', label: 'Name', align: 'left' as const },
@@ -146,7 +288,7 @@ export const WithColumnAlignment: StoryObj = {
 export const WithCustomCellSlots: StoryObj = {
 	args: {},
 	render: () => ({
-		components: { Table, Badge },
+		components: { Table, Badge, TeleportOverflowMenu },
 		setup() {
 			const columns = [
 				{ key: 'name', label: 'Name' },
@@ -192,7 +334,7 @@ export const WithCustomCellSlots: StoryObj = {
 export const WithCustomHeaderSlots: StoryObj = {
 	args: {},
 	render: () => ({
-		components: { Table },
+		components: { Table, TeleportOverflowMenu },
 		setup() {
 			const columns = [
 				{ key: 'name', label: 'Name' },
@@ -219,10 +361,40 @@ export const WithCustomHeaderSlots: StoryObj = {
 	}),
 }
 
+export const WithHeaderSlot: StoryObj = {
+	args: {},
+	render: () => ({
+		components: { Table, Button, TeleportOverflowMenu },
+		setup() {
+			const columns = [
+				{ key: 'name', label: 'Name' },
+				{ key: 'email', label: 'Email' },
+				{ key: 'status', label: 'Status' },
+				{ key: 'role', label: 'Role' },
+			]
+			const data = sampleUsers
+
+			return { columns, data }
+		},
+		template: /* html */ `
+			<Table :columns="columns" :data="data">
+				<template #header>
+					<div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+						<div class="text-lg font-semibold text-contrast">Team Members</div>
+						<div class="flex items-center gap-2">
+							<Button type="colored" color="brand" native-type="button">Invite member</Button>
+						</div>
+					</div>
+				</template>
+			</Table>
+		`,
+	}),
+}
+
 export const WithActionsColumn: StoryObj = {
 	args: {},
 	render: () => ({
-		components: { Table, ButtonStyled, EditIcon, TrashIcon },
+		components: { Table, EditIcon, TrashIcon, Button, TeleportOverflowMenu },
 		setup() {
 			const columns = [
 				{ key: 'name', label: 'Name' },
@@ -246,18 +418,56 @@ export const WithActionsColumn: StoryObj = {
 			<Table :columns="columns" :data="data">
 				<template #cell-actions="{ row }">
 					<div class="flex items-center justify-end gap-2">
-						<ButtonStyled color="brand" type="transparent" @click="handleEdit(row)">
-							<button class="flex items-center gap-1">
-								<EditIcon class="size-4" />
-								Edit
-							</button>
-						</ButtonStyled>
-						<ButtonStyled color="red" type="transparent" @click="handleDelete(row)">
-							<button class="flex items-center gap-1">
-								<TrashIcon class="size-4" />
-								Delete
-							</button>
-						</ButtonStyled>
+						<Button type="quiet" color="brand" @click="handleEdit(row)" class="flex items-center gap-1">
+							<EditIcon class="size-4" />
+							Edit
+						</Button>
+						<Button type="quiet" color="red" @click="handleDelete(row)" class="flex items-center gap-1">
+							<TrashIcon class="size-4" />
+							Delete
+						</Button>
+					</div>
+				</template>
+			</Table>
+		`,
+	}),
+}
+
+export const WithLocalizedActionsColumn: StoryObj = {
+	args: {},
+	render: () => ({
+		components: { Table, EditIcon, TrashIcon, Button, TeleportOverflowMenu },
+		setup() {
+			const columns = [
+				{ key: 'name', label: 'Nombre' },
+				{ key: 'email', label: 'Correo' },
+				{ key: 'role', label: 'Rol' },
+				{ key: 'actions', label: 'Acciones', align: 'right' as const, width: '240px' },
+			]
+			const data = sampleUsers
+
+			function handleEdit(row: User) {
+				alert(`Editar usuario: ${row.name}`)
+			}
+
+			function handleDelete(row: User) {
+				alert(`Eliminar usuario: ${row.name}`)
+			}
+
+			return { columns, data, handleEdit, handleDelete }
+		},
+		template: /* html */ `
+			<Table :columns="columns" :data="data">
+				<template #cell-actions="{ row }">
+					<div class="flex items-center justify-end gap-2">
+						<Button type="quiet" color="brand" @click="handleEdit(row)" class="flex items-center gap-1">
+							<EditIcon class="size-4" />
+							Editar
+						</Button>
+						<Button type="quiet" color="red" @click="handleDelete(row)" class="flex items-center gap-1">
+							<TrashIcon class="size-4" />
+							Eliminar
+						</Button>
 					</div>
 				</template>
 			</Table>
@@ -268,7 +478,7 @@ export const WithActionsColumn: StoryObj = {
 export const FullFeatured: StoryObj = {
 	args: {},
 	render: () => ({
-		components: { Table, Badge, ButtonStyled, EditIcon, TrashIcon },
+		components: { Table, Badge, EditIcon, TrashIcon, Button, TeleportOverflowMenu },
 		setup() {
 			const columns = [
 				{ key: 'name', label: 'Name', enableSorting: true },
@@ -344,18 +554,132 @@ export const FullFeatured: StoryObj = {
 					</template>
 					<template #cell-actions="{ row }">
 						<div class="flex items-center justify-end gap-2">
-							<ButtonStyled color="brand" type="transparent" @click="handleEdit(row)">
-								<button class="flex items-center gap-1">
-									<EditIcon class="size-4" />
-									Edit
-								</button>
-							</ButtonStyled>
-							<ButtonStyled color="red" type="transparent" @click="handleDelete(row)">
-								<button class="flex items-center gap-1">
-									<TrashIcon class="size-4" />
-									Delete
-								</button>
-							</ButtonStyled>
+							<Button type="quiet" color="brand" @click="handleEdit(row)" class="flex items-center gap-1">
+								<EditIcon class="size-4" />
+								Edit
+							</Button>
+							<Button type="quiet" color="red" @click="handleDelete(row)" class="flex items-center gap-1">
+								<TrashIcon class="size-4" />
+								Delete
+							</Button>
+						</div>
+					</template>
+				</Table>
+				<div class="flex gap-4 text-secondary text-sm">
+					<span>Selected: {{ selectedIds.length }} items</span>
+					<span>Sort: {{ sortColumn }} ({{ sortDirection }})</span>
+				</div>
+			</div>
+		`,
+	}),
+}
+
+export const VirtualizedLargeData: StoryObj = {
+	args: {},
+	render: () => ({
+		components: { Table, Badge, TeleportOverflowMenu },
+		setup() {
+			const columns = [
+				{ key: 'name', label: 'Name', enableSorting: true },
+				{ key: 'email', label: 'Email', enableSorting: true },
+				{ key: 'status', label: 'Status', align: 'center' as const, width: '140px' },
+				{ key: 'role', label: 'Role', enableSorting: true, align: 'right' as const },
+			]
+			const statuses: User['status'][] = ['active', 'inactive', 'pending']
+			const roles = ['Admin', 'Editor', 'Maintainer', 'Reviewer', 'User']
+			const largeData = Array.from({ length: 10000 }, (_, index): User => {
+				const id = String(index + 1)
+				const paddedId = id.padStart(5, '0')
+
+				return {
+					id,
+					name: `User ${paddedId}`,
+					email: `user-${paddedId}@example.com`,
+					status: statuses[index % statuses.length],
+					role: roles[index % roles.length],
+				}
+			})
+			const selectedIds = ref<string[]>([])
+			const sortColumn = ref<string | undefined>('name')
+			const sortDirection = ref<'asc' | 'desc'>('asc')
+			const data = computed(() => {
+				const sorted = [...largeData]
+				const activeSortColumn = sortColumn.value
+
+				if (!activeSortColumn) {
+					return sorted
+				}
+
+				const directionFactor = sortDirection.value === 'asc' ? 1 : -1
+				sorted.sort((left, right) => {
+					return (
+						String(left[activeSortColumn as keyof User]).localeCompare(
+							String(right[activeSortColumn as keyof User]),
+							undefined,
+							{ numeric: true, sensitivity: 'base' },
+						) * directionFactor
+					)
+				})
+
+				return sorted
+			})
+
+			const statusColor = (status: string) => {
+				switch (status) {
+					case 'active':
+						return 'green'
+					case 'inactive':
+						return 'red'
+					case 'pending':
+						return 'orange'
+					default:
+						return 'gray'
+				}
+			}
+
+			function handleSort(column: string, direction: 'asc' | 'desc') {
+				console.log(`Sorting ${largeData.length} rows by ${column} ${direction}`)
+			}
+
+			return {
+				columns,
+				data,
+				selectedIds,
+				sortColumn,
+				sortDirection,
+				statusColor,
+				handleSort,
+			}
+		},
+		template: /* html */ `
+			<div class="space-y-4 max-h-[60vh] overflow-y-scroll">
+				<Table
+					:columns="columns"
+					:data="data"
+					show-selection
+					row-key="id"
+					virtualized
+					:virtual-row-height="56"
+					v-model:selected-ids="selectedIds"
+					v-model:sort-column="sortColumn"
+					v-model:sort-direction="sortDirection"
+					@sort="handleSort"
+				>
+					<template #header>
+						<div class="flex items-center justify-between gap-4">
+							<div class="text-lg font-semibold text-contrast">Virtualized members</div>
+							<div class="text-sm text-secondary">{{ data.length.toLocaleString() }} rows</div>
+						</div>
+					</template>
+					<template #cell-name="{ value, index }">
+						<div class="flex items-center gap-2">
+							<span class="text-secondary tabular-nums">#{{ index + 1 }}</span>
+							<span class="font-semibold">{{ value }}</span>
+						</div>
+					</template>
+					<template #cell-status="{ value }">
+						<div class="flex justify-center">
+							<Badge :color="statusColor(value)">{{ value }}</Badge>
 						</div>
 					</template>
 				</Table>
@@ -371,14 +695,22 @@ export const FullFeatured: StoryObj = {
 export const WithOverflowMenu: StoryObj = {
 	args: {},
 	render: () => ({
-		components: { Table, Badge, ButtonStyled, OverflowMenu, MoreVerticalIcon, EditIcon, TrashIcon },
+		components: {
+			Table,
+			Badge,
+			MoreVerticalIcon,
+			EditIcon,
+			TrashIcon,
+			Button,
+			TeleportOverflowMenu,
+		},
 		setup() {
 			const columns = [
 				{ key: 'name', label: 'Name' },
 				{ key: 'email', label: 'Email' },
 				{ key: 'status', label: 'Status', align: 'center' as const, width: '20%' },
 				{ key: 'role', label: 'Role' },
-				{ key: 'actions', label: '', width: '48px' },
+				{ key: 'actions', label: '', width: '68px' },
 			]
 			const data = sampleUsers
 
@@ -398,17 +730,19 @@ export const WithOverflowMenu: StoryObj = {
 			const getMenuOptions = (row: User) => [
 				{
 					id: 'edit',
+					label: 'Edit',
 					action: () => alert(`Edit user: ${row.name}`),
 				},
 				{
 					id: 'duplicate',
+					label: 'Duplicate',
 					action: () => alert(`Duplicate user: ${row.name}`),
 				},
-				{ divider: true },
+				{ type: 'divider' },
 				{
 					id: 'delete',
-					color: 'red' as const,
-					hoverFilled: true,
+					label: 'Delete',
+					tone: 'red',
 					action: () => alert(`Delete user: ${row.name}`),
 				},
 			]
@@ -427,26 +761,51 @@ export const WithOverflowMenu: StoryObj = {
 				</template>
 				<template #cell-actions="{ row }">
 					<div class="flex justify-end">
-						<ButtonStyled circular type="transparent">
-							<OverflowMenu
+						<TeleportOverflowMenu type="quiet" label="More options"
 								:options="getMenuOptions(row)"
-								aria-label="More options"
 							>
-								<MoreVerticalIcon aria-hidden="true" />
-								<template #edit>
-									<EditIcon class="size-4" aria-hidden="true" />
-									Edit
-								</template>
-								<template #duplicate>
-									<EditIcon class="size-4" aria-hidden="true" />
-									Duplicate
-								</template>
-								<template #delete>
-									<TrashIcon class="size-4" aria-hidden="true" />
-									Delete
-								</template>
-							</OverflowMenu>
-						</ButtonStyled>
+							<MoreVerticalIcon aria-hidden="true" />
+							<template #edit>
+								<EditIcon class="size-4" aria-hidden="true" />
+								Edit
+							</template>
+							<template #duplicate>
+								<EditIcon class="size-4" aria-hidden="true" />
+								Duplicate
+							</template>
+							<template #delete>
+								<TrashIcon class="size-4" aria-hidden="true" />
+								Delete
+							</template>
+						</TeleportOverflowMenu>
+					</div>
+				</template>
+			</Table>
+		`,
+	}),
+}
+
+export const EmptyState: StoryObj = {
+	args: {},
+	render: () => ({
+		components: { Table, TeleportOverflowMenu },
+		setup() {
+			const columns = [
+				{ key: 'name', label: 'Name' },
+				{ key: 'email', label: 'Email' },
+				{ key: 'status', label: 'Status' },
+				{ key: 'role', label: 'Role' },
+			]
+			const data: User[] = []
+
+			return { columns, data }
+		},
+		template: /* html */ `
+			<Table :columns="columns" :data="data">
+				<template #empty-state>
+					<div class="flex h-64 flex-col items-center justify-center gap-2 text-center">
+						<div class="font-semibold text-contrast">No members found</div>
+						<div class="text-sm text-secondary">Invite a team member to get started.</div>
 					</div>
 				</template>
 			</Table>

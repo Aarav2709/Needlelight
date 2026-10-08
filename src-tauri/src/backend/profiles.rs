@@ -1,64 +1,24 @@
-use super::{errors::AppResult, settings::{AppSettings, GameKey}};
+use super::{
+    errors::AppResult,
+    settings::{AppSettings, GameKey},
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Hooks {
-    #[serde(default)]
-    pub pre_launch: Option<String>,
-    #[serde(default)]
-    pub wrapper: Option<String>,
-    #[serde(default)]
-    pub post_exit: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// what the frontend receives for each modpack
+#[derive(Debug, Clone, Serialize)]
 pub struct GameInstance {
     pub path: String,
-    pub install_stage: String,
-
+    pub game: GameKey,
     pub name: String,
-    #[serde(default)]
-    pub icon_path: Option<String>,
-
-    pub game_version: String,
-    pub loader: String,
-    #[serde(default)]
-    pub loader_version: Option<String>,
-
-    #[serde(default)]
-    pub groups: Vec<String>,
-
-    #[serde(default)]
-    pub linked_data: Option<serde_json::Value>,
-
+    pub description: Option<String>,
     pub created: DateTime<Utc>,
     pub modified: DateTime<Utc>,
-    #[serde(default)]
     pub last_played: Option<DateTime<Utc>>,
-
-    #[serde(default)]
-    pub submitted_time_played: i64,
-    #[serde(default)]
-    pub recent_time_played: i64,
-
-    #[serde(default)]
-    pub java_path: Option<String>,
-    #[serde(default)]
-    pub extra_launch_args: Option<Vec<String>>,
-    #[serde(default)]
-    pub custom_env_vars: Option<Vec<(String, String)>>,
-
-    #[serde(default)]
-    pub memory: Option<serde_json::Value>,
-    #[serde(default)]
-    pub force_fullscreen: Option<bool>,
-    #[serde(default)]
-    pub game_resolution: Option<(i32, i32)>,
-
-    #[serde(default)]
-    pub hooks: Hooks,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,17 +26,22 @@ pub struct ProfileMeta {
     pub name: String,
     pub game: GameKey,
     #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
     pub groups: Vec<String>,
     pub created: DateTime<Utc>,
     pub modified: DateTime<Utc>,
     #[serde(default)]
     pub last_played: Option<DateTime<Utc>>,
     #[serde(default)]
+    // icons are no longer used, the field stays so older profile files keep it
     pub icon_file: Option<String>,
 }
 
 pub fn profiles_root(game: &GameKey) -> AppResult<PathBuf> {
-    Ok(AppSettings::config_dir()?.join("profiles").join(game.as_str()))
+    Ok(AppSettings::config_dir()?
+        .join("profiles")
+        .join(game.as_str()))
 }
 
 pub fn profile_meta_path(profile_dir: &Path) -> PathBuf {
@@ -107,6 +72,7 @@ pub fn load_profile_meta(profile_dir: &Path) -> AppResult<ProfileMeta> {
                 .unwrap_or("Profile")
                 .to_string(),
             game: GameKey::HollowKnight,
+            description: None,
             groups: vec![],
             created: now,
             modified: now,
@@ -131,30 +97,14 @@ pub fn save_profile_meta(profile_dir: &Path, meta: &ProfileMeta) -> AppResult<()
 }
 
 pub fn profile_to_instance(profile_dir: &Path, meta: &ProfileMeta) -> GameInstance {
-    let icon_path = meta.icon_file.as_ref().map(|file| profile_dir.join(file).to_string_lossy().to_string());
-
     GameInstance {
         path: profile_dir.to_string_lossy().to_string(),
-        install_stage: "installed".to_string(),
+        game: meta.game.clone(),
         name: meta.name.clone(),
-        icon_path,
-        game_version: "".to_string(),
-        loader: "vanilla".to_string(),
-        loader_version: None,
-        groups: meta.groups.clone(),
-        linked_data: None,
+        description: meta.description.clone(),
         created: meta.created,
         modified: meta.modified,
         last_played: meta.last_played,
-        submitted_time_played: 0,
-        recent_time_played: 0,
-        java_path: None,
-        extra_launch_args: None,
-        custom_env_vars: None,
-        memory: None,
-        force_fullscreen: None,
-        game_resolution: None,
-        hooks: Hooks::default(),
     }
 }
 

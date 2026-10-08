@@ -60,10 +60,23 @@ export const computeVersions = (versions, members) => {
 		.sort((a, b) => dayjs(b.date_published) - dayjs(a.date_published))
 }
 
+const SERVER_HEADER_ORDER = [
+	'minecraft_server_features',
+	'minecraft_server_gameplay',
+	'minecraft_server_meta',
+	'minecraft_server_community',
+]
+
 export const sortedCategories = (tags, formatCategoryName, locale) => {
 	return tags.categories.slice().sort((a, b) => {
 		const headerCompare = a.header.localeCompare(b.header)
 		if (headerCompare !== 0) {
+			const aServerIdx = SERVER_HEADER_ORDER.indexOf(a.header)
+			const bServerIdx = SERVER_HEADER_ORDER.indexOf(b.header)
+			if (aServerIdx !== -1 && bServerIdx !== -1) {
+				return aServerIdx - bServerIdx
+			}
+
 			return headerCompare
 		}
 
@@ -72,12 +85,24 @@ export const sortedCategories = (tags, formatCategoryName, locale) => {
 			return x.indexOf(a.name) - x.indexOf(b.name)
 		}
 
+		if (a.name === 'pokemon') return -1
+		if (b.name === 'pokemon') return 1
+
 		const aFormatted = formatCategoryName(a.name)
 		const bFormatted = formatCategoryName(b.name)
 		return aFormatted.localeCompare(bFormatted, locale, { numeric: true })
 	})
 }
 
+// NOTE (Needlelight): Modrinth moved this to a `useFormatBytes()` i18n composable in
+// `@modrinth/ui`, which depends on their new @vintl/vintl-based i18n stack. Needlelight
+// still uses vue-i18n, so we keep this as a plain function rather than pull in an
+// unrelated i18n migration. Revisit if/when the `ui` package + i18n system is modernized.
+// NOTE (Needlelight): Modrinth moved formatNumber/formatMoney/formatDate/formatBytes to
+// i18n composables (useFormatBytes/useFormatDateTime in @modrinth/ui, formatNumber/formatMoney
+// in apps/frontend's local shorthands.js) built on their new @vintl/vintl i18n stack. Needlelight
+// still uses vue-i18n, so these stay as plain functions rather than pulling in an unrelated i18n
+// migration. Revisit if/when the `ui` package + i18n system is modernized.
 export const formatNumber = (number, abbreviate = true) => {
 	const x = Number(number)
 	if (x >= 1000000 && abbreviate) {
@@ -149,6 +174,8 @@ export const formatProjectType = (name, short = false) => {
 			return 'PLG'
 		} else if (name === 'datapack') {
 			return 'DPK'
+		} else if (name === 'minecraft_java_server') {
+			return 'SRV'
 		}
 	}
 
@@ -317,3 +344,33 @@ export function arrayBufferToBase64(buffer: Uint8Array | ArrayBuffer): string {
 }
 export const DEFAULT_CREDIT_EMAIL_MESSAGE =
 	"We're really sorry about the recent issues with your server."
+
+/**
+ * Comparator for sorting values by first occurrence index in {@link order}.
+ * Values absent from {@link order} behave as tied after listed values (`order.length`).
+ */
+export function compareByIndex<T>(order: readonly T[], a: T, b: T): number {
+	const ia = order.indexOf(a)
+	const ib = order.indexOf(b)
+	const ra = ia === -1 ? order.length : ia
+	const rb = ib === -1 ? order.length : ib
+	return ra - rb
+}
+
+/**
+ * Sort {@link items} in place according to {@link order}, returning the same array reference.
+ *
+ * If the array should not be mutated, use {@link sortedByIndex}.
+ */
+export function sortByIndex<T>(order: readonly T[], items: T[]): T[] {
+	items.sort((a, b) => compareByIndex(order, a, b))
+	return items
+}
+
+/**
+ * Creates a sorted copy of {@link items} according to {@link order}.
+ *
+ */
+export function sortedByIndex<T>(order: readonly T[], items: T[]): T[] {
+	return items.slice().sort((a, b) => compareByIndex(order, a, b))
+}

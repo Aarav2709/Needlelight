@@ -3,8 +3,6 @@ import { defineStore } from 'pinia'
 export const useBreadcrumbs = defineStore('breadcrumbsStore', {
 	state: () => ({
 		names: new Map(),
-		context: null,
-		rootContext: null,
 	}),
 	actions: {
 		getName(route) {
@@ -13,25 +11,19 @@ export const useBreadcrumbs = defineStore('breadcrumbsStore', {
 		setName(route, title) {
 			this.names.set(route, title)
 		},
-		// resets breadcrumbs to only included ones as to not have stale breadcrumbs
+		// drops breadcrumb names the current route doesn't use so none go stale
 		resetToNames(breadcrumbs) {
 			if (!breadcrumbs) return
-			// names is an array of every breadcrumb.name that starts with a ?
+			// the dynamic names, which start with a question mark
 			const names = breadcrumbs
 				.filter((breadcrumb) => breadcrumb.name.charAt(0) === '?')
 				.map((breadcrumb) => breadcrumb.name.slice(1))
-			// remove all names that are not in the names array
+			// remove every name not in that list
 			for (const [route] of this.names) {
 				if (!names.includes(route)) {
 					this.names.delete(route)
 				}
 			}
-		},
-		setContext(context) {
-			this.context = context
-		},
-		setRootContext(context) {
-			this.rootContext = context
 		},
 	},
 })
