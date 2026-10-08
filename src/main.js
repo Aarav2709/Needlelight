@@ -1,13 +1,11 @@
 import 'floating-vue/dist/style.css'
 
-import { VueQueryPlugin } from '@tanstack/vue-query'
 import FloatingVue from 'floating-vue'
 import { createPinia } from 'pinia'
 import { createApp, h } from 'vue'
 
 import App from '@/App.vue'
 import i18nPlugin from '@/plugins/i18n'
-import i18nDebugPlugin from '@/plugins/i18n-debug'
 import router from '@/routes'
 
 const isTauriRuntime = () =>
@@ -40,7 +38,6 @@ if (!isTauriRuntime()) {
   const pinia = createPinia()
   const app = createApp(App)
 
-  app.use(VueQueryPlugin)
   app.use(router)
   app.use(pinia)
   app.use(FloatingVue, {
@@ -54,7 +51,6 @@ if (!isTauriRuntime()) {
     },
   })
   app.use(i18nPlugin)
-  app.use(i18nDebugPlugin)
 
   app.mount('#app')
 }

@@ -1,6 +1,5 @@
 <script setup>
 import {
-  DownloadIcon,
   LeftArrowIcon,
   MaximizeIcon,
   MinimizeIcon,
@@ -9,14 +8,7 @@ import {
   RightArrowIcon,
   XIcon,
 } from "@modrinth/assets";
-import {
-  defineMessages,
-  NotificationPanel,
-  ProgressSpinner,
-  provideNotificationManager,
-  useVIntl,
-} from "@modrinth/ui";
-import { invoke } from "@tauri-apps/api/core";
+import { NotificationPanel, ProgressSpinner, provideNotificationManager } from "@modrinth/ui";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { saveWindowState, StateFlags } from "@tauri-apps/plugin-window-state";
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from "vue";
@@ -25,37 +17,24 @@ import { RouterView, useRoute, useRouter } from "vue-router";
 import Breadcrumbs from "@/components/ui/Breadcrumbs.vue";
 import ErrorModal from "@/components/ui/ErrorModal.vue";
 import AppSettingsModal from "@/components/ui/modal/AppSettingsModal.vue";
-import KeyboardShortcutsModal from "@/components/ui/modal/KeyboardShortcutsModal.vue";
 import ModpackEditorModal from "@/components/ui/modal/ModpackEditorModal.vue";
-import WelcomeModal from "@/components/ui/modal/WelcomeModal.vue";
 import NavRail from "@/components/ui/NavRail.vue";
 import RunningAppBar from "@/components/ui/RunningAppBar.vue";
 import UpdateToast from "@/components/ui/UpdateToast.vue";
 import { useCheckDisableMouseover } from "@/composables/macCssFix.js";
 import { useGameSetup } from "@/composables/setup";
 import { useShortcut } from "@/composables/shortcuts";
-import { command_listener, warning_listener } from "@/helpers/events.js";
+import { isExternalUrl, openExternal } from "@/helpers/app";
 import { applyGameTheme } from "@/helpers/game-theme";
 import { gameName } from "@/helpers/games";
 import { modpackRoute } from "@/helpers/modpacks";
-import { initialize_state } from "@/helpers/state";
-import {
-  areUpdatesEnabled,
-  enqueueUpdateForInstallation,
-  getUpdateSize,
-  isDev,
-  isNetworkMetered,
-} from "@/helpers/utils.js";
-import {
-  provideAppUpdateDownloadProgress,
-  subscribeToDownloadProgress,
-} from "@/providers/download-progress.ts";
 import { useError } from "@/store/error.js";
 import { useGames } from "@/store/games";
 import { useModpacks } from "@/store/modpacks";
-import { usePreferences } from "@/store/preferences";
-import { useLoading, useTheming } from "@/store/state";
+import { isOnboarded, setOnboarded, usePreferences } from "@/store/preferences";
+import { useTheming } from "@/store/theme";
 import { useUi } from "@/store/ui";
+import { useUpdater } from "@/store/updater";
 
 import { AppNotificationManager } from "./providers/app-notifications";
 
@@ -64,8 +43,12 @@ const preferences = usePreferences();
 const games = useGames();
 const modpacks = useModpacks();
 const ui = useUi();
-const settingsModal = useTemplateRef('settingsModal');
-const welcomeModal = useTemplateRef('welcomeModal');
+const updater = useUpdater();
+const router = useRouter();
+const route = useRoute();
+const error = useError();
+const settingsModal = useTemplateRef("settingsModal");
+const errorModal = ref();
 
 // apply saved ui preferences before the shell first renders
 preferences.apply();
@@ -74,57 +57,22 @@ const notificationManager = new AppNotificationManager();
 provideNotificationManager(notificationManager);
 const { handleError, addNotification } = notificationManager;
 
-const isDevEnvironment = ref(false);
-
 const stateInitialized = ref(false);
-
 const isMaximized = ref(false);
 
 onMounted(async () => {
+  error.setErrorModal(errorModal.value);
   await useCheckDisableMouseover();
-
-  document.querySelector("body").addEventListener("click", handleClick);
-  document.querySelector("body").addEventListener("auxclick", handleAuxClick);
-
-  checkUpdates();
+  document.body.addEventListener("click", handleClick);
+  document.body.addEventListener("auxclick", handleAuxClick);
 });
 
-onUnmounted(async () => {
-  document.querySelector("body").removeEventListener("click", handleClick);
-  document
-    .querySelector("body")
-    .removeEventListener("auxclick", handleAuxClick);
-
-  await unlistenUpdateDownload?.();
-});
-
-const { formatMessage } = useVIntl();
-const messages = defineMessages({
-  updateInstalledToastTitle: {
-    id: "app.update.complete-toast.title",
-    defaultMessage: "Version {version} was successfully installed!",
-  },
-  updateInstalledToastText: {
-    id: "app.update.complete-toast.text",
-    defaultMessage: "Click here to view the changelog.",
-  },
-  reloadToUpdate: {
-    id: "app.update.reload-to-update",
-    defaultMessage: "Reload to install update",
-  },
-  downloadUpdate: {
-    id: "app.update.download-update",
-    defaultMessage: "Download update",
-  },
-  downloadingUpdate: {
-    id: "app.update.downloading-update",
-    defaultMessage: "Downloading update ({percent}%)",
-  },
+onUnmounted(() => {
+  document.body.removeEventListener("click", handleClick);
+  document.body.removeEventListener("auxclick", handleAuxClick);
 });
 
 async function setupApp() {
-  const dev = await isDev();
-  isDevEnvironment.value = dev;
   stateInitialized.value = true;
 
   // the active game tints the app with its accent color once settings load
@@ -136,6 +84,7 @@ async function setupApp() {
   // the loading screen stays up until there's something to show
   Promise.allSettled([gamesLoaded, modpacksLoaded]).then(hideSplash);
 
+  updater.start();
 
   const currentWindow = getCurrentWindow();
 
@@ -147,16 +96,9 @@ async function setupApp() {
     isMaximized.value = await getCurrentWindow().isMaximized();
   });
 
-  if (!dev)
+  // the browser context menu only makes sense while developing
+  if (!import.meta.env.DEV)
     document.addEventListener("contextmenu", (event) => event.preventDefault());
-
-  await warning_listener((e) =>
-    addNotification({
-      title: "Warning",
-      text: e.message,
-      type: "warn",
-    }),
-  );
 }
 
 // fades out the loading screen from index.html
@@ -169,210 +111,31 @@ function hideSplash() {
 // never leave the loading screen up if something stalls, errors show in the app instead
 setTimeout(hideSplash, 15000);
 
-const stateFailed = ref(false);
-watch(stateFailed, (failed) => failed && hideSplash());
-initialize_state()
-  .then(() => {
-    setupApp().catch((err) => {
-      stateFailed.value = true;
-      console.error(err);
-      error.showError(err, null, false, "state_init");
-    });
-  })
-  .catch((err) => {
-    stateFailed.value = true;
-    console.error("Failed to initialize app", err);
-    error.showError(err, null, false, "state_init");
-  });
+setupApp().catch((err) => {
+  hideSplash();
+  console.error("Failed to initialize app", err);
+  error.showError(err, null, false, "state_init");
+});
 
 const handleClose = async () => {
   await saveWindowState(StateFlags.ALL);
   await getCurrentWindow().close();
 };
 
-const router = useRouter();
-const route = useRoute();
-
-const loading = useLoading();
-loading.setEnabled(false);
-
-const error = useError();
-const errorModal = ref();
-
-void command_listener(handleCommand).catch(() => null);
-async function handleCommand(e) {
-  if (!e) return;
-  // url scheme commands are only logged for now
-  console.log("Received command:", e);
+// web links open in the browser, everything else stays in the app, router links already handled themselves
+function handleClick(event) {
+  const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+  if (!link || event.defaultPrevented) return;
+  event.preventDefault();
+  if (isExternalUrl(link.href)) openExternal(link.href).catch((err) => handleError(err));
 }
 
-const appUpdateDownload = {
-  progress: ref(0),
-  version: ref(),
-};
-let unlistenUpdateDownload;
-
-const downloadProgress = computed(() => appUpdateDownload.progress.value);
-const downloadPercent = computed(() =>
-  Math.trunc(appUpdateDownload.progress.value * 100),
-);
-
-const metered = ref(true);
-const finishedDownloading = ref(false);
-const restarting = ref(false);
-const updateToastDismissed = ref(false);
-const availableUpdate = ref(null);
-const updateSize = ref(null);
-const updatesEnabled = ref(true);
-async function checkUpdates() {
-  if (!(await areUpdatesEnabled())) {
-    console.log(
-      "Skipping update check as updates are disabled in this build or environment",
-    );
-    updatesEnabled.value = false;
-    return;
-  }
-
-  async function performCheck() {
-    const update = await invoke("plugin:updater|check").catch(() => null);
-    if (!update) {
-      console.log("No update available");
-      return;
-    }
-
-    const isExistingUpdate = update.version === availableUpdate.value?.version;
-
-    if (isExistingUpdate) {
-      console.log("Update is already known");
-      return;
-    }
-
-    appUpdateDownload.progress.value = 0;
-    finishedDownloading.value = false;
-    updateToastDismissed.value = false;
-
-    console.log(`Update ${update.version} is available.`);
-
-    metered.value = await isNetworkMetered();
-    if (!metered.value) {
-      console.log("Starting download of update");
-      downloadUpdate(update);
-    } else {
-      console.log(`Metered connection detected, not auto-downloading update.`);
-    }
-
-    getUpdateSize(update.rid).then((size) => (updateSize.value = size));
-
-    availableUpdate.value = update;
-  }
-
-  await performCheck();
-  setTimeout(
-    () => {
-      checkUpdates();
-    },
-    5 * 60 * 1000, // five minutes
-  );
+// turns a middle click into a normal click instead of opening a new tab
+function handleAuxClick(event) {
+  if (event.button !== 1) return;
+  event.preventDefault();
+  event.target.dispatchEvent(new MouseEvent("click", { view: window, bubbles: true, cancelable: true }));
 }
-
-async function showUpdateToast() {
-  updateToastDismissed.value = false;
-}
-
-async function downloadAvailableUpdate() {
-  return downloadUpdate(availableUpdate.value);
-}
-
-async function downloadUpdate(versionToDownload) {
-  if (!versionToDownload) {
-    handleError(`Failed to download update: no version available`);
-  }
-
-  if (appUpdateDownload.progress.value !== 0) {
-    console.error(`Update ${versionToDownload.version} already downloading`);
-    return;
-  }
-
-  console.log(`Downloading update ${versionToDownload.version}`);
-
-  try {
-    enqueueUpdateForInstallation(versionToDownload.rid).then(() => {
-      finishedDownloading.value = true;
-      unlistenUpdateDownload?.().then(() => {
-        unlistenUpdateDownload = null;
-      });
-      console.log("Finished downloading!");
-    });
-    unlistenUpdateDownload = await subscribeToDownloadProgress(
-      appUpdateDownload,
-      versionToDownload.version,
-    );
-  } catch (e) {
-    handleError(e);
-  }
-}
-
-async function installUpdate() {
-  restarting.value = true;
-  setTimeout(async () => {
-    await handleClose();
-  }, 250);
-}
-
-function handleClick(e) {
-  let target = e.target;
-  while (target != null) {
-    if (target.matches("a")) {
-      let isAllowedProtocol = false;
-      let isInternalHost = false;
-
-      if (target.href) {
-        try {
-          const parsedUrl = new URL(target.href);
-          isAllowedProtocol = ["http:", "https:", "mailto:", "tel:"].includes(
-            parsedUrl.protocol,
-          );
-          isInternalHost =
-            (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") &&
-            ["localhost", "tauri.localhost"].includes(parsedUrl.hostname);
-        } catch {
-          isAllowedProtocol = false;
-          isInternalHost = false;
-        }
-      }
-      if (
-        target.href &&
-        isAllowedProtocol &&
-        !target.classList.contains("router-link-active") &&
-        !isInternalHost
-      ) {
-        e.preventDefault();
-      }
-      e.preventDefault();
-      break;
-    }
-    target = target.parentElement;
-  }
-}
-
-function handleAuxClick(e) {
-  // turns a middle click into a normal click instead of opening a new tab
-  if (e.button === 1) {
-    e.preventDefault();
-    const event = new MouseEvent("click", {
-      view: window,
-      bubbles: true,
-      cancelable: true,
-    });
-    e.target.dispatchEvent(event);
-  }
-}
-
-provideAppUpdateDownloadProgress(appUpdateDownload);
-
-onMounted(() => {
-  error.setErrorModal(errorModal.value);
-});
 
 watch(
   () => ui.settingsRequest,
@@ -381,25 +144,25 @@ watch(
   },
 );
 
-// the welcome guide shows once on first launch, and again when asked from settings
-watch(stateInitialized, (ready) => {
-  if (ready) setTimeout(() => welcomeModal.value?.showIfFirstLaunch(), 600);
-});
-watch(
-  () => ui.welcomeRequest,
-  () => welcomeModal.value?.show(),
-);
-
-const shortcutsModal = ref(null);
-watch(
-  () => ui.shortcutsRequest,
-  () => shortcutsModal.value?.show(),
-);
 useShortcut("mod+,", () => settingsModal.value?.show());
-useShortcut("?", () => shortcutsModal.value?.show());
 
 // a newly set up game gets a default modpack if it has none
 const { ensureDefaultModpack } = useGameSetup();
+
+// on first launch hollow knight is looked for and given a default modpack, the app then opens on it
+async function firstLaunchSetup() {
+  if (isOnboarded()) return;
+  try {
+    await Promise.all([games.ensureLoaded(), modpacks.ensureLoaded()]);
+    if (games.found.hollow_knight === false) await games.findGame("hollow_knight");
+    if (games.found.hollow_knight) await ensureDefaultModpack("hollow_knight");
+  } catch (err) {
+    handleError(err);
+  } finally {
+    setOnboarded(true);
+  }
+}
+watch(stateInitialized, (ready) => ready && void firstLaunchSetup());
 watch(
   () => games.configured,
   async (event) => {
@@ -433,13 +196,15 @@ async function onModpackCreated(modpack) {
 }
 useShortcut("mod+n", () => ui.createModpack());
 
-const updateReady = computed(
-  () =>
-    !!availableUpdate.value &&
-    updateToastDismissed.value &&
-    !restarting.value &&
-    (finishedDownloading.value || metered.value),
+// the title bar shows update progress, and a restart button once the toast is closed
+const showUpdateButton = computed(
+  () => updater.status === "downloading" || (updater.status === "ready" && updater.dismissed),
 );
+const updateTooltip = computed(() => {
+  if (updater.status === "ready") return `Restart to update to ${updater.version}`;
+  if (updater.progress == null) return `Downloading ${updater.version}`;
+  return `Downloading ${updater.version} (${Math.round(updater.progress * 100)}%)`;
+});
 
 // back and forward buttons reflect whether there is somewhere to go
 const canGoBack = ref(false);
@@ -462,27 +227,12 @@ watch(
     class="app-grid-layout experimental-styles-within relative"
     :class="{ 'disable-advanced-rendering': !themeStore.advancedRendering }"
   >
-    <Suspense>
-      <Transition name="toast">
-        <UpdateToast
-          v-if="
-            !!availableUpdate &&
-            !updateToastDismissed &&
-            !restarting &&
-            (finishedDownloading || metered)
-          "
-          :version="availableUpdate.version"
-          :size="updateSize"
-          :metered="metered"
-          @close="updateToastDismissed = true"
-          @restart="installUpdate"
-          @download="downloadAvailableUpdate"
-        />
-      </Transition>
-    </Suspense>
+    <Transition name="toast">
+      <UpdateToast v-if="updater.status === 'ready' && !updater.dismissed" />
+    </Transition>
     <Transition name="fade">
       <div
-        v-if="restarting"
+        v-if="updater.status === 'installing'"
         data-tauri-drag-region
         class="inset-0 fixed bg-black/80 backdrop-blur z-[200] flex items-center justify-center"
       >
@@ -527,40 +277,19 @@ watch(
       </div>
       <section data-tauri-drag-region class="flex ml-auto items-center">
         <div class="flex mr-2">
-          <Suspense>
-            <RunningAppBar />
-          </Suspense>
+          <RunningAppBar />
         </div>
         <div class="flex items-center gap-1 pr-2" data-tauri-drag-region-exclude>
           <Transition name="nav-button-animated">
             <button
-              v-if="updateReady"
-              v-tooltip.bottom="
-                formatMessage(
-                  finishedDownloading
-                    ? messages.reloadToUpdate
-                    : downloadProgress === 0
-                      ? messages.downloadUpdate
-                      : messages.downloadingUpdate,
-                  { percent: downloadPercent },
-                )
-              "
+              v-if="showUpdateButton"
+              v-tooltip.bottom="updateTooltip"
               class="titlebar-action text-brand"
-              aria-label="Update Needlelight"
-              @click="
-                finishedDownloading
-                  ? installUpdate()
-                  : downloadProgress > 0 && downloadProgress < 1
-                    ? showUpdateToast()
-                    : downloadAvailableUpdate()
-              "
+              :aria-label="updateTooltip"
+              @click="updater.status === 'ready' ? updater.installAndRestart() : (updater.dismissed = false)"
             >
-              <ProgressSpinner
-                v-if="downloadProgress > 0 && downloadProgress < 1"
-                :progress="downloadProgress"
-              />
-              <RefreshCwIcon v-else-if="finishedDownloading" />
-              <DownloadIcon v-else />
+              <ProgressSpinner v-if="updater.status === 'downloading'" :progress="updater.progress ?? 0" />
+              <RefreshCwIcon v-else />
             </button>
           </Transition>
         </div>
@@ -582,18 +311,13 @@ watch(
     <div class="app-viewport flex-grow router-view">
       <RouterView v-slot="{ Component }">
         <template v-if="Component">
-          <Suspense
-            @pending="loading.startLoading()"
-            @resolve="loading.stopLoading()"
-          >
+          <Suspense>
             <component :is="Component"></component>
           </Suspense>
         </template>
       </RouterView>
     </div>
   </div>
-  <WelcomeModal ref="welcomeModal" />
-  <KeyboardShortcutsModal ref="shortcutsModal" />
   <ModpackEditorModal ref="editorModal" @saved="onModpackCreated" />
   <ErrorModal ref="errorModal" />
   <NotificationPanel />
@@ -678,8 +402,8 @@ watch(
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.15rem;
-  padding-right: 0.35rem;
+  gap: 0.25rem;
+  padding-right: 0.5rem;
 
   .titlebar-button {
     display: flex;
@@ -689,26 +413,20 @@ watch(
     transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
     background-color: transparent;
     color: var(--color-base);
-    height: 1.55rem;
-    width: 1.7rem;
-    min-width: 1.7rem;
+    height: 2.25rem;
+    width: 2.75rem;
+    min-width: 2.75rem;
     padding: 0 !important;
     margin: 0;
     position: relative;
     box-shadow: none !important;
     border: none !important;
     outline: none !important;
-    border-radius: 9999px;
-
-    &:last-child {
-      width: 1.7rem;
-      min-width: 1.7rem;
-      padding: 0 !important;
-    }
+    border-radius: 0.5rem;
 
     svg {
-      width: 0.72rem;
-      height: 0.72rem;
+      width: 1rem;
+      height: 1rem;
     }
 
     &.close {
@@ -854,19 +572,3 @@ watch(
 }
 
 </style>
-<style>
-:root {
-  .fake-appbar {
-    height: 2.5rem !important;
-  }
-
-  .info-card {
-    right: 8rem;
-  }
-
-  .profile-card {
-    right: 8rem;
-  }
-}
-</style>
-<style src="vue-multiselect/dist/vue-multiselect.css"></style>

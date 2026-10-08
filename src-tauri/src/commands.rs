@@ -7,13 +7,12 @@ use crate::{
         modpacks::{self, LaunchExtras},
         profiles,
         settings::{AppSettings, GameKey},
-        url_scheme,
     },
     AppState,
 };
-use std::collections::BTreeMap;
 use std::process::Command;
 use tauri::{AppHandle, State};
+use tauri_plugin_opener::OpenerExt;
 
 fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
     result.map_err(|e| format_user_error(&e.to_string()))
@@ -109,13 +108,7 @@ pub async fn load_settings(state: State<'_, AppState>) -> Result<AppSettings, St
             let folder = settings.managed_folder.clone();
             settings.set_managed_folder_for(&game, folder);
             map_err(settings.save().await)?;
-            {
-                let mut shared = state.settings.write().await;
-                *shared = settings.clone();
-            }
-            let reloaded = map_err(InstalledModsStore::load(&settings).await)?;
-            let mut installed = state.installed.write().await;
-            *installed = reloaded;
+            *state.settings.write().await = settings.clone();
         }
     }
 
@@ -166,10 +159,7 @@ pub async fn save_settings(
 
     map_err(incoming.save().await)?;
 
-    *state.settings.write().await = incoming.clone();
-
-    let reloaded = map_err(InstalledModsStore::load(&incoming).await)?;
-    *state.installed.write().await = reloaded;
+    *state.settings.write().await = incoming;
 
     Ok(())
 }
@@ -177,93 +167,6 @@ pub async fn save_settings(
 #[tauri::command]
 pub async fn auto_detect_managed_folder(game: GameKey) -> Result<Option<String>, String> {
     map_err(AppSettings::auto_detect(&game).await)
-}
-
-#[tauri::command]
-pub async fn refresh_catalog(
-    state: State<'_, AppState>,
-    fetch_official: bool,
-) -> Result<crate::backend::models::CatalogResponse, String> {
-    let settings = state.settings.read().await.clone();
-    let installed = state.installed.read().await.clone();
-
-    let fetch_official = fetch_official && !settings.use_custom_modlinks;
-    let mut cache = map_err(CatalogCache::build(&settings, &installed, fetch_official).await)?;
-    let api_installed = installer::is_api_installed(&settings, &installed);
-    cache.response.api_installed = api_installed;
-    cache.response.api_enabled = if settings.game.is_silksong() {
-        api_installed
-    } else {
-        installer::is_hk_api_enabled(&settings)
-    };
-    if !api_installed {
-        cache.response.api.url = String::new();
-    }
-
-    Ok(cache.response)
-}
-
-#[tauri::command]
-pub async fn install_mod(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    name: String,
-) -> Result<(), String> {
-    ensure_no_running_games(&state).await?;
-    let settings = state.settings.read().await.clone();
-    let mut installed = state.installed.write().await;
-    let catalog =
-        map_err(CatalogCache::build(&settings, &installed, !settings.use_custom_modlinks).await)?;
-
-    let result =
-        installer::install_mod(&app, &settings, &mut installed, &catalog.response, &name).await;
-    if let Err(error) = &result {
-        installer::write_install_log(format!("Mod install failed for {name}: {error}"));
-    }
-    map_err(result)
-}
-
-#[tauri::command]
-pub async fn uninstall_mod(state: State<'_, AppState>, name: String) -> Result<(), String> {
-    ensure_no_running_games(&state).await?;
-    let settings = state.settings.read().await.clone();
-    let mut installed = state.installed.write().await;
-    map_err(installer::uninstall_mod(&settings, &mut installed, &name).await)
-}
-
-#[tauri::command]
-pub async fn toggle_mod(
-    state: State<'_, AppState>,
-    name: String,
-    enable: bool,
-) -> Result<(), String> {
-    ensure_no_running_games(&state).await?;
-    let settings = state.settings.read().await.clone();
-    let mut installed = state.installed.write().await;
-    map_err(installer::toggle_mod(&settings, &mut installed, &name, enable).await)
-}
-
-#[tauri::command]
-pub async fn install_api(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    ensure_no_running_games(&state).await?;
-    let settings = state.settings.read().await.clone();
-    let mut installed = state.installed.write().await;
-    let catalog =
-        map_err(CatalogCache::build(&settings, &installed, !settings.use_custom_modlinks).await)?;
-
-    let result = installer::install_api(&app, &settings, &mut installed, &catalog.response).await;
-    if let Err(error) = &result {
-        installer::write_install_log(format!("Modding API install failed: {error}"));
-    }
-    map_err(result)
-}
-
-#[tauri::command]
-pub async fn parse_download_command(
-    raw: String,
-) -> Result<BTreeMap<String, Option<String>>, String> {
-    let (_, data) = url_scheme::decode_command(&raw);
-    map_err(url_scheme::parse_download_command(&data))
 }
 
 #[tauri::command]
@@ -478,16 +381,6 @@ async fn modpack_context(
     Ok((dir, settings, installed, meta.game))
 }
 
-// reloads the global installed mods store when the game is active so the app sees changes to its real mods folder
-async fn reload_active_store(state: &State<'_, AppState>, game: &GameKey) -> Result<(), String> {
-    let base = sync_managed_folder(state.settings.read().await.clone());
-    if &base.game == game {
-        let store = map_err(InstalledModsStore::load(&base).await)?;
-        *state.installed.write().await = store;
-    }
-    Ok(())
-}
-
 // silksong modpacks carry their own bepinex, so reinstall it if it went missing
 async fn ensure_modpack_bepinex(
     settings: &AppSettings,
@@ -530,29 +423,6 @@ pub async fn modpack_installed(
 ) -> Result<crate::backend::models::PersistedInstalled, String> {
     let (_, _, installed, _) = modpack_context(&state, &path).await?;
     Ok(installed.db)
-}
-
-// the catalog for a modpack's game with install state from that modpack
-#[tauri::command]
-pub async fn modpack_catalog(
-    state: State<'_, AppState>,
-    path: String,
-) -> Result<crate::backend::models::CatalogResponse, String> {
-    let (_, settings, installed, _) = modpack_context(&state, &path).await?;
-    let fetch_official = !settings.use_custom_modlinks;
-    let cache = map_err(CatalogCache::build(&settings, &installed, fetch_official).await)?;
-    Ok(cache.response)
-}
-
-// installs or updates a mod and its dependencies into a modpack
-#[tauri::command]
-pub async fn modpack_install_mod(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    path: String,
-    name: String,
-) -> Result<(), String> {
-    modpack_install_mods(app, state, path, vec![name]).await
 }
 
 // installs or updates several mods and their dependencies into a modpack with one catalog fetch
@@ -640,7 +510,6 @@ pub async fn modpack_launch(
             map_err(installer::install_api(&app, &real, &mut store, &catalog.response).await)?;
         }
         map_err(modpacks::apply_hk_modpack(&real, &dir))?;
-        reload_active_store(&state, &game).await?;
         LaunchExtras::default()
     };
 
@@ -657,9 +526,7 @@ pub async fn modpack_restore_original_mods(state: State<'_, AppState>) -> Result
     ensure_no_running_games(&state).await?;
     let base = state.settings.read().await.clone();
     let real = modpacks::game_settings(&base, &GameKey::HollowKnight);
-    let restored = map_err(modpacks::restore_hk_original(&real))?;
-    reload_active_store(&state, &GameKey::HollowKnight).await?;
-    Ok(restored)
+    map_err(modpacks::restore_hk_original(&real))
 }
 
 // hollow knight only, the modpack currently applied to the game folder
@@ -668,17 +535,16 @@ pub async fn modpack_active_hk() -> Result<Option<String>, String> {
     Ok(modpacks::active_hk_modpack())
 }
 
-#[derive(serde::Serialize)]
-pub struct AppPaths {
+// needlelight's own folders, only ever opened by name from settings
+struct AppPaths {
     pub config_dir: String,
     pub install_log: String,
     pub profiles_dir: String,
 }
 
-// where needlelight keeps its data, for the show in folder actions in settings
-#[tauri::command]
-pub async fn app_paths() -> Result<AppPaths, String> {
-    let config = map_err(AppSettings::config_dir())?;
+// builds the paths of needlelight's own folders
+fn app_paths_inner() -> AppResult<AppPaths> {
+    let config = AppSettings::config_dir()?;
     Ok(AppPaths {
         config_dir: config.to_string_lossy().to_string(),
         install_log: config
@@ -687,6 +553,37 @@ pub async fn app_paths() -> Result<AppPaths, String> {
             .to_string(),
         profiles_dir: config.join("profiles").to_string_lossy().to_string(),
     })
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppFolder {
+    Data,
+    Modpacks,
+    InstallLog,
+}
+
+// opens one of needlelight's own folders in the file manager, the frontend can only name one, never pass a path
+#[tauri::command]
+pub async fn open_app_folder(app: AppHandle, folder: AppFolder) -> Result<(), String> {
+    let paths = map_err(app_paths_inner())?;
+    let opener = app.opener();
+    let opened = match folder {
+        AppFolder::Data | AppFolder::Modpacks => {
+            let dir = match folder {
+                AppFolder::Data => paths.config_dir,
+                _ => paths.profiles_dir,
+            };
+            std::fs::create_dir_all(&dir).map_err(|e| format_user_error(&e.to_string()))?;
+            opener.open_path(dir, None::<&str>)
+        }
+        // the log only exists after the first install, so fall back to its folder
+        AppFolder::InstallLog if std::path::Path::new(&paths.install_log).is_file() => {
+            opener.reveal_item_in_dir(&paths.install_log)
+        }
+        AppFolder::InstallLog => opener.open_path(paths.config_dir, None::<&str>),
+    };
+    opened.map_err(|e| format!("Couldn't open the folder ({e})."))
 }
 
 #[derive(serde::Serialize)]

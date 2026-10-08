@@ -312,7 +312,6 @@ const moreOptions = computed<ButtonMenuOption[]>(() => [
 			if (modpack.value) editor.value?.show(modpack.value)
 		},
 	},
-	{ id: 'check', label: 'Check for updates', icon: RefreshCwIcon, action: () => void ctx.reloadCatalog() },
 	{ id: 'duplicate', label: 'Duplicate', icon: CopyIcon, action: duplicate },
 	{ type: 'divider' },
 	{
@@ -395,7 +394,13 @@ const problemText = computed(() => {
 						{{ modpacks.launching === modpack.path ? 'Launching…' : 'Play' }}
 					</Button>
 					<Button size="xl" @click="router.push(browseRoute)"><PlusIcon /> Browse mods</Button>
-					<TeleportOverflowMenu size="lg" type="quiet" label="More modpack options" :options="moreOptions">
+					<TeleportOverflowMenu
+						size="lg"
+						type="quiet"
+						label="More modpack options"
+						:distance="14"
+						:options="moreOptions"
+					>
 						<MoreVerticalIcon />
 					</TeleportOverflowMenu>
 				</div>
@@ -588,7 +593,6 @@ const problemText = computed(() => {
 				class="side-panel"
 				:name="selectedName"
 				@close="selectedName = null"
-				@open="(name) => (selectedName = name)"
 			/>
 		</Transition>
 

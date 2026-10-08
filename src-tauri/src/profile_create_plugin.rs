@@ -5,25 +5,19 @@ use crate::{
         profiles::{self, GameInstance, ProfileMeta},
         settings::GameKey,
     },
-    profile_plugin::{emit_profile_event, resolve_profile_dir},
+    profile_plugin::resolve_profile_dir,
     AppState,
 };
 use chrono::Utc;
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
-use tauri::{AppHandle, State};
+use std::path::Path;
+use tauri::State;
 
 #[tauri::command]
-pub async fn profile_create<R: tauri::Runtime>(
-    app: AppHandle<R>,
+pub async fn profile_create(
     state: State<'_, AppState>,
     name: String,
     game: GameKey,
     description: Option<String>,
-    icon: Option<String>,
-    skip_install: Option<bool>,
 ) -> Result<GameInstance, String> {
     let root = profiles::profiles_root(&game).map_err(|e| e.to_string())?;
     profiles::ensure_profile_dir(&root).map_err(|e| e.to_string())?;
@@ -38,23 +32,17 @@ pub async fn profile_create<R: tauri::Runtime>(
     profiles::ensure_profile_dir(&profile_dir).map_err(|e| e.to_string())?;
 
     if game.is_silksong() {
-        if !skip_install.unwrap_or(false) {
-            // resolve the loader for the modpack's game, not whichever game is active
-            let base = state.settings.read().await.clone();
-            let settings = crate::backend::modpacks::game_settings(&base, &game);
-            if let Err(error) = install_bepinex_pack(&settings, &profile_dir).await {
-                // don't leave a half created modpack behind
-                let _ = std::fs::remove_dir_all(&profile_dir);
-                return Err(error);
-            }
-        } else {
-            std::fs::create_dir_all(profile_dir.join("BepInEx")).map_err(|e| e.to_string())?;
+        // resolve the loader for the modpack's game, not whichever game is active
+        let base = state.settings.read().await.clone();
+        let settings = crate::backend::modpacks::game_settings(&base, &game);
+        if let Err(error) = install_bepinex_pack(&settings, &profile_dir).await {
+            // don't leave a half created modpack behind
+            let _ = std::fs::remove_dir_all(&profile_dir);
+            return Err(error);
         }
     } else {
         std::fs::create_dir_all(profile_dir.join("Mods")).map_err(|e| e.to_string())?;
     }
-
-    let icon_file = icon.and_then(|path| copy_icon(&profile_dir, &path).ok());
 
     let now = Utc::now();
     let meta = ProfileMeta {
@@ -67,18 +55,16 @@ pub async fn profile_create<R: tauri::Runtime>(
         created: now,
         modified: now,
         last_played: None,
-        icon_file,
+        icon_file: None,
     };
 
     profiles::save_profile_meta(&profile_dir, &meta).map_err(|e| e.to_string())?;
-    emit_profile_event(&app, &profile_dir, &meta, "created");
 
     Ok(profiles::profile_to_instance(&profile_dir, &meta))
 }
 
 #[tauri::command]
-pub async fn profile_duplicate<R: tauri::Runtime>(
-    app: AppHandle<R>,
+pub async fn profile_duplicate(
     state: State<'_, AppState>,
     path: String,
 ) -> Result<GameInstance, String> {
@@ -110,19 +96,8 @@ pub async fn profile_duplicate<R: tauri::Runtime>(
     new_meta.last_played = None;
 
     profiles::save_profile_meta(&candidate, &new_meta).map_err(|e| e.to_string())?;
-    emit_profile_event(&app, &candidate, &new_meta, "created");
 
     Ok(profiles::profile_to_instance(&candidate, &new_meta))
-}
-
-// copies an icon into the modpack as icon.<ext> and returns the file name
-pub(crate) fn copy_icon(profile_dir: &Path, icon_path: &str) -> io::Result<String> {
-    let source = PathBuf::from(icon_path);
-    let ext = source.extension().and_then(|e| e.to_str()).unwrap_or("png");
-    let file_name = format!("icon.{ext}");
-    let target = profile_dir.join(&file_name);
-    std::fs::copy(source, target)?;
-    Ok(file_name)
 }
 
 pub(crate) async fn install_bepinex_pack(

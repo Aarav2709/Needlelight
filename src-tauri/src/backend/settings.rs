@@ -286,10 +286,6 @@ impl AppSettings {
         Ok(Self::config_dir()?.join("HKInstallerSettings.json"))
     }
 
-    pub fn cache_folder(&self) -> AppResult<PathBuf> {
-        Ok(Self::config_dir()?.join("HKInstallerCache"))
-    }
-
     pub fn mods_folder(&self) -> PathBuf {
         if self.game.is_silksong() {
             return self.game_root_path().join("BepInEx").join("plugins");

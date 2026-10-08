@@ -17,19 +17,15 @@ export type Modpack = {
 export const listModpacks = (game?: GameKey) =>
 	invoke<Modpack[]>('profile_list', { game: game ?? null })
 
-export const getModpack = (path: string) => invoke<Modpack>('profile_get', { path })
-
 export const createModpack = (opts: {
 	name: string
 	game: GameKey
 	description?: string
-	icon?: string | null
 }) =>
 	invoke<Modpack>('profile_create', {
 		name: opts.name,
 		game: opts.game,
 		description: opts.description ?? null,
-		icon: opts.icon ?? null,
 	})
 
 export const editModpack = (path: string, changes: { name?: string; description?: string }) =>

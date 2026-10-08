@@ -114,34 +114,6 @@ pub(crate) fn write_install_log(message: impl AsRef<str>) {
     }
 }
 
-pub async fn install_mod<R: tauri::Runtime>(
-    app: &AppHandle<R>,
-    settings: &AppSettings,
-    installed: &mut InstalledModsStore,
-    catalog: &CatalogResponse,
-    mod_name: &str,
-) -> AppResult<()> {
-    write_install_log(format!(
-        "Starting mod install: {mod_name} (game: {})",
-        settings.game.as_str()
-    ));
-    require_game_folder(settings)?;
-
-    if !settings.game.is_silksong() {
-        ensure_valid_hk_managed_folder(settings)?;
-        if !is_api_installed(settings, installed) {
-            install_api(app, settings, installed, catalog).await?;
-        }
-        ensure_hk_api_enabled(settings).await?;
-    } else if !is_api_installed(settings, installed) {
-        write_install_log("Modding API is missing; installing it before the mod.");
-        install_api(app, settings, installed, catalog).await?;
-    }
-
-    let mut visited = HashSet::new();
-    install_mod_with_deps(app, settings, installed, catalog, mod_name, &mut visited).await
-}
-
 pub async fn uninstall_mod(
     settings: &AppSettings,
     installed: &mut InstalledModsStore,
