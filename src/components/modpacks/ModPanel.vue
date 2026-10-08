@@ -58,7 +58,7 @@ const links = computed(() => (mod.value ? projectLinks(mod.value) : null))
 type Tab = 'about' | 'dependencies'
 const tab = ref<Tab>('about')
 
-// ─── Dependencies ────────────────────────────────────────────────────────────
+// dependencies
 
 const outcome = computed(() =>
 	mod.value && !inPack.value ? addOutcome(props.name, ctx.index.value) : null,
@@ -76,7 +76,7 @@ const dependencyCount = computed(() =>
 
 type Item = { key: string; name: string; mod: ModEntry | null; tag: string; tone: string; note?: string }
 
-/** What installing this mod does to the modpack, one line per affected mod. */
+// what installing this mod does to the modpack, one line per affected mod
 const installItems = computed<Item[]>(() => {
 	const o = outcome.value
 	if (!o) return []
@@ -134,7 +134,7 @@ function subline(m: ModEntry | null) {
 	return [shortAuthorLine(m, ctx.game.value), formatVersion(installedVersion(m) ?? m.version)].filter(Boolean).join(' · ')
 }
 
-// ─── README ──────────────────────────────────────────────────────────────────
+// readme
 
 const readme = computed(() =>
 	mod.value?.repository ? readmes.get(mod.value.repository, mod.value.version) : null,
@@ -153,7 +153,7 @@ function pageLabel(url: string) {
 	return 'Website'
 }
 
-// ─── Keyboard & focus ──────────────────────────────────────────────────────
+// keyboard and focus
 
 const closeButton = ref<HTMLButtonElement | null>(null)
 const body = ref<HTMLElement | null>(null)
@@ -259,7 +259,7 @@ watch(
 		</div>
 
 		<div v-if="mod" ref="body" class="panel-body nl-scroll">
-			<!-- About -->
+			<!-- about -->
 			<template v-if="tab === 'about' || !mod.inCatalog">
 				<div v-if="links && (links.page || links.website || links.issues)" class="links">
 					<button v-if="links.page" type="button" class="link-chip" @click="ctx.openLink(links.page)">
@@ -326,7 +326,7 @@ watch(
 				</section>
 			</template>
 
-			<!-- Dependencies -->
+			<!-- dependencies -->
 			<template v-else>
 				<p class="lede">{{ inPack ? installedSummary : installSummary }}</p>
 				<ul v-if="(inPack ? installedItems : installItems).length" class="dep-list">
@@ -428,7 +428,7 @@ watch(
 	padding: 1.5rem 3.75rem 1rem 1.25rem;
 	overflow: hidden;
 }
-/* A faint wash of the game's accent behind the header. */
+/* a faint wash of the game's accent behind the header */
 .hero::before {
 	content: '';
 	position: absolute;

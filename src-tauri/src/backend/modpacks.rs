@@ -1,20 +1,6 @@
-//! Modpacks: named, isolated sets of mods for one game.
-//!
-//! The two games load mods differently, so they follow the launcher each community already
-//! uses:
-//!
-//! * **Silksong** follows Cogfly (and r2modman / Thunderstore Mod Manager): every modpack keeps
-//!   its own complete BepInEx tree, and launching points Unity Doorstop at that tree through
-//!   per-process arguments. The game folder's mods are never touched; the only thing placed in
-//!   the game folder is the Doorstop proxy DLL, and only if it isn't already there.
-//! * **Hollow Knight** follows Lumafly: the Modding API only loads mods from the game's real
-//!   `Managed/Mods` folder, so launching a modpack mirrors its enabled mods into that folder.
-//!   Whatever was in there before the first modpack was applied is moved aside once, and can be
-//!   restored at any time.
-//!
-//! Mods are installed into a modpack by the regular installer, pointed at the modpack folder
-//! through [`profile_settings`], so dependency resolution, hash checks and archive layout rules
-//! are shared with the rest of the app instead of being reimplemented here.
+// modpacks are isolated sets of mods for one game, installed by the regular installer via profile_settings
+// silksong follows cogfly: each modpack has its own bepinex tree and doorstop is pointed at it per launch
+// hollow knight follows lumafly: launching mirrors the modpack's enabled mods into the game's mods folder
 
 use super::{
     errors::{AppError, AppResult},
@@ -23,40 +9,34 @@ use super::{
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// Installed-mods database kept inside each modpack folder.
+// installed mods database kept inside each modpack folder
 const PROFILE_DB_FILE: &str = "installed.json";
 
-/// Extra process arguments / environment variables for a launch.
+// extra process arguments and environment variables for a launch
 #[derive(Debug, Default, Clone)]
 pub struct LaunchExtras {
     pub args: Vec<String>,
     pub envs: Vec<(String, String)>,
 }
 
-/// Settings for the real install of `game`, independent of which game is currently active.
+// settings for the real install of a game, whichever game is currently active
 pub fn game_settings(base: &AppSettings, game: &GameKey) -> AppSettings {
     let mut settings = base.clone();
-    // Run the legacy single-folder migrations under the original game before retargeting,
-    // otherwise they would attach the old game's folder/catalog to the new one.
+    // run the legacy single folder migrations under the original game before retargeting
     settings.sync_managed_folder();
     settings.sync_custom_modlinks();
     settings.game = game.clone();
-    // Normalize like startup does: the stored folder may be the game root rather than
-    // `<game>_Data/Managed`, and the Hollow Knight Mods folder lives under Managed.
+    // normalize like startup does, the stored folder may be the game root instead of the managed folder
     settings.managed_folder =
         AppSettings::normalize_managed_folder(&settings.managed_folder_for(game), game);
     settings.sync_custom_modlinks();
-    // Custom catalogs aren't part of the modpack workflow: modpacks always use each game's
-    // supported catalog (ModLinks for Hollow Knight, Thunderstore for Silksong), even if an
-    // older version of the app left a custom catalog switched on.
+    // modpacks always use each game's official catalog, even if an older version left a custom one on
     settings.use_custom_modlinks = false;
     settings.installed_db_override = None;
     settings
 }
 
-/// Settings rooted at a modpack folder. Every path helper (`mods_folder`, `game_root_path`,
-/// `installed_mods_path`) then resolves inside the modpack, which lets the regular installer
-/// install, update, toggle and uninstall mods in a modpack unchanged.
+// settings rooted at a modpack folder so every path helper and the regular installer work inside it
 pub fn profile_settings(base: &AppSettings, profile_dir: &Path, game: &GameKey) -> AppSettings {
     let mut settings = game_settings(base, game);
     settings.managed_folder = profile_dir.to_string_lossy().to_string();
@@ -64,12 +44,11 @@ pub fn profile_settings(base: &AppSettings, profile_dir: &Path, game: &GameKey) 
     settings
 }
 
-// ─── Hollow Knight (Lumafly model) ──────────────────────────────────────────
+// hollow knight, lumafly model
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct HkModpackState {
-    /// Modpack folder currently mirrored into the game, or None when the game holds the
-    /// player's own mods.
+    // modpack folder mirrored into the game, none while the game holds the player's own mods
     active_profile: Option<String>,
 }
 
@@ -92,14 +71,14 @@ fn write_hk_state(dir: &Path, state: &HkModpackState) -> AppResult<()> {
     Ok(())
 }
 
-/// Path of the Hollow Knight modpack currently applied to the game, if any.
+// path of the hollow knight modpack currently applied to the game, if any
 pub fn active_hk_modpack() -> Option<String> {
     hk_state_dir()
         .ok()
         .and_then(|dir| read_hk_state(&dir).active_profile)
 }
 
-/// Mirror a Hollow Knight modpack's enabled mods into the game's `Managed/Mods` folder.
+// mirrors a hollow knight modpack's enabled mods into the game's mods folder
 pub fn apply_hk_modpack(real: &AppSettings, profile_dir: &Path) -> AppResult<()> {
     if real.managed_folder.trim().is_empty() {
         return Err(AppError::InvalidInput(
@@ -116,18 +95,19 @@ pub fn apply_hk_modpack(real: &AppSettings, profile_dir: &Path) -> AppResult<()>
     let mut state = read_hk_state(&dir);
 
     if state.active_profile.is_none() {
-        // First modpack: set the player's own mods aside exactly once so they can be restored.
-        // Never overwrite an existing backup; fall back to a timestamped folder instead.
+        // first modpack, so set the player's own mods aside once without ever overwriting an older backup
         let original = dir.join("original");
         let target = if has_entries(&original) {
-            dir.join(format!("original-{}", chrono::Utc::now().format("%Y%m%d-%H%M%S")))
+            dir.join(format!(
+                "original-{}",
+                chrono::Utc::now().format("%Y%m%d-%H%M%S")
+            ))
         } else {
             original
         };
         move_children(&game_mods, &target)?;
     } else {
-        // The folder holds a previously applied modpack. Keep one generation as a safety net
-        // in case anything was changed in the game folder directly in the meantime.
+        // the folder holds an earlier modpack, keep one generation in case it was edited by hand
         let last = dir.join("last-replaced");
         if last.exists() {
             std::fs::remove_dir_all(&last)?;
@@ -135,7 +115,7 @@ pub fn apply_hk_modpack(real: &AppSettings, profile_dir: &Path) -> AppResult<()>
         move_children(&game_mods, &last)?;
     }
 
-    // Disabled mods live in Mods/Disabled inside the modpack and simply aren't copied.
+    // disabled mods live in the modpack's disabled folder and simply aren't copied
     let profile_mods = profile_dir.join("Mods");
     if profile_mods.is_dir() {
         for entry in std::fs::read_dir(&profile_mods)?.flatten() {
@@ -151,8 +131,7 @@ pub fn apply_hk_modpack(real: &AppSettings, profile_dir: &Path) -> AppResult<()>
     write_hk_state(&dir, &state)
 }
 
-/// Put back the mods the game had before the first modpack was applied.
-/// Returns false when no modpack was applied (nothing to restore).
+// puts back the mods the game had before the first modpack, false when there was nothing to restore
 pub fn restore_hk_original(real: &AppSettings) -> AppResult<bool> {
     let dir = hk_state_dir()?;
     let mut state = read_hk_state(&dir);
@@ -180,7 +159,7 @@ pub fn restore_hk_original(real: &AppSettings) -> AppResult<bool> {
     Ok(true)
 }
 
-// ─── Silksong (Cogfly model) ────────────────────────────────────────────────
+// silksong, cogfly model
 
 const DOORSTOP4_DISABLED_INI: &str = "[General]
 enabled = false
@@ -204,7 +183,7 @@ ignoreDisableSwitch=false
 dllSearchPathOverride=
 ";
 
-/// The BepInEx preloader inside a Silksong modpack, if its BepInEx install is intact.
+// the bepinex preloader inside a silksong modpack, if its bepinex install is intact
 pub fn silksong_preloader(profile_dir: &Path) -> Option<PathBuf> {
     let core = profile_dir.join("BepInEx").join("core");
     ["BepInEx.Preloader.dll", "BepInEx.Unity.Mono.Preloader.dll"]
@@ -220,8 +199,7 @@ fn doorstop_major(dir: &Path) -> Option<u32> {
         .and_then(|c| c.to_digit(10))
 }
 
-/// Arguments / environment that make the game load BepInEx from `profile_dir` instead of the
-/// game folder. Requires the modpack's BepInEx to be installed (see [`silksong_preloader`]).
+// arguments and environment that make the game load bepinex from the modpack instead of the game folder
 pub fn silksong_launch_extras(real: &AppSettings, profile_dir: &Path) -> AppResult<LaunchExtras> {
     let preloader = silksong_preloader(profile_dir).ok_or_else(|| {
         AppError::InvalidInput(
@@ -234,8 +212,7 @@ pub fn silksong_launch_extras(real: &AppSettings, profile_dir: &Path) -> AppResu
 
     if cfg!(target_os = "windows") {
         ensure_doorstop_proxy(profile_dir, &game_root)?;
-        // Match the argument style to the proxy that will actually run, which is the one in
-        // the game folder (it may predate this modpack's BepInEx pack).
+        // match the argument style to the proxy in the game folder, which may predate this modpack's pack
         let major = doorstop_major(&game_root)
             .or_else(|| doorstop_major(profile_dir))
             .unwrap_or(4);
@@ -249,11 +226,17 @@ pub fn silksong_launch_extras(real: &AppSettings, profile_dir: &Path) -> AppResu
         return Ok(LaunchExtras { args, envs: vec![] });
     }
 
-    // Native Linux / macOS builds load Doorstop through the dynamic linker instead.
+    // native linux and macos builds load doorstop through the dynamic linker instead
     let (lib_names, preload_var): (&[&str], &str) = if cfg!(target_os = "macos") {
-        (&["libdoorstop.dylib", "doorstop_libs/libdoorstop.dylib"], "DYLD_INSERT_LIBRARIES")
+        (
+            &["libdoorstop.dylib", "doorstop_libs/libdoorstop.dylib"],
+            "DYLD_INSERT_LIBRARIES",
+        )
     } else {
-        (&["libdoorstop.so", "doorstop_libs/libdoorstop_x64.so"], "LD_PRELOAD")
+        (
+            &["libdoorstop.so", "doorstop_libs/libdoorstop_x64.so"],
+            "LD_PRELOAD",
+        )
     };
     let lib = lib_names
         .iter()
@@ -273,7 +256,7 @@ pub fn silksong_launch_extras(real: &AppSettings, profile_dir: &Path) -> AppResu
         }
     }
 
-    let envs = if doorstop_major(profile_dir).unwrap_or(4) >= 4 {
+    let mut envs = if doorstop_major(profile_dir).unwrap_or(4) >= 4 {
         vec![
             ("DOORSTOP_ENABLED".to_string(), "1".to_string()),
             ("DOORSTOP_TARGET_ASSEMBLY".to_string(), target),
@@ -284,14 +267,11 @@ pub fn silksong_launch_extras(real: &AppSettings, profile_dir: &Path) -> AppResu
             ("DOORSTOP_INVOKE_DLL_PATH".to_string(), target),
         ]
     };
-    let mut envs = envs;
     envs.push((preload_var.to_string(), preload));
     Ok(LaunchExtras { args: vec![], envs })
 }
 
-/// Make sure the Doorstop proxy DLL exists in the game folder. Existing files are never
-/// replaced. A config is only written when none exists, and it ships with Doorstop disabled so
-/// starting the game from Steam stays vanilla - modpack launches enable it per process.
+// puts the doorstop proxy in the game folder without replacing files, with a disabled config so steam launches stay vanilla
 fn ensure_doorstop_proxy(profile_dir: &Path, game_root: &Path) -> AppResult<()> {
     let proxy = ["winhttp.dll", "version.dll"]
         .iter()
@@ -327,7 +307,7 @@ fn ensure_doorstop_proxy(profile_dir: &Path, game_root: &Path) -> AppResult<()> 
     Ok(())
 }
 
-// ─── File helpers ───────────────────────────────────────────────────────────
+// file helpers
 
 fn has_entries(dir: &Path) -> bool {
     std::fs::read_dir(dir)
@@ -335,7 +315,7 @@ fn has_entries(dir: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Move every entry of `src` into `dst` (created if needed). `src` itself stays in place.
+// moves every entry of src into dst, creating dst if needed and leaving src itself in place
 fn move_children(src: &Path, dst: &Path) -> AppResult<()> {
     std::fs::create_dir_all(dst)?;
     if !src.is_dir() {
@@ -347,8 +327,7 @@ fn move_children(src: &Path, dst: &Path) -> AppResult<()> {
     Ok(())
 }
 
-/// Rename, falling back to copy + delete when source and target are on different drives
-/// (the game library and the app's config folder often are).
+// renames, or copies then deletes when source and target are on different drives
 fn move_path(src: &Path, dst: &Path) -> AppResult<()> {
     if std::fs::rename(src, dst).is_ok() {
         return Ok(());
@@ -362,7 +341,8 @@ fn move_path(src: &Path, dst: &Path) -> AppResult<()> {
     Ok(())
 }
 
-fn copy_path(src: &Path, dst: &Path) -> AppResult<()> {
+// copies a file or a whole folder tree
+pub(crate) fn copy_path(src: &Path, dst: &Path) -> AppResult<()> {
     if src.is_dir() {
         for entry in walkdir::WalkDir::new(src) {
             let entry = entry.map_err(|e| AppError::InvalidInput(e.to_string()))?;

@@ -1,21 +1,17 @@
-/**
- * Getting a game ready to play: when a game is set up (found on first launch, or located later),
- * it gets a "Default" modpack so there's somewhere to install mods straight away. Only when the
- * game has no modpacks yet; anything the player already made is left alone.
- */
+// gives a newly set up game a default modpack so there's somewhere to install mods, only when it has none
 import type { GameKey } from '@/helpers/games'
 import type { Modpack } from '@/helpers/modpacks'
 import { useModpacks } from '@/store/modpacks'
 
 export const DEFAULT_MODPACK_NAME = 'Default'
 
-// The first-launch guide and the "game configured" watcher can both ask at once; make one.
+// the first launch guide and the game configured watcher can both ask at once, so share one request
 const pending = new Map<GameKey, Promise<Modpack | null>>()
 
 export function useGameSetup() {
 	const modpacks = useModpacks()
 
-	/** Creates the game's Default modpack if it has none. Returns it, or null if none was needed. */
+	// creates the game's default modpack if it has none, returns it or null
 	function ensureDefaultModpack(game: GameKey): Promise<Modpack | null> {
 		const running = pending.get(game)
 		if (running) return running

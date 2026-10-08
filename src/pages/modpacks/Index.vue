@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** The Modpacks area. Modpacks themselves are listed in the app's sidebar (NavRail). */
+// the modpacks area, the modpacks themselves are listed in the sidebar
 import { injectNotificationManager } from '@modrinth/ui'
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -15,7 +15,7 @@ const games = useGames()
 const modpacks = useModpacks()
 const { handleError } = injectNotificationManager()
 
-/** Ctrl+Alt+↑/↓: the previous or next modpack in the sidebar. */
+// ctrl alt up or down moves to the previous or next modpack in the sidebar
 function step(direction: 1 | -1) {
 	const list = modpacks.ordered
 	if (!list.length) return

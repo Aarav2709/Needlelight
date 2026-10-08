@@ -12,7 +12,7 @@ const games = useGames()
 const modpacks = useModpacks()
 const { handleError, addNotification } = injectNotificationManager()
 
-/** A folder the player picked that didn't contain the game. */
+// a folder the player picked that didn't contain the game
 const locateError = reactive<Partial<Record<GameKey, string>>>({})
 
 onMounted(async () => {
@@ -22,7 +22,7 @@ onMounted(async () => {
 		handleError(err as Error)
 		return
 	}
-	// Look for any game that isn't found yet; this runs once per session.
+	// look for any game that isn't found yet, once per session
 	for (const game of GAMES) if (games.found[game.key] === false) void games.findGame(game.key)
 })
 

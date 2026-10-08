@@ -1,8 +1,4 @@
-/**
- * The games Needlelight manages. Everything game-specific the UI needs comes from this
- * registry, so supporting another game means adding an entry here plus the matching backend
- * GameKey. The UI always uses the full game name.
- */
+// the games needlelight manages, supporting another game means adding it here and to the backend game key
 export type GameKey = 'hollow_knight' | 'silksong'
 
 export type GameInfo = {
@@ -27,7 +23,7 @@ export function isGameKey(value: unknown): value is GameKey {
 	return GAMES.some((g) => g.key === value)
 }
 
-/** "1 modpack", "3 modpacks", "No modpacks yet". */
+// modpack count label like 1 modpack, 3 modpacks, or no modpacks yet
 export function modpackCount(count: number): string {
 	if (count === 0) return 'No modpacks yet'
 	return `${count} modpack${count === 1 ? '' : 's'}`

@@ -1,8 +1,4 @@
-/**
- * The active game and where each game is installed. The backend's settings file is the
- * source of truth: `game` is the active game, `managed_folders` holds each game's location.
- * Locations are found automatically; the player is only asked when a game can't be found.
- */
+// the active game and where each game is installed, the backend settings file is the source of truth
 import { invoke } from '@tauri-apps/api/core'
 import { defineStore } from 'pinia'
 import { computed, reactive, ref, toRaw } from 'vue'
@@ -17,13 +13,13 @@ export const useGames = defineStore('games', () => {
 	const loaded = ref(false)
 	const switching = ref<GameKey | null>(null)
 
-	/** Whether each game was found on this computer (null = not checked yet). */
+	// whether each game was found on this computer, null until checked
 	const found = reactive<Record<GameKey, boolean | null>>(
 		Object.fromEntries(GAMES.map((g) => [g.key, null])) as Record<GameKey, boolean | null>,
 	)
-	/** Games currently being searched for. */
+	// games currently being searched for
 	const searching = reactive(new Set<GameKey>())
-	/** The last game whose install folder was set (found by a search, or picked by the player). */
+	// the last game whose install folder was set, found by a search or picked by the player
 	const configured = ref<{ game: GameKey; at: number } | null>(null)
 	const searched = new Set<GameKey>()
 
@@ -35,7 +31,7 @@ export const useGames = defineStore('games', () => {
 		try {
 			for (const entry of await getGameAvailability()) found[entry.game] = entry.found
 		} catch {
-			/* leave the previous answer in place */
+			// leave the previous answer in place
 		}
 	}
 
@@ -51,11 +47,7 @@ export const useGames = defineStore('games', () => {
 		if (!loaded.value) await load()
 	}
 
-	/**
-	 * Save a changed copy of the settings. The UI updates from it right away; the backend's
-	 * normalized version (and, for a game with no known location, a one-time search that can
-	 * take a while) is picked up in the background.
-	 */
+	// saves a changed copy of the settings, the ui updates right away and the backend's normalized version loads in the background
 	async function update(change: (draft: BackendSettings) => void) {
 		await ensureLoaded()
 		const draft = structuredClone(toRaw(settings.value!)) as BackendSettings
@@ -68,7 +60,7 @@ export const useGames = defineStore('games', () => {
 		void load().catch(() => {})
 	}
 
-	/** Switch the active game. Persists, and retints the app with that game's accent. */
+	// switches the active game, saves it, and retints the app with that game's accent
 	async function switchGame(game: GameKey) {
 		if (game === activeGame.value || switching.value) return
 		switching.value = game
@@ -91,10 +83,7 @@ export const useGames = defineStore('games', () => {
 		if (found[game]) configured.value = { game, at: Date.now() }
 	}
 
-	/**
-	 * Look for a game that isn't found yet (at most once per session per game, since the
-	 * search can walk whole drives). Saves the location when it turns up.
-	 */
+	// looks for a game that isn't found yet, at most once per session since the search can walk whole drives
 	async function findGame(game: GameKey) {
 		await ensureLoaded()
 		if (found[game] !== false || searched.has(game) || searching.has(game)) return
@@ -104,13 +93,13 @@ export const useGames = defineStore('games', () => {
 			const location = await invoke<string | null>('auto_detect_managed_folder', { game })
 			if (location) await saveLocation(game, location)
 		} catch {
-			/* not found: the player can locate it by hand */
+			// not found, the player can locate it by hand
 		} finally {
 			searching.delete(game)
 		}
 	}
 
-	/** Use a folder the player picked. Returns false when the game isn't in it. */
+	// uses a folder the player picked, false when the game isn't in it
 	async function locateGame(game: GameKey, folder: string): Promise<boolean> {
 		if (!(await isGameFolder(game, folder))) return false
 		await saveLocation(game, folder)

@@ -1,8 +1,8 @@
 use crate::{
     backend::{
         errors::AppResult,
-        installer,
         installed_mods::InstalledModsStore,
+        installer,
         mod_database::CatalogCache,
         modpacks::{self, LaunchExtras},
         profiles,
@@ -19,8 +19,7 @@ fn map_err<T>(result: AppResult<T>) -> Result<T, String> {
     result.map_err(|e| format_user_error(&e.to_string()))
 }
 
-/// Replace low-level error prefixes with something a player can act on. The original text
-/// still goes to the install log where it's useful.
+// turns low level errors into something a player can act on, the original text goes to the install log
 fn friendly_error(message: &str) -> Option<String> {
     if message.starts_with("Network error") {
         installer::write_install_log(message);
@@ -39,13 +38,15 @@ fn friendly_error(message: &str) -> Option<String> {
     }
     if let Some(detail) = message.strip_prefix("I/O error: ") {
         installer::write_install_log(message);
-        return Some(format!("Couldn't update files on disk ({}).", detail.trim_end_matches('.')));
+        return Some(format!(
+            "Couldn't update files on disk ({}).",
+            detail.trim_end_matches('.')
+        ));
     }
     None
 }
 
-// most AppError messages are lowercase fragments meant for logs, not people;
-// capitalize the first letter and make sure it ends with punctuation
+// error messages are often lowercase log fragments, so capitalize them and end them with punctuation
 fn format_user_error(message: &str) -> String {
     if let Some(friendly) = friendly_error(message.trim()) {
         return friendly;
@@ -66,7 +67,7 @@ fn format_user_error(message: &str) -> String {
     out
 }
 
-// delegates to AppSettings::sync_managed_folder, single source of truth
+// applies the legacy folder and catalog migrations to a settings copy
 fn sync_managed_folder(mut settings: AppSettings) -> AppSettings {
     settings.sync_managed_folder();
     settings.sync_custom_modlinks();
@@ -80,7 +81,11 @@ async fn ensure_no_running_games(state: &State<'_, AppState>) -> Result<(), Stri
     }
     let active = running
         .keys()
-        .map(|key| GameKey::from_str(key).map(|g| g.display_name()).unwrap_or("The game"))
+        .map(|key| {
+            GameKey::from_key(key)
+                .map(|g| g.display_name())
+                .unwrap_or("The game")
+        })
         .collect::<Vec<_>>()
         .join(" and ");
     Err(format!("Close {active} before changing mods."))
@@ -90,9 +95,7 @@ async fn ensure_no_running_games(state: &State<'_, AppState>) -> Result<(), Stri
 pub async fn load_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
     let mut settings = sync_managed_folder(state.settings.read().await.clone());
 
-    // auto-detect the managed folder on cold load if nothing is configured. The detection can
-    // walk whole drives, so it runs at most once per game per session; after that the folder
-    // is chosen (or detected on request) from Settings.
+    // finds the game on first load if no folder is set, at most once per game per session since it can walk whole drives
     let first_attempt = settings.managed_folder.trim().is_empty()
         && state
             .auto_detected
@@ -110,8 +113,7 @@ pub async fn load_settings(state: State<'_, AppState>) -> Result<AppSettings, St
                 let mut shared = state.settings.write().await;
                 *shared = settings.clone();
             }
-            let reloaded =
-                map_err(crate::backend::installed_mods::InstalledModsStore::load(&settings).await)?;
+            let reloaded = map_err(InstalledModsStore::load(&settings).await)?;
             let mut installed = state.installed.write().await;
             *installed = reloaded;
         }
@@ -139,13 +141,13 @@ pub async fn save_settings(
     let prev_path = previous.managed_folder;
     let incoming_game = incoming.game.clone();
     if incoming.game != previous.game && incoming.managed_folder == prev_path {
-        // switching games without updating the path: restore saved path for new game
+        // switching games without a new path, so restore the saved path for the new game
         let stored = incoming.managed_folder_for(&incoming_game);
         incoming.managed_folder = stored;
     }
 
     if incoming.game != previous.game {
-        // form was loaded for the previous game; preserve its catalog values first
+        // the form was loaded for the previous game, so keep its catalog values under that game
         incoming.custom_modlinks_by_game.insert(
             previous.game.as_str().to_string(),
             crate::backend::settings::CustomModlinksConfig {
@@ -154,8 +156,6 @@ pub async fn save_settings(
             },
         );
         incoming.sync_custom_modlinks();
-    } else {
-        incoming.set_custom_modlinks_for_current();
     }
 
     incoming.managed_folder =
@@ -166,17 +166,10 @@ pub async fn save_settings(
 
     map_err(incoming.save().await)?;
 
-    {
-        let mut shared = state.settings.write().await;
-        *shared = incoming.clone();
-    }
+    *state.settings.write().await = incoming.clone();
 
-    let reloaded =
-        map_err(crate::backend::installed_mods::InstalledModsStore::load(&incoming).await)?;
-    {
-        let mut installed = state.installed.write().await;
-        *installed = reloaded;
-    }
+    let reloaded = map_err(InstalledModsStore::load(&incoming).await)?;
+    *state.installed.write().await = reloaded;
 
     Ok(())
 }
@@ -279,7 +272,7 @@ pub async fn launch_game(state: State<'_, AppState>, modded: bool) -> Result<Str
     launch_with_settings(&state, settings, modded, LaunchExtras::default()).await
 }
 
-/// The game's executable inside its install folder, if the game is there.
+// the game's executable inside its install folder, if the game is there
 fn find_game_exe(settings: &AppSettings) -> Option<std::path::PathBuf> {
     if settings.managed_folder.trim().is_empty() {
         return None;
@@ -310,8 +303,15 @@ fn find_game_exe(settings: &AppSettings) -> Option<std::path::PathBuf> {
     candidates.into_iter().find(|path| path.is_file())
 }
 
-/// Launch the game described by `settings`. Shared by the regular launch and modpack
-/// launches, which pass extra Doorstop arguments / environment through `extras`.
+// drops a launch reservation (pid 0) that never turned into a running process
+async fn release_launch_reservation(state: &State<'_, AppState>, game_key: &str) {
+    let mut running = state.running_games.write().await;
+    if running.get(game_key).copied() == Some(0) {
+        running.remove(game_key);
+    }
+}
+
+// launches the game in settings, modpack launches pass extra doorstop arguments through extras
 async fn launch_with_settings(
     state: &State<'_, AppState>,
     settings: AppSettings,
@@ -345,41 +345,30 @@ async fn launch_with_settings(
                 settings.game.display_name()
             ));
         }
-        // pid=0 is a launch reservation so concurrent calls can't race between
-        // duplicate checks and process spawn.
+        // pid 0 reserves the launch so concurrent calls can't race between this check and the spawn
         running.insert(game_key.clone(), 0);
     }
 
     let is_vanilla_hk = settings.game == GameKey::HollowKnight && !modded;
     if settings.game == GameKey::HollowKnight {
-        // vanilla launch swaps Current for the pristine backup for the
-        // process lifetime, then restores modded state after it exits
-        if modded {
-            if let Err(error) = installer::ensure_hk_api_enabled(&settings).await {
-                let mut running = state.running_games.write().await;
-                if running.get(&game_key).copied() == Some(0) {
-                    running.remove(&game_key);
-                }
-                return Err(format_user_error(&error.to_string()));
-            }
-            installer::write_install_log("Prepared Hollow Knight in modded/API-enabled state.");
+        // a vanilla launch swaps in the original files while the game runs and restores the api after it exits
+        let prepared = if modded {
+            installer::ensure_hk_api_enabled(&settings).await
         } else {
-            if let Err(error) = installer::ensure_hk_api_disabled(&settings).await {
-                let mut running = state.running_games.write().await;
-                if running.get(&game_key).copied() == Some(0) {
-                    running.remove(&game_key);
-                }
-                return Err(format_user_error(&error.to_string()));
+            match installer::ensure_hk_api_disabled(&settings).await {
+                Ok(()) => installer::mark_pending_hk_api_restore(&settings).await,
+                Err(error) => Err(error),
             }
-            if let Err(error) = installer::mark_pending_hk_api_restore(&settings).await {
-                let mut running = state.running_games.write().await;
-                if running.get(&game_key).copied() == Some(0) {
-                    running.remove(&game_key);
-                }
-                return Err(format_user_error(&error.to_string()));
-            }
-            installer::write_install_log("Prepared Hollow Knight in vanilla state.");
+        };
+        if let Err(error) = prepared {
+            release_launch_reservation(state, &game_key).await;
+            return Err(format_user_error(&error.to_string()));
         }
+        installer::write_install_log(if modded {
+            "Prepared Hollow Knight in modded/API-enabled state."
+        } else {
+            "Prepared Hollow Knight in vanilla state."
+        });
     }
 
     installer::write_install_log(format!(
@@ -389,14 +378,16 @@ async fn launch_with_settings(
     ));
     let child = match Command::new(&exe)
         .current_dir(&game_root)
-        // the game checks for this before falling back to "not launched
-        // through Steam" self-restart behavior when its exe is run directly
-        // instead of through the Steam client; this is the standard
-        // Steamworks workaround for launchers that spawn the exe themselves
+        // the standard steamworks workaround that stops the game restarting itself through steam
         .env("SteamAppId", settings.game.steam_app_id())
         .env("SteamGameId", settings.game.steam_app_id())
         .args(&extras.args)
-        .envs(extras.envs.iter().map(|(key, value)| (key.as_str(), value.as_str())))
+        .envs(
+            extras
+                .envs
+                .iter()
+                .map(|(key, value)| (key.as_str(), value.as_str())),
+        )
         .spawn()
     {
         Ok(child) => child,
@@ -415,19 +406,17 @@ async fn launch_with_settings(
                     ));
                 }
             }
-            let mut running = state.running_games.write().await;
-            if running.get(&game_key).copied() == Some(0) {
-                running.remove(&game_key);
-            }
+            release_launch_reservation(state, &game_key).await;
             return Err(message);
         }
     };
 
     let pid = child.id();
-    {
-        let mut running = state.running_games.write().await;
-        running.insert(game_key.clone(), pid);
-    }
+    state
+        .running_games
+        .write()
+        .await
+        .insert(game_key.clone(), pid);
 
     let restore_settings = settings.clone();
     let running_games = state.running_games.clone();
@@ -466,11 +455,7 @@ async fn launch_with_settings(
     ))
 }
 
-// ─── Modpacks ───────────────────────────────────────────────────────────────
-//
-// A modpack is a profile folder (see backend::profiles). Mods are installed into it with the
-// regular installer via modpacks::profile_settings; launching follows each game's reference
-// launcher (see backend::modpacks for the details).
+// modpacks are profile folders that the regular installer works in, see backend modpacks for launching
 
 fn modpack_dir(path: &str) -> Result<std::path::PathBuf, String> {
     let dir = std::path::PathBuf::from(path);
@@ -480,7 +465,7 @@ fn modpack_dir(path: &str) -> Result<std::path::PathBuf, String> {
     Ok(dir)
 }
 
-/// Settings rooted at the modpack, the modpack's own installed-mods store, and its game.
+// settings rooted at the modpack, the modpack's own installed mods store, and its game
 async fn modpack_context(
     state: &State<'_, AppState>,
     path: &str,
@@ -493,8 +478,7 @@ async fn modpack_context(
     Ok((dir, settings, installed, meta.game))
 }
 
-/// Reload the global installed-mods store when `game` is the active game, so the rest of the
-/// app sees changes made to that game's real mods folder.
+// reloads the global installed mods store when the game is active so the app sees changes to its real mods folder
 async fn reload_active_store(state: &State<'_, AppState>, game: &GameKey) -> Result<(), String> {
     let base = sync_managed_folder(state.settings.read().await.clone());
     if &base.game == game {
@@ -504,7 +488,7 @@ async fn reload_active_store(state: &State<'_, AppState>, game: &GameKey) -> Res
     Ok(())
 }
 
-/// Silksong modpacks carry their own BepInEx; reinstall it if it went missing.
+// silksong modpacks carry their own bepinex, so reinstall it if it went missing
 async fn ensure_modpack_bepinex(
     settings: &AppSettings,
     dir: &std::path::Path,
@@ -516,9 +500,7 @@ async fn ensure_modpack_bepinex(
     Ok(())
 }
 
-/// The mod catalog for one game, independent of any modpack (every item is reported as not
-/// installed). The UI combines it with each modpack's installed state from
-/// [`modpack_installed`], so switching modpacks or toggling mods never refetches the catalog.
+// one game's catalog with nothing installed, the ui merges in each modpack's state so it is fetched once
 #[tauri::command]
 pub async fn game_catalog(
     state: State<'_, AppState>,
@@ -530,8 +512,7 @@ pub async fn game_catalog(
     let cache = map_err(
         CatalogCache::build(&settings, &InstalledModsStore::default(), fetch_official).await,
     )?;
-    // Catalog sources log fetch failures and hand back an empty list; surface that as an
-    // error so the UI can offer a retry instead of claiming there are no mods.
+    // catalog sources return an empty list on failure, so report it and let the ui offer a retry
     if cache.response.items.is_empty() {
         return Err(format!(
             "Couldn't load the {} mod catalog. Check your internet connection and try again.",
@@ -541,7 +522,7 @@ pub async fn game_catalog(
     Ok(cache.response)
 }
 
-/// A modpack's installed mods (reconciled with what is actually on disk).
+// a modpack's installed mods, reconciled with what is actually on disk
 #[tauri::command]
 pub async fn modpack_installed(
     state: State<'_, AppState>,
@@ -551,7 +532,7 @@ pub async fn modpack_installed(
     Ok(installed.db)
 }
 
-/// The mod catalog for a modpack's game, with install state computed from that modpack.
+// the catalog for a modpack's game with install state from that modpack
 #[tauri::command]
 pub async fn modpack_catalog(
     state: State<'_, AppState>,
@@ -563,7 +544,7 @@ pub async fn modpack_catalog(
     Ok(cache.response)
 }
 
-/// Install (or update to the latest version) a mod and its dependencies into a modpack.
+// installs or updates a mod and its dependencies into a modpack
 #[tauri::command]
 pub async fn modpack_install_mod(
     app: AppHandle,
@@ -574,8 +555,7 @@ pub async fn modpack_install_mod(
     modpack_install_mods(app, state, path, vec![name]).await
 }
 
-/// Install or update several mods (and their dependencies) into a modpack with a single
-/// catalog fetch. Used by "Update all" and "Install missing dependencies".
+// installs or updates several mods and their dependencies into a modpack with one catalog fetch
 #[tauri::command]
 pub async fn modpack_install_mods(
     app: AppHandle,
@@ -630,8 +610,7 @@ pub async fn modpack_toggle_mod(
     map_err(installer::toggle_mod(&settings, &mut installed, &name, enable).await)
 }
 
-/// Launch a modpack. Silksong runs it in place through Doorstop; Hollow Knight mirrors its
-/// enabled mods into the game's Mods folder first.
+// launches a modpack, silksong runs it in place through doorstop and hollow knight mirrors its mods first
 #[tauri::command]
 pub async fn modpack_launch(
     app: AppHandle,
@@ -672,7 +651,7 @@ pub async fn modpack_launch(
     launch_with_settings(&state, real, true, extras).await
 }
 
-/// Hollow Knight: put back the mods the game had before the first modpack was applied.
+// hollow knight only, puts back the mods the game had before the first modpack
 #[tauri::command]
 pub async fn modpack_restore_original_mods(state: State<'_, AppState>) -> Result<bool, String> {
     ensure_no_running_games(&state).await?;
@@ -683,7 +662,7 @@ pub async fn modpack_restore_original_mods(state: State<'_, AppState>) -> Result
     Ok(restored)
 }
 
-/// Hollow Knight: the modpack currently applied to the game folder, if any.
+// hollow knight only, the modpack currently applied to the game folder
 #[tauri::command]
 pub async fn modpack_active_hk() -> Result<Option<String>, String> {
     Ok(modpacks::active_hk_modpack())
@@ -696,7 +675,7 @@ pub struct AppPaths {
     pub profiles_dir: String,
 }
 
-/// Where Needlelight keeps its data, for the "show in folder" actions in Settings.
+// where needlelight keeps its data, for the show in folder actions in settings
 #[tauri::command]
 pub async fn app_paths() -> Result<AppPaths, String> {
     let config = map_err(AppSettings::config_dir())?;
@@ -713,11 +692,11 @@ pub async fn app_paths() -> Result<AppPaths, String> {
 #[derive(serde::Serialize)]
 pub struct GameAvailability {
     pub game: GameKey,
-    /// The game was found at its saved location.
+    // the game was found at its saved location
     pub found: bool,
 }
 
-/// Whether each supported game is installed where Needlelight expects it.
+// whether each supported game is installed where needlelight expects it
 #[tauri::command]
 pub async fn game_availability(
     state: State<'_, AppState>,
@@ -733,7 +712,7 @@ pub async fn game_availability(
         .collect())
 }
 
-/// Check that `folder` really contains `game` (used when the player locates a game by hand).
+// checks that a folder the player picked really contains the game
 #[tauri::command]
 pub async fn game_folder_valid(
     state: State<'_, AppState>,
@@ -748,21 +727,20 @@ pub async fn game_folder_valid(
 #[derive(serde::Serialize)]
 pub struct ModReadme {
     pub markdown: String,
-    /// Base for resolving relative image paths in the markdown.
+    // base for resolving relative image paths in the markdown
     pub image_base: Option<String>,
-    /// Base for resolving relative links in the markdown.
+    // base for resolving relative links in the markdown
     pub link_base: Option<String>,
 }
 
-/// The long description (README) of a mod, from its Thunderstore package page or GitHub
-/// repository. `None` when the project doesn't publish one somewhere Needlelight can read.
+// a mod's readme from thunderstore or its github repository, none when it has no readable one
 #[tauri::command]
 pub async fn mod_readme(url: String, version: String) -> Result<Option<ModReadme>, String> {
     let client = map_err(installer::http_client())?;
     let timeout = std::time::Duration::from_secs(20);
 
     if let Some(rest) = url.strip_prefix("https://thunderstore.io/c/") {
-        // https://thunderstore.io/c/<community>/p/<owner>/<name>/
+        // package pages look like thunderstore.io/c/community/p/owner/name
         let parts: Vec<&str> = rest.split('/').filter(|s| !s.is_empty()).collect();
         if parts.len() < 4 || parts[1] != "p" || version.trim().is_empty() {
             return Ok(None);
@@ -778,7 +756,9 @@ pub async fn mod_readme(url: String, version: String) -> Result<Option<ModReadme
             markdown: String,
         }
         let response = client.get(&api).timeout(timeout).send().await;
-        let Ok(response) = response else { return Ok(None) };
+        let Ok(response) = response else {
+            return Ok(None);
+        };
         if !response.status().is_success() {
             return Ok(None);
         }
@@ -811,11 +791,15 @@ pub async fn mod_readme(url: String, version: String) -> Result<Option<ModReadme
                 .timeout(timeout)
                 .send()
                 .await;
-            let Ok(response) = response else { return Ok(None) };
+            let Ok(response) = response else {
+                return Ok(None);
+            };
             if !response.status().is_success() {
                 continue;
             }
-            let Ok(markdown) = response.text().await else { return Ok(None) };
+            let Ok(markdown) = response.text().await else {
+                return Ok(None);
+            };
             if markdown.trim().is_empty() {
                 return Ok(None);
             }

@@ -1,4 +1,4 @@
-/** Mod READMEs, fetched when a project page opens and kept for the session. */
+// mod readmes, fetched when a details panel opens and kept for the session
 import { defineStore } from 'pinia'
 import { reactive } from 'vue'
 

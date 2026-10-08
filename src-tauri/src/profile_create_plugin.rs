@@ -1,51 +1,19 @@
 use crate::{
     backend::{
         mod_database::CatalogCache,
+        modpacks::copy_path,
         profiles::{self, GameInstance, ProfileMeta},
         settings::GameKey,
     },
+    profile_plugin::{emit_profile_event, resolve_profile_dir},
     AppState,
 };
 use chrono::Utc;
-use serde::Serialize;
-use std::{io::{self, ErrorKind}, path::{Path, PathBuf}};
-use tauri::{AppHandle, Emitter, State};
-
-#[derive(Debug, Clone, Serialize)]
-struct ProfileEventPayload {
-    pub uuid: String,
-    pub name: String,
-    pub profile_path: String,
-    pub path: String,
-    pub event: String,
-}
-
-fn emit_profile_event<R: tauri::Runtime>(
-    app: &AppHandle<R>,
-    profile_dir: &Path,
-    meta: &ProfileMeta,
-    event: &str,
-) {
-    let payload = ProfileEventPayload {
-        uuid: profile_dir.to_string_lossy().to_string(),
-        name: meta.name.clone(),
-        profile_path: profile_dir.to_string_lossy().to_string(),
-        path: profile_dir.to_string_lossy().to_string(),
-        event: event.to_string(),
-    };
-    let _ = app.emit("profile", payload);
-}
-
-fn resolve_profile_dir(settings: &crate::backend::settings::AppSettings, raw: &str) -> PathBuf {
-    let path = PathBuf::from(raw);
-    if path.is_absolute() {
-        return path;
-    }
-
-    profiles::profiles_root(&settings.game)
-        .unwrap_or_else(|_| PathBuf::from(raw))
-        .join(raw)
-}
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
+use tauri::{AppHandle, State};
 
 #[tauri::command]
 pub async fn profile_create<R: tauri::Runtime>(
@@ -54,10 +22,6 @@ pub async fn profile_create<R: tauri::Runtime>(
     name: String,
     game: GameKey,
     description: Option<String>,
-    // Leftovers from the Minecraft-shaped API; unused, so optional.
-    _game_version: Option<String>,
-    _modloader: Option<String>,
-    _loader_version: Option<String>,
     icon: Option<String>,
     skip_install: Option<bool>,
 ) -> Result<GameInstance, String> {
@@ -75,31 +39,30 @@ pub async fn profile_create<R: tauri::Runtime>(
 
     if game.is_silksong() {
         if !skip_install.unwrap_or(false) {
-            // Resolve the loader for the modpack's game, not whichever game is active: a
-            // Silksong modpack created while Hollow Knight is selected still needs BepInEx.
+            // resolve the loader for the modpack's game, not whichever game is active
             let base = state.settings.read().await.clone();
             let settings = crate::backend::modpacks::game_settings(&base, &game);
             if let Err(error) = install_bepinex_pack(&settings, &profile_dir).await {
-                // Don't leave a half-created modpack behind.
+                // don't leave a half created modpack behind
                 let _ = std::fs::remove_dir_all(&profile_dir);
                 return Err(error);
             }
         } else {
-            std::fs::create_dir_all(profile_dir.join("BepInEx"))
-                .map_err(|e| e.to_string())?;
+            std::fs::create_dir_all(profile_dir.join("BepInEx")).map_err(|e| e.to_string())?;
         }
     } else {
         std::fs::create_dir_all(profile_dir.join("Mods")).map_err(|e| e.to_string())?;
     }
 
-    let icon_file = icon
-        .and_then(|path| copy_icon(&profile_dir, &path).ok());
+    let icon_file = icon.and_then(|path| copy_icon(&profile_dir, &path).ok());
 
     let now = Utc::now();
     let meta = ProfileMeta {
         name: display_name,
         game,
-        description: description.map(|d| d.trim().to_string()).filter(|d| !d.is_empty()),
+        description: description
+            .map(|d| d.trim().to_string())
+            .filter(|d| !d.is_empty()),
         groups: vec![],
         created: now,
         modified: now,
@@ -137,7 +100,7 @@ pub async fn profile_duplicate<R: tauri::Runtime>(
         candidate = root.join(profiles::sanitize_profile_name(&display_name));
     }
 
-    copy_dir_all(&source_dir, &candidate).map_err(|e| e.to_string())?;
+    copy_path(&source_dir, &candidate).map_err(|e| e.to_string())?;
 
     let now = Utc::now();
     let mut new_meta = meta.clone();
@@ -152,7 +115,8 @@ pub async fn profile_duplicate<R: tauri::Runtime>(
     Ok(profiles::profile_to_instance(&candidate, &new_meta))
 }
 
-fn copy_icon(profile_dir: &Path, icon_path: &str) -> io::Result<String> {
+// copies an icon into the modpack as icon.<ext> and returns the file name
+pub(crate) fn copy_icon(profile_dir: &Path, icon_path: &str) -> io::Result<String> {
     let source = PathBuf::from(icon_path);
     let ext = source.extension().and_then(|e| e.to_str()).unwrap_or("png");
     let file_name = format!("icon.{ext}");
@@ -161,33 +125,17 @@ fn copy_icon(profile_dir: &Path, icon_path: &str) -> io::Result<String> {
     Ok(file_name)
 }
 
-fn copy_dir_all(src: &Path, dst: &Path) -> io::Result<()> {
-    for entry in walkdir::WalkDir::new(src) {
-        let entry = entry.map_err(|e| io::Error::new(ErrorKind::Other, e.to_string()))?;
-        let rel = entry
-            .path()
-            .strip_prefix(src)
-            .map_err(|e| io::Error::new(ErrorKind::Other, e.to_string()))?;
-        let target = dst.join(rel);
-        if entry.file_type().is_dir() {
-            std::fs::create_dir_all(&target)?;
-        } else {
-            if let Some(parent) = target.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            std::fs::copy(entry.path(), &target)?;
-        }
-    }
-    Ok(())
-}
-
 pub(crate) async fn install_bepinex_pack(
     settings: &crate::backend::settings::AppSettings,
     profile_dir: &Path,
 ) -> Result<(), String> {
-    let cache = CatalogCache::build(settings, &crate::backend::installed_mods::InstalledModsStore::default(), true)
-        .await
-        .map_err(|e| e.to_string())?;
+    let cache = CatalogCache::build(
+        settings,
+        &crate::backend::installed_mods::InstalledModsStore::default(),
+        true,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
     let api = cache.response.api;
     if api.url.trim().is_empty() {
         return Err(
@@ -209,12 +157,8 @@ pub(crate) async fn install_bepinex_pack(
         .await
         .map_err(|e| e.to_string())?;
 
-    // Thunderstore BepInEx packs nest everything under a wrapper folder (e.g.
-    // "BepInExPack/"). Use the installer's wrapper-aware extractor so the profile ends up
-    // with <profile>/BepInEx/..., which is where mods get installed and where the launcher
-    // points Doorstop - the same call the global Silksong BepInEx install uses.
+    // thunderstore packs nest everything in a wrapper folder, the installer's extractor strips it so bepinex lands in the modpack root
     crate::backend::installer::extract_zip_guarded(bytes.as_ref(), profile_dir, &["BepInEx"])
         .map_err(|e| e.to_string())?;
     Ok(())
 }
-

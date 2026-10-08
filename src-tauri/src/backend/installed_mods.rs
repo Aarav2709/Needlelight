@@ -14,7 +14,7 @@ impl InstalledModsStore {
     pub async fn load(settings: &AppSettings) -> AppResult<Self> {
         let game_path = settings.installed_mods_path()?;
         let legacy_path = AppSettings::config_dir()?.join("InstalledMods.json");
-        // A modpack's own database must never fall back to the global legacy file.
+        // a modpack's own database must never fall back to the global legacy file
         let path = if game_path.exists() || settings.installed_db_override.is_some() {
             game_path
         } else {
@@ -35,7 +35,10 @@ impl InstalledModsStore {
         Ok(store)
     }
 
-    async fn reconcile_with_disk(db: &mut PersistedInstalled, settings: &AppSettings) -> AppResult<()> {
+    async fn reconcile_with_disk(
+        db: &mut PersistedInstalled,
+        settings: &AppSettings,
+    ) -> AppResult<()> {
         let mods_folder = settings.mods_folder();
         let disabled_folder = settings.disabled_folder();
 
@@ -73,25 +76,22 @@ impl InstalledModsStore {
             }
         }
 
-        db.mods.retain(|name, st| {
-            discovered
-                .get(name)
-                .map(|enabled| {
+        // drop records whose folder is gone and take the enabled state from where the folder sits
+        db.mods.retain(|name, st| match discovered.get(name) {
+            Some(enabled) => {
+                st.enabled = *enabled;
+                true
+            }
+            None => false,
+        });
+        db.not_in_modlinks_mods
+            .retain(|name, st| match discovered.get(name) {
+                Some(enabled) => {
                     st.enabled = *enabled;
                     true
-                })
-                .unwrap_or(false)
-        });
-
-        db.not_in_modlinks_mods.retain(|name, st| {
-            discovered
-                .get(name)
-                .map(|enabled| {
-                    st.enabled = *enabled;
-                    true
-                })
-                .unwrap_or(false)
-        });
+                }
+                None => false,
+            });
 
         for (name, enabled) in discovered {
             if db.mods.contains_key(&name) || db.not_in_modlinks_mods.contains_key(&name) {
@@ -186,7 +186,11 @@ impl InstalledModsStore {
         self.db.mods.contains_key(name) || self.db.not_in_modlinks_mods.contains_key(name)
     }
 
-    pub async fn move_mod_folder(settings: &AppSettings, name: &str, enable: bool) -> AppResult<()> {
+    pub async fn move_mod_folder(
+        settings: &AppSettings,
+        name: &str,
+        enable: bool,
+    ) -> AppResult<()> {
         if settings.game.is_silksong() {
             return Ok(());
         }
@@ -220,9 +224,13 @@ impl InstalledModsStore {
         Ok(())
     }
 
-    pub fn mod_folder<'a>(settings: &'a AppSettings, name: &'a str, enabled: bool) -> std::path::PathBuf {
-        let root = if enabled { settings.mods_folder() } else { settings.disabled_folder() };
-        Path::new(&root).join(name)
+    pub fn mod_folder(settings: &AppSettings, name: &str, enabled: bool) -> std::path::PathBuf {
+        let root = if enabled {
+            settings.mods_folder()
+        } else {
+            settings.disabled_folder()
+        };
+        root.join(name)
     }
 }
 

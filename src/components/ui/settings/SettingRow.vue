@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * One setting: label and description on the left, its control on the right. Anything in the
- * default slot (an input, a path, a preview) spans the full width underneath.
- */
+// one setting with its label and description on the left and its control on the right, the default slot spans the full width below
 defineProps<{ title: string; description?: string; labelFor?: string }>()
 </script>
 

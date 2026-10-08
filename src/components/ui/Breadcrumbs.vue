@@ -39,7 +39,7 @@ const route = useRoute()
 const breadcrumbData = useBreadcrumbs()
 const breadcrumbs = computed(() => route.meta.breadcrumb ?? [])
 
-/** `..` links to the parent page (e.g. from a modpack's Browse back to the modpack). */
+// a .. link goes to the parent page, like from browse back to the modpack
 function target(link) {
 	return link === '..' ? route.path.replace(/\/[^/]+\/?$/, '') : link
 }

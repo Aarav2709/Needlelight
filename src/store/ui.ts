@@ -5,7 +5,7 @@ import type { GameKey } from '@/helpers/games'
 
 export type SettingsTab = 'general' | 'appearance' | 'games' | 'modpacks' | 'advanced'
 
-/** App-wide UI requests that the App shell and the Modpacks page fulfil. */
+// app wide ui requests that the app shell and the modpacks page fulfil
 export const useUi = defineStore('ui', () => {
 	const settingsRequest = ref<{ tab: SettingsTab; at: number } | null>(null)
 	const welcomeRequest = ref(0)
@@ -20,7 +20,7 @@ export const useUi = defineStore('ui', () => {
 		welcomeRequest.value++
 	}
 
-	/** Open "New modpack", for `game` or else the game selected in Modpacks. */
+	// opens new modpack for a game, or else the game selected in modpacks
 	function createModpack(game?: GameKey) {
 		createRequest.value = { game, at: Date.now() }
 	}

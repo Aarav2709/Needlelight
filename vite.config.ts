@@ -18,7 +18,7 @@ const buildCspHeader = (csp) => {
   return Object.entries(csp)
     .map(([directive, sources]) => {
       let values = Array.isArray(sources) ? sources : [sources]
-      // An additional websocket connect-src is required for Vite dev tools to work
+      // vite dev tools need an extra websocket connect source
       if (directive === 'connect-src') {
         values = [...values, 'ws://localhost:1420']
       }
@@ -28,20 +28,19 @@ const buildCspHeader = (csp) => {
     .join('; ')
 }
 
-// https://vitejs.dev/config/
+// vite config
 export default defineConfig({
   assetsInclude: ['**/*.gltf'],
   css: {
     preprocessorOptions: {
       scss: {
-        // TODO: dont forget about this
+        // todo: silences sass import deprecation warnings, remove once the styles stop using import
         silenceDeprecations: ['import'],
       },
     },
   },
   resolve: {
-    // One copy of Vue for everything. (There used to also be an alias pointing `vue` at the raw
-    // runtime file; that bypassed pre-bundling and could load a second, separate runtime.)
+    // one copy of vue for everything so a second runtime never loads
     dedupe: ['vue'],
     alias: [
       {
@@ -84,10 +83,9 @@ export default defineConfig({
     }),
   ],
 
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  // prevent vite from obscuring rust errors
+  // tauri dev options, keep the screen so vite doesn't hide rust errors
   clearScreen: false,
-  // tauri expects a fixed port, fail if that port is not available
+  // tauri expects a fixed port, so fail if it is taken
   server: {
     port: 1420,
     strictPort: true,
@@ -99,15 +97,14 @@ export default defineConfig({
       })(),
     },
   },
-  // to make use of `TAURI_ENV_DEBUG` and other env variables
-  // https://v2.tauri.app/reference/environment-variables/#tauri-cli-hook-commands
+  // expose the tauri environment variables to the app
   envPrefix: ['VITE_', 'TAURI_'],
   build: {
-    // Tauri supports es2021
+    // tauri supports es2021
     target: process.env.TAURI_ENV_PLATFORM == 'windows' ? 'chrome105' : 'safari13', // eslint-disable-line turbo/no-undeclared-env-vars
-    // don't minify for debug builds
+    // don't minify debug builds
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false, // eslint-disable-line turbo/no-undeclared-env-vars
-    // produce sourcemaps for debug builds
+    // sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_ENV_DEBUG, // eslint-disable-line turbo/no-undeclared-env-vars
     commonjsOptions: {
       esmExternals: true,
@@ -115,11 +112,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     entries: ['index.html'],
-    // No `exclude` for the @modrinth/* packages: they're aliased to local source (outside
-    // node_modules), so Vite already treats them as source code and never pre-bundles them.
-    // Excluding them only stopped the startup scan from seeing their dependencies, which were
-    // then discovered mid-session, forcing repeated re-optimizations + reloads that left two
-    // copies of Vue's runtime loaded ("resolveComponent can only be used in render() or setup()").
+    // the modrinth packages are aliased to local source, excluding them caused repeated reoptimizing and two vue runtimes
     include: [
       'dayjs',
       'dayjs/plugin/duration',

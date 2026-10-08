@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * The sidebar: every modpack (Hollow Knight's above Silksong's until the player drags them into
- * their own order), plus New modpack and Settings.
- */
+// the sidebar with every modpack, hollow knight's above silksong's until the player reorders them, plus new modpack and settings
 import { PlayIcon, PlusIcon, SettingsIcon, SpinnerIcon } from '@modrinth/assets'
 import { type ButtonMenuOption, TeleportOverflowMenu } from '@modrinth/ui'
 import { computed, ref, watch } from 'vue'
@@ -27,7 +24,7 @@ const { play } = usePlayModpack()
 const currentPath = computed(() => (route.params.path ? String(route.params.path) : null))
 const packs = computed(() => modpacks.ordered)
 
-// ─── Status dots (mods that won't load, updates) ───────────────────────────
+// status dots for mods that won't load and for updates
 
 watch(
 	() => modpacks.list.map((m) => m.path),
@@ -43,7 +40,7 @@ const health = computed(() => {
 	for (const pack of packs.value) {
 		const db = modpacks.installed[pack.path]
 		const items = catalog.entries[pack.game]?.items
-		// Updates and problems are only known once that game's mod list has loaded.
+		// updates and problems are only known once that game's mod list has loaded
 		if (!db || !items) continue
 		const entries = mergeInstallState(items, db)
 		out.set(pack.path, analyzePack(entries, buildIndex(entries)))
@@ -72,11 +69,11 @@ const newOptions = computed<ButtonMenuOption[]>(() =>
 	})),
 )
 
-// ─── Rearranging: drag a tile, or Alt+↑/↓ on a focused tile ────────────────
+// rearranging by dragging a tile, or alt up and down on a focused tile
 
 const list = ref<HTMLElement | null>(null)
 const dragging = ref<string | null>(null)
-/** Where the dragged modpack would land, as an index among the other modpacks. */
+// where the dragged modpack would land, as an index among the other modpacks
 const dropIndex = ref<number | null>(null)
 let start: { path: string; y: number } | null = null
 let suppressClick = false
@@ -104,7 +101,7 @@ function onPointerMove(event: PointerEvent) {
 		return event.clientY < r.top + r.height / 2
 	})
 	dropIndex.value = index < 0 ? others.length : index
-	// Keep dragging past the ends of a long list.
+	// keep scrolling while dragging past the ends of a long list
 	const box = list.value?.getBoundingClientRect()
 	if (box && event.clientY < box.top + 24) list.value!.scrollTop -= 8
 	else if (box && event.clientY > box.bottom - 24) list.value!.scrollTop += 8
@@ -139,11 +136,11 @@ function onKeydown(event: KeyboardEvent, pack: Modpack, index: number) {
 	)
 }
 
-/** A thin line between Hollow Knight's modpacks and Silksong's (wherever the game changes). */
+// a thin line wherever the game changes between modpacks
 const startsGroup = (index: number) =>
 	index > 0 && packs.value[index - 1].game !== packs.value[index].game
 
-/** The drop line sits above the tile at `dropIndex` (counted without the dragged one). */
+// the drop line sits above the tile at the drop index, counted without the dragged one
 function showsDropAbove(pack: Modpack) {
 	if (dropIndex.value === null) return false
 	const others = packs.value.filter((m) => m.path !== dragging.value)
@@ -262,7 +259,7 @@ const dropAtEnd = computed(() => dropIndex.value !== null && dropIndex.value >= 
 	flex-shrink: 0;
 	touch-action: none;
 }
-/* The line between one game's modpacks and the next. */
+/* the line between one game's modpacks and the next */
 .pack.starts-group {
 	margin-top: 0.625rem;
 }
@@ -279,7 +276,7 @@ const dropAtEnd = computed(() => dropIndex.value !== null && dropIndex.value >= 
 .pack.is-dragged {
 	opacity: 0.35;
 }
-/* Where a dragged modpack will land. */
+/* where a dragged modpack will land */
 .pack.drop-above::before,
 .drop-end {
 	content: '';
@@ -313,7 +310,7 @@ const dropAtEnd = computed(() => dropIndex.value !== null && dropIndex.value >= 
 	outline: 2px solid var(--color-brand);
 	outline-offset: 2px;
 }
-/* A small bar beside the modpack that's open. */
+/* a small bar beside the open modpack */
 .tile.is-active::before {
 	content: '';
 	position: absolute;
@@ -339,7 +336,7 @@ const dropAtEnd = computed(() => dropIndex.value !== null && dropIndex.value >= 
 .dot--orange {
 	background: var(--color-orange);
 }
-/* Play, over the tile's corner while hovering or focusing it. */
+/* play button over the tile's corner while hovering or focusing it */
 .play {
 	position: absolute;
 	right: -0.3125rem;

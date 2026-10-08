@@ -77,7 +77,7 @@ async function save() {
 		saving.value = false
 		return
 	}
-	// `disable-close` follows `saving`; let the modal see it cleared before closing.
+	// disable close follows saving, so let the modal see it cleared before closing
 	saving.value = false
 	await nextTick()
 	modal.value?.hide()
@@ -136,7 +136,7 @@ defineExpose({ show })
 				/>
 			</div>
 
-			<!-- The game is whichever one is selected in the Modpacks sidebar. -->
+			<!-- the game is whichever one is selected in the modpacks sidebar -->
 			<p class="m-0 text-sm text-secondary">
 				For <span class="font-semibold text-contrast">{{ gameInfo(game).name }}</span>
 			</p>

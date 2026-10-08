@@ -1,8 +1,4 @@
-/**
- * Mod catalogs, fetched once per game per session and shared by every modpack of that game.
- * A modpack's install state is merged in separately (see helpers/mods.ts), so toggling or
- * removing mods never refetches the catalog.
- */
+// mod catalogs fetched once per game per session and shared by every modpack of that game
 import { defineStore } from 'pinia'
 import { reactive } from 'vue'
 
@@ -50,7 +46,7 @@ export const useCatalog = defineStore('catalog', () => {
 		return task
 	}
 
-	/** Drop cached catalogs, e.g. after changing a custom catalog URL. */
+	// drops cached catalogs, for example after changing a custom catalog url
 	function invalidate(game?: GameKey) {
 		for (const key of Object.keys(entries) as GameKey[]) {
 			if (!game || key === game) entries[key] = { items: null, loading: false, error: null, loadedAt: 0 }

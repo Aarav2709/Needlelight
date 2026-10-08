@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * Browse: find mods for the modpack's game and install them into it. Its own page, with a
- * category list on the left, like Modrinth's Discover.
- */
+// browse finds mods for the modpack's game, its own page with categories on the left like modrinth discover
 import {
 	ArrowLeftIcon,
 	NoConnectionIllustration,
@@ -34,7 +31,7 @@ const { path, modpack, gameName, catalogState, catalogItems } = ctx
 
 const backRoute = computed(() => modpackRoute({ path: path.value }))
 
-// ─── Search, categories, sort ────────────────────────────────────────────────
+// search, categories, sort
 
 const PAGE = 40
 const search = ref('')
@@ -124,14 +121,14 @@ function clearFilters() {
 	categories.value = []
 }
 
-// ─── Details panel ───────────────────────────────────────────────────────────
+// details panel
 
 const selectedName = ref<string | null>(null)
 function toggleMod(name: string) {
 	selectedName.value = selectedName.value === name ? null : name
 }
 
-// ─── Keyboard ────────────────────────────────────────────────────────────────
+// keyboard
 
 const searchInput = ref<HTMLInputElement | null>(null)
 useShortcut(['mod+f', '/'], () => searchInput.value?.focus())

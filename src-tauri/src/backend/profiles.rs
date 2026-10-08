@@ -1,7 +1,13 @@
-use super::{errors::AppResult, settings::{AppSettings, GameKey}};
+use super::{
+    errors::AppResult,
+    settings::{AppSettings, GameKey},
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Hooks {
@@ -81,7 +87,9 @@ pub struct ProfileMeta {
 }
 
 pub fn profiles_root(game: &GameKey) -> AppResult<PathBuf> {
-    Ok(AppSettings::config_dir()?.join("profiles").join(game.as_str()))
+    Ok(AppSettings::config_dir()?
+        .join("profiles")
+        .join(game.as_str()))
 }
 
 pub fn profile_meta_path(profile_dir: &Path) -> PathBuf {
@@ -137,7 +145,10 @@ pub fn save_profile_meta(profile_dir: &Path, meta: &ProfileMeta) -> AppResult<()
 }
 
 pub fn profile_to_instance(profile_dir: &Path, meta: &ProfileMeta) -> GameInstance {
-    let icon_path = meta.icon_file.as_ref().map(|file| profile_dir.join(file).to_string_lossy().to_string());
+    let icon_path = meta
+        .icon_file
+        .as_ref()
+        .map(|file| profile_dir.join(file).to_string_lossy().to_string());
 
     GameInstance {
         path: profile_dir.to_string_lossy().to_string(),

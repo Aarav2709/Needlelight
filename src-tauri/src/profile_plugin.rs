@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Debug, Clone, Serialize)]
-struct ProfileEventPayload {
+pub(crate) struct ProfileEventPayload {
     pub uuid: String,
     pub name: String,
     pub profile_path: String,
@@ -19,7 +19,11 @@ struct ProfileEventPayload {
     pub event: String,
 }
 
-fn resolve_profile_dir(settings: &crate::backend::settings::AppSettings, raw: &str) -> PathBuf {
+// absolute paths are used as is, anything else is a folder name under the active game's profiles
+pub(crate) fn resolve_profile_dir(
+    settings: &crate::backend::settings::AppSettings,
+    raw: &str,
+) -> PathBuf {
     let path = PathBuf::from(raw);
     if path.is_absolute() {
         return path;
@@ -30,7 +34,7 @@ fn resolve_profile_dir(settings: &crate::backend::settings::AppSettings, raw: &s
         .join(raw)
 }
 
-fn emit_profile_event<R: tauri::Runtime>(
+pub(crate) fn emit_profile_event<R: tauri::Runtime>(
     app: &AppHandle<R>,
     profile_dir: &Path,
     meta: &ProfileMeta,
@@ -48,10 +52,7 @@ fn emit_profile_event<R: tauri::Runtime>(
 
 #[tauri::command]
 pub async fn profile_list(game: Option<GameKey>) -> Result<Vec<GameInstance>, String> {
-    // NOTE (Needlelight/Modpacks): profiles are stored one root folder per game
-    // (profiles_root(&game)), so there's no single flat pool to read from. Passing an
-    // explicit `game` keeps old single-game behavior; passing None lists every modpack
-    // across both games, which the top-level Modpacks page needs.
+    // profiles live in one folder per game, so no game means list every modpack of both games
     let games: Vec<GameKey> = match game {
         Some(g) => vec![g],
         None => vec![GameKey::HollowKnight, GameKey::Silksong],
@@ -70,10 +71,15 @@ pub async fn profile_list(game: Option<GameKey>) -> Result<Vec<GameInstance>, St
             if !path.is_dir() {
                 continue;
             }
-            let mut meta = profiles::load_profile_meta(&path).map_err(|e| e.to_string())?;
-            if meta.game != g {
-                meta.game = g.clone();
-            }
+            // one unreadable profile.json shouldn't hide every other modpack
+            let mut meta = match profiles::load_profile_meta(&path) {
+                Ok(meta) => meta,
+                Err(error) => {
+                    log::warn!("Skipping modpack {}: {error}", path.display());
+                    continue;
+                }
+            };
+            meta.game = g.clone();
             output.push(profiles::profile_to_instance(&path, &meta));
         }
     }
@@ -133,27 +139,16 @@ pub async fn profile_edit_icon<R: tauri::Runtime>(
     let profile_dir = resolve_profile_dir(&settings, &path);
     let mut meta = profiles::load_profile_meta(&profile_dir).map_err(|e| e.to_string())?;
 
+    if let Some(existing) = meta.icon_file.take() {
+        let existing_path = profile_dir.join(existing);
+        if existing_path.exists() {
+            let _ = std::fs::remove_file(existing_path);
+        }
+    }
     if let Some(icon_path) = icon_path {
-        if let Some(existing) = meta.icon_file.as_ref() {
-            let existing_path = profile_dir.join(existing);
-            if existing_path.exists() {
-                let _ = std::fs::remove_file(existing_path);
-            }
-        }
-        let source = PathBuf::from(&icon_path);
-        let ext = source.extension().and_then(|e| e.to_str()).unwrap_or("png");
-        let file_name = format!("icon.{ext}");
-        let target = profile_dir.join(&file_name);
-        std::fs::copy(&source, &target).map_err(|e| e.to_string())?;
+        let file_name = crate::profile_create_plugin::copy_icon(&profile_dir, &icon_path)
+            .map_err(|e| e.to_string())?;
         meta.icon_file = Some(file_name);
-    } else {
-        if let Some(existing) = meta.icon_file.as_ref() {
-            let existing_path = profile_dir.join(existing);
-            if existing_path.exists() {
-                let _ = std::fs::remove_file(existing_path);
-            }
-        }
-        meta.icon_file = None;
     }
 
     meta.modified = Utc::now();
@@ -174,10 +169,19 @@ pub async fn profile_remove<R: tauri::Runtime>(
     let meta = profiles::load_profile_meta(&profile_dir).map_err(|e| e.to_string())?;
 
     if profile_dir.exists() {
+        // only ever delete a modpack folder sitting directly in a game's profiles folder
+        let inside_profiles = profiles::profiles_root(&meta.game)
+            .ok()
+            .and_then(|root| root.parent().map(Path::to_path_buf))
+            .and_then(|root| root.canonicalize().ok())
+            .zip(profile_dir.canonicalize().ok())
+            .is_some_and(|(root, dir)| dir.parent().and_then(Path::parent) == Some(root.as_path()));
+        if !inside_profiles {
+            return Err("This folder isn't a Needlelight modpack.".to_string());
+        }
         std::fs::remove_dir_all(&profile_dir).map_err(|e| e.to_string())?;
     }
 
     emit_profile_event(&app, &profile_dir, &meta, "removed");
     Ok(())
 }
-
