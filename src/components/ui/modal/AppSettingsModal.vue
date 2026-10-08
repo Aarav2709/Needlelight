@@ -12,8 +12,7 @@ import { APP_VERSION } from '@/helpers/version'
 import { injectAppUpdateDownloadProgress } from '@/providers/download-progress.ts'
 import type { SettingsTab } from '@/store/ui'
 
-// NOTE (Needlelight): current Modrinth's TabbedModal wraps NewModal internally and is meant to
-// be used directly as the top-level modal - nesting it in another modal stacks two overlays.
+// modrinth's tabbed modal already wraps a modal, so it is used directly to avoid stacking two overlays
 const { formatMessage } = useVIntl()
 
 const tabs = [

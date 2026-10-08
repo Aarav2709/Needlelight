@@ -1,7 +1,4 @@
-/**
- * Starting a modpack, shared by the modpack page and the Play button that appears when hovering a
- * modpack in the sidebar, so both behave the same (missing game, updating before play, errors).
- */
+// starts a modpack the same way from the modpack page and the sidebar's play button
 import { injectNotificationManager } from '@modrinth/ui'
 
 import { gameInfo } from '@/helpers/games'
@@ -18,7 +15,7 @@ export function usePlayModpack() {
 	const ui = useUi()
 	const { handleError, addNotification } = injectNotificationManager()
 
-	/** `updates`: installed mods with a newer version, installed first when the player asked for that. */
+	// updates lists installed mods with a newer version, installed first when the player asked for that
 	async function play(pack: Modpack, updates: string[] = []): Promise<boolean> {
 		if (games.found[pack.game] === false) {
 			addNotification({

@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type { GameKey } from '@/helpers/games'
 import type { CatalogResponse, GameAvailability, InstalledDb, ModReadme } from '@/helpers/types'
 
-/** Mirrors src-tauri/src/backend/profiles.rs::GameInstance (the fields the UI uses). */
+// mirrors the backend game instance, only the fields the ui uses
 export type Modpack = {
 	path: string
 	game: GameKey
@@ -39,15 +39,15 @@ export const duplicateModpack = (path: string) => invoke<Modpack>('profile_dupli
 
 export const deleteModpack = (path: string) => invoke<void>('profile_remove', { path })
 
-/** The full mod catalog for a game; every item's state is `not_installed`. */
+// the full mod catalog for a game, every item marked not installed
 export const getGameCatalog = (game: GameKey) =>
 	invoke<CatalogResponse>('game_catalog', { game })
 
-/** A modpack's installed mods, reconciled with the files on disk. */
+// a modpack's installed mods, reconciled with the files on disk
 export const getModpackInstalled = (path: string) =>
 	invoke<InstalledDb>('modpack_installed', { path })
 
-/** Installs mods plus their dependencies; also used to update installed mods. */
+// installs mods plus their dependencies, also used to update installed mods
 export const installModpackMods = (path: string, names: string[]) =>
 	invoke<void>('modpack_install_mods', { path, names })
 
@@ -59,26 +59,26 @@ export const toggleModpackMod = (path: string, name: string, enable: boolean) =>
 
 export const launchModpack = (path: string) => invoke<string>('modpack_launch', { path })
 
-/** Hollow Knight only: puts back the Mods folder from before the first modpack was applied. */
+// hollow knight only, puts back the mods folder from before the first modpack
 export const restoreOriginalHkMods = () => invoke<boolean>('modpack_restore_original_mods')
 
 export const activeHkModpack = () => invoke<string | null>('modpack_active_hk')
 
-/** Whether each supported game is installed where Needlelight expects it. */
+// whether each supported game is installed where needlelight expects it
 export const getGameAvailability = () => invoke<GameAvailability[]>('game_availability')
 
-/** Whether `folder` contains `game` (used when the player locates a game by hand). */
+// whether a folder contains the game, used when the player locates it by hand
 export const isGameFolder = (game: GameKey, folder: string) =>
 	invoke<boolean>('game_folder_valid', { game, folder })
 
-/** A mod's README from its project page, or null when it doesn't publish one. */
+// a mod's readme from its project page, or null when it doesn't publish one
 export const getModReadme = (url: string, version: string) =>
 	invoke<ModReadme | null>('mod_readme', { url, version })
 
-/** Launch the game without any modpack (Hollow Knight temporarily disables the API). */
+// launches the game without any modpack, hollow knight temporarily disables the api
 export const launchVanilla = () => invoke<string>('launch_game', { modded: false })
 
-/** URL for a modpack's page (its folder path, encoded), or for browsing mods to install in it. */
+// route for a modpack's page by its encoded folder path, or for browsing mods to add
 export const modpackRoute = (modpack: Pick<Modpack, 'path'>, page?: 'browse') =>
 	`/modpacks/${encodeURIComponent(modpack.path)}${page === 'browse' ? '/browse' : ''}`
 
@@ -92,7 +92,7 @@ const RELATIVE_UNITS: [number, Intl.RelativeTimeFormatUnit][] = [
 ]
 const relativeFormat = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
 
-/** "3 days ago", "yesterday", "just now". */
+// relative time like 3 days ago, yesterday, or just now
 export function relativeTime(iso?: string | null): string | null {
 	if (!iso) return null
 	const time = new Date(iso).getTime()

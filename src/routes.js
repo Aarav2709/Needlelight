@@ -3,11 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Modpacks from '@/pages/modpacks/Index.vue'
 import ModpacksOverview from '@/pages/modpacks/Overview.vue'
 
-/**
- * Configures application routing for Needlelight - Hollow Knight & Silksong Mod Manager.
- * The app opens on Modpacks; a modpack has two pages: its installed mods, and Browse for finding
- * more to install.
- */
+// app routes, the app opens on modpacks and each modpack has its mods page and a browse page
 export default new createRouter({
   history: createWebHistory(),
   routes: [
@@ -52,8 +48,7 @@ export default new createRouter({
       ],
     },
     {
-      // The app opens on Modpacks; old links (the removed Home, Library and Modding API pages)
-      // land there too.
+      // anything else, including old links to removed pages, lands on modpacks
       path: '/:pathMatch(.*)*',
       redirect: '/modpacks',
     },

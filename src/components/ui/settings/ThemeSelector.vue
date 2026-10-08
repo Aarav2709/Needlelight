@@ -1,12 +1,7 @@
 <script setup lang="ts" generic="T extends string">
 import { MoonIcon, RadioButtonCheckedIcon, RadioButtonIcon, SunIcon } from '@modrinth/assets'
 
-// NOTE (Needlelight): ThemeSelector was removed from @modrinth/ui when packages/ui was brought
-// forward to current Modrinth (it's now folded into a much bigger appearance-settings
-// layout/provider system tied to their own settings pages). This is a direct, unchanged port of
-// the old standalone component so AppearanceSettings.vue keeps working exactly as before,
-// with i18n message IDs swapped for plain strings to match how the rest of Needlelight's own
-// settings UI is written (it doesn't otherwise use @modrinth/ui's i18n message system).
+// port of the theme selector that newer modrinth ui removed, using plain strings instead of i18n messages
 
 const { updateColorTheme, currentTheme, themeOptions, systemThemeColor } = defineProps<{
 	updateColorTheme: (theme: T) => void

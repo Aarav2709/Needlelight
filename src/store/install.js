@@ -1,13 +1,10 @@
-/**
- * Install store for Needlelight - Hollow Knight mod management.
- * Talks directly to the Tauri backend commands.
- */
+// install store that talks directly to the tauri backend commands
 import { invoke } from '@tauri-apps/api/core'
 import { defineStore } from 'pinia'
 
 export const useInstall = defineStore('installStore', {
   state: () => ({
-    installing: {},  // Map of mod name -> boolean (currently installing)
+    installing: {}, // mod names that are installing right now
   }),
   actions: {
     async installMod(modName) {

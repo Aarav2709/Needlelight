@@ -39,21 +39,19 @@ pub struct ModItem {
     #[serde(default)]
     pub authors: Vec<String>,
     pub state: ModState,
-    /// Minimum version each dependency asks for, keyed like `dependencies`. Only catalogs that
-    /// publish it (Thunderstore) fill this in.
+    // minimum version per dependency, only filled in by catalogs that publish it (thunderstore)
     #[serde(default)]
     pub dependency_versions: BTreeMap<String, String>,
-    /// Icon URL, when the catalog provides one (Thunderstore).
+    // icon url when the catalog provides one (thunderstore)
     #[serde(default)]
     pub icon: Option<String>,
-    /// Total downloads across all versions, when the catalog provides them (Thunderstore).
+    // total downloads across all versions when the catalog provides them (thunderstore)
     #[serde(default)]
     pub downloads: Option<u64>,
-    /// Last time the project was updated (RFC 3339), when the catalog provides it.
+    // last update time in rfc 3339 when the catalog provides it
     #[serde(default)]
     pub updated_at: Option<String>,
-    /// The project's own website (often its source repository), when the catalog lists one
-    /// separately from `repository` (Thunderstore).
+    // the project's own website when listed separately from the repository (thunderstore)
     #[serde(default)]
     pub homepage: Option<String>,
 }

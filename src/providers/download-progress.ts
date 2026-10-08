@@ -8,7 +8,7 @@ export interface AppDownloadProgressContext {
 	version: Ref<string | undefined>
 }
 
-/* returns unlisten function */
+// returns an unlisten function
 export async function subscribeToDownloadProgress(
 	context: AppDownloadProgressContext,
 	version: string,

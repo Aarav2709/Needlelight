@@ -1,8 +1,5 @@
 <script setup lang="ts" generic="T extends string">
-/**
- * A row of single-choice filter chips. The selected chip takes the active game's accent
- * (purple for Hollow Knight, red for Silksong) so the current filter reads at a glance.
- */
+// a row of single choice filter chips, the selected one takes the active game's accent
 defineProps<{
 	options: { value: T; label: string; count?: number; disabled?: boolean }[]
 	label: string

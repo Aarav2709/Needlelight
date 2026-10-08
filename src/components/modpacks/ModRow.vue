@@ -169,7 +169,7 @@ const detail = computed(() => {
 	background: color-mix(in srgb, var(--color-brand) 13%, var(--surface-2));
 	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-brand) 35%, transparent);
 }
-/* The name keeps its room; a long author list gives way first. */
+/* the name keeps its room and a long author list gives way first */
 .name {
 	flex: 0 1 auto;
 	min-width: 0;

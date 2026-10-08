@@ -1,8 +1,4 @@
-/**
- * Generated artwork for modpacks. Each modpack gets its own mesh-gradient tile, picked
- * deterministically from its folder path (which survives renames), in colors that belong to
- * its game: cool violets and blues for Hollow Knight, warm reds and golds for Silksong.
- */
+// generated modpack artwork, a gradient tile seeded by the folder path in colors that belong to its game
 import type { GameKey } from '@/helpers/games'
 
 type Palette = [base: string, deep: string, glow: string, spark: string]
@@ -43,7 +39,7 @@ function hash(text: string): number {
 	return h >>> 0
 }
 
-/** Small seeded PRNG (mulberry32), so a modpack always gets the same artwork. */
+// small seeded prng (mulberry32) so a modpack always gets the same artwork
 function random(seed: number) {
 	let a = seed
 	return () => {
@@ -57,10 +53,10 @@ function random(seed: number) {
 export type ModpackArt = {
 	base: string
 	deep: string
-	/** Gradient direction, in degrees. */
+	// gradient direction in degrees
 	angle: number
 	blobs: { x: number; y: number; r: number; color: string; opacity: number }[]
-	/** A representative color, for tinting around the artwork. */
+	// a representative color for tinting around the artwork
 	tint: string
 }
 

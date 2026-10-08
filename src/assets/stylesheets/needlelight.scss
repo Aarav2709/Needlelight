@@ -1,6 +1,4 @@
-// Needlelight's shared visual language, layered on Modrinth's tokens (surface-*, color-*).
-// Page-specific layout stays in components; recurring patterns live here so every screen
-// uses the same badges, section labels, segmented controls and density.
+// needlelight's shared visual language on top of modrinth's tokens, recurring patterns live here so every screen matches
 
 :root {
 	--nl-page-px: 2rem;
@@ -28,7 +26,7 @@ html.density-compact {
 	}
 }
 
-// ─── Motion ──────────────────────────────────────────────────────────────────
+// motion
 
 @mixin reduced-motion {
 	*:not(.animate-spin),
@@ -51,7 +49,7 @@ html.reduce-motion {
 	}
 }
 
-// ─── Focus ───────────────────────────────────────────────────────────────────
+// focus
 
 .nl-focusable:focus-visible,
 .nl-row:focus-visible {
@@ -59,7 +57,7 @@ html.reduce-motion {
 	outline-offset: -2px;
 }
 
-// ─── Text ────────────────────────────────────────────────────────────────────
+// text
 
 .nl-section-label {
 	margin: 0;
@@ -70,7 +68,7 @@ html.reduce-motion {
 	color: var(--color-secondary);
 }
 
-// Text people may want to copy (descriptions, paths).
+// text people may want to copy, like descriptions and paths
 .nl-selectable,
 .nl-selectable * {
 	user-select: text;
@@ -86,8 +84,7 @@ html.reduce-motion {
 	font-size: 0.8125rem;
 }
 
-// ─── Badges ──────────────────────────────────────────────────────────────────
-// Small, squared status labels. Color via modifier; `--_c` drives text and tint.
+// badges: small squared status labels, colored by modifier through a private color variable
 
 .nl-badge {
 	--_c: var(--color-secondary);
@@ -137,7 +134,7 @@ html.reduce-motion {
 	}
 }
 
-// Status dot, e.g. before "Enabled".
+// status dot, like the one before enabled
 .nl-dot {
 	width: 0.5rem;
 	height: 0.5rem;
@@ -146,7 +143,7 @@ html.reduce-motion {
 	background: currentColor;
 }
 
-// ─── Segmented control ───────────────────────────────────────────────────────
+// segmented control
 
 .nl-segmented {
 	display: inline-flex;
@@ -199,7 +196,7 @@ html.reduce-motion {
 	}
 }
 
-// ─── Underline tabs ──────────────────────────────────────────────────────────
+// underline tabs
 
 .nl-tabs {
 	display: flex;
@@ -260,9 +257,7 @@ html.reduce-motion {
 	}
 }
 
-// ─── Buttons ─────────────────────────────────────────────────────────────────
-// Action buttons inside lists and panels (Install, Uninstall, Update). Named `nl-btn` because
-// Modrinth's global `.btn` would otherwise leak in its sizing, shadow and hover filters.
+// action buttons in lists and panels, named nl btn so modrinth's global btn styles don't leak in
 
 .nl-btn {
 	--_bg: var(--surface-4);
@@ -329,7 +324,7 @@ html.reduce-motion {
 		--_fg: var(--color-orange);
 		--_bd: color-mix(in srgb, var(--color-orange) 36%, transparent);
 	}
-	// Quiet until hovered, then clearly destructive.
+	// quiet until hovered, then clearly destructive
 	&--danger {
 		--_bg: var(--surface-3);
 		--_fg: var(--color-base);
@@ -370,7 +365,7 @@ html.reduce-motion {
 	}
 }
 
-// Square, icon-only buttons (close, uninstall in a row).
+// square icon only buttons, like close or uninstall in a row
 .nl-icon-btn {
 	display: inline-flex;
 	align-items: center;
@@ -411,7 +406,7 @@ html.reduce-motion {
 	}
 }
 
-// ─── Rows & panels ───────────────────────────────────────────────────────────
+// rows and panels
 
 .nl-panel {
 	border-radius: var(--nl-panel-radius);
@@ -437,7 +432,7 @@ html.reduce-motion {
 	}
 }
 
-// ─── Loading skeleton ────────────────────────────────────────────────────────
+// loading skeleton
 
 .nl-skeleton {
 	border-radius: 0.375rem;
@@ -460,7 +455,7 @@ html.reduce-motion {
 	}
 }
 
-// ─── Thin scrollbars for inner panels ───────────────────────────────────────
+// thin scrollbars for inner panels
 
 .nl-scroll {
 	overflow-y: auto;

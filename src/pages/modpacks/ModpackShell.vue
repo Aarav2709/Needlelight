@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * Parent of a modpack's two pages (its mods, and Browse). Loads the modpack, shares its state and
- * actions with both through the modpack context, and owns the confirmation dialog they use.
- */
+// parent of a modpack's mods and browse pages, it loads the modpack, shares its context, and owns their confirmation dialog
 import { ConfirmModal, injectNotificationManager } from '@modrinth/ui'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -24,7 +21,7 @@ const { prefs } = usePreferences()
 const breadcrumbs = useBreadcrumbs()
 const { handleError, addNotification } = injectNotificationManager()
 
-// Vue Router already decodes params; decoding again would corrupt names containing '%'.
+// vue router already decodes params, decoding again would break names containing a percent sign
 const path = computed(() => String(route.params.path ?? ''))
 const ctx = provideModpackContext(path)
 const { modpack, game } = ctx
@@ -42,7 +39,7 @@ async function load() {
 		return
 	}
 	if (modpack.value.game !== games.activeGame) {
-		// Opened a modpack for the other game (e.g. right after creating it): follow it.
+		// opened a modpack for the other game, like right after creating it, so follow it
 		await games.switchGame(modpack.value.game).catch(() => {})
 	}
 	prefs.lastModpack[modpack.value.game] = path.value
@@ -61,7 +58,7 @@ watch(
 
 useShortcut('mod+enter', () => void ctx.play(), { inInputs: true, when: () => !modpacks.launching })
 
-// ─── Confirmations requested by either page ────────────────────────────────
+// confirmations requested by either page
 
 const confirmModal = ref<InstanceType<typeof ConfirmModal> | null>(null)
 watch(ctx.confirmRequest, (request) => {

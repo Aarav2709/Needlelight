@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** A modpack's page: its header, and the mods installed in it. */
+// a modpack's page, its header and the mods installed in it
 import {
 	CheckCircleIcon,
 	CircleAlertIcon,
@@ -71,14 +71,14 @@ const isActiveInGame = computed(() => game.value === 'hollow_knight' && modpacks
 const gameMissing = computed(() => games.found[game.value] === false)
 const browseRoute = computed(() => modpackRoute({ path: path.value }, 'browse'))
 
-// ─── Details panel ─────────────────────────────────────────────────────────
+// details panel
 
 const selectedName = ref<string | null>(null)
-/** Clicking the open mod's row again closes its panel. */
+// clicking the open mod's row again closes its panel
 function toggleMod(name: string) {
 	selectedName.value = selectedName.value === name ? null : name
 }
-// A manually added mod disappears entirely once uninstalled; close its panel.
+// a manually added mod disappears once uninstalled, so close its panel
 watch(
 	() => selectedName.value && !ctx.find(selectedName.value),
 	(gone) => {
@@ -86,7 +86,7 @@ watch(
 	},
 )
 
-// ─── Search, filter, sort ────────────────────────────────────────────────────
+// search, filter, sort
 
 const search = ref('')
 const show = ref<Show>('all')
@@ -148,7 +148,7 @@ function clearFilters() {
 	show.value = 'all'
 }
 
-// ─── Selection ─────────────────────────────────────────────────────────────
+// selection
 
 const checked = ref(new Set<string>())
 let anchor: string | null = null
@@ -166,7 +166,7 @@ function setChecked(names: string[], value: boolean) {
 	checked.value = next
 }
 
-/** Shift-click checks everything between the last clicked row and this one. */
+// shift click checks everything between the last clicked row and this one
 function onCheck(name: string, event?: MouseEvent) {
 	const value = !checked.value.has(name)
 	if (event?.shiftKey && anchor) {
@@ -194,7 +194,7 @@ function clearChecked() {
 	anchor = null
 }
 
-// Forget mods that were uninstalled.
+// forget mods that were uninstalled
 watch(installed, (list) => {
 	const names = new Set(list.map((m) => m.name))
 	if ([...checked.value].some((n) => !names.has(n))) {
@@ -213,7 +213,7 @@ async function bulkEnable(value: boolean) {
 	)
 }
 
-// ─── Keyboard ──────────────────────────────────────────────────────────────
+// keyboard
 
 const searchInput = ref<HTMLInputElement | null>(null)
 const table = ref<HTMLElement | null>(null)
@@ -236,7 +236,7 @@ useShortcut(
 	{ inInputs: true },
 )
 
-/** ↑/↓ move between rows; with the details panel open, it follows. */
+// up and down move between rows, and an open details panel follows
 function onTableKeydown(event: KeyboardEvent) {
 	if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
 	const rows = [...(table.value?.querySelectorAll<HTMLElement>('.mod-row') ?? [])]
@@ -249,7 +249,7 @@ function onTableKeydown(event: KeyboardEvent) {
 	if (selectedName.value && visible.value[index]) selectedName.value = visible.value[index].name
 }
 
-// ─── Modpack actions ────────────────────────────────────────────────────────
+// modpack actions
 
 const editor = ref<InstanceType<typeof ModpackEditorModal> | null>(null)
 const deleteConfirm = ref<InstanceType<typeof ConfirmModal> | null>(null)
@@ -275,8 +275,7 @@ async function deletePack() {
 	}
 }
 
-// What used to live at the bottom of the modpacks list: playing the game without mods, and
-// (Hollow Knight) handing the game back to the player's own mods.
+// playing without mods, and for hollow knight handing the game back to the player's own mods
 const restoreConfirm = ref<InstanceType<typeof ConfirmModal> | null>(null)
 
 async function playWithoutMods() {
@@ -353,7 +352,7 @@ const problemText = computed(() => {
 <template>
 	<div v-if="modpack" class="relative flex h-full min-h-0">
 		<div class="modpack-scroll nl-scroll min-w-0 flex-1">
-			<!-- Header -->
+			<!-- header -->
 			<header class="hero" :style="art ? { '--_tint': art.tint } : undefined">
 				<ModpackArt :seed="modpack.path" :game="modpack.game" size="6.5rem" />
 				<div class="flex min-w-0 flex-1 flex-col gap-1.5 self-center">
@@ -402,7 +401,7 @@ const problemText = computed(() => {
 				</div>
 			</header>
 
-			<!-- Status -->
+			<!-- status -->
 			<div
 				v-if="activity || gameMissing || health.issues.size || health.updates.length"
 				class="flex flex-col gap-2 px-[--nl-page-px] pb-5"
@@ -475,7 +474,7 @@ const problemText = computed(() => {
 				</div>
 			</div>
 
-			<!-- Toolbar (sticky) -->
+			<!-- toolbar, sticky -->
 			<div class="toolbar">
 				<h2 class="section-title">
 					Mods <span class="nl-count">{{ installed.length }}</span>
@@ -500,7 +499,7 @@ const problemText = computed(() => {
 				</span>
 			</div>
 
-			<!-- Body -->
+			<!-- body -->
 			<div class="body">
 				<div v-if="ctx.installedError.value" class="state">
 					<NoConnectionIllustration class="illustration" aria-hidden="true" />
@@ -651,7 +650,7 @@ const problemText = computed(() => {
 	gap: 1.5rem;
 	padding: calc(var(--nl-page-py) + 0.75rem) var(--nl-page-px) 1.75rem;
 }
-/* A wash of the modpack's own artwork color behind the header. */
+/* a wash of the modpack's own artwork color behind the header */
 .hero::before {
 	content: '';
 	position: absolute;
@@ -757,7 +756,7 @@ const problemText = computed(() => {
 	border: 1px solid var(--color-divider);
 	background: var(--surface-2);
 }
-/* Same columns as ModRow. */
+/* same columns as the mod row */
 .mod-head {
 	display: grid;
 	grid-template-columns: 1.25rem minmax(0, 1fr) 10rem 6.25rem;
@@ -878,7 +877,7 @@ const problemText = computed(() => {
 	bottom: 0;
 	z-index: 10;
 }
-/* Wide windows have room to show the list and the details side by side. */
+/* wide windows show the list and the details side by side */
 @media (min-width: 1280px) {
 	.side-panel {
 		position: relative;
@@ -899,7 +898,7 @@ const problemText = computed(() => {
 </style>
 
 <style>
-/* The selection bar is teleported to <body>; keep it over the mod list, clear of the sidebar. */
+/* the selection bar is teleported to the body, keep it over the mod list and clear of the sidebar */
 .selection-bar {
 	--left-bar-width: var(--nl-rail-width);
 }

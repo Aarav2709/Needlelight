@@ -32,7 +32,7 @@ export async function removeEnqueuedUpdate() {
   }
 }
 
-// One of 'Windows', 'Linux', 'MacOS'
+// one of windows, linux, or macos
 export async function getOS() {
   const userAgentDataPlatform = navigator.userAgentData?.platform?.toLowerCase?.() ?? ''
   const platform = (navigator.platform || '').toLowerCase()

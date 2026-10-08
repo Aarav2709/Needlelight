@@ -17,12 +17,11 @@ use tokio::sync::RwLock;
 pub struct AppState {
     pub settings: Arc<RwLock<AppSettings>>,
     pub installed: Arc<RwLock<InstalledModsStore>>,
-    // tracks active launches by game key and process id
+    // running games by game key, with their process id (0 while a launch is starting)
     pub running_games: Arc<RwLock<BTreeMap<String, u32>>>,
-    // games whose install folder has already been auto-detected this session
+    // games whose install folder was already auto detected this session
     pub auto_detected: Arc<RwLock<HashSet<String>>>,
-    // serializes changes to modpack contents: each operation loads, edits and saves the
-    // modpack's installed-mods file, so two at once would overwrite each other's records
+    // serializes modpack edits so two operations never overwrite each other's installed mods file
     pub modpack_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
@@ -33,8 +32,10 @@ impl AppState {
         settings.sync_custom_modlinks();
         let mut hk_settings = settings.clone();
         hk_settings.game = GameKey::HollowKnight;
-        hk_settings.managed_folder =
-            AppSettings::normalize_managed_folder(&settings.managed_folder_for(&GameKey::HollowKnight), &GameKey::HollowKnight);
+        hk_settings.managed_folder = AppSettings::normalize_managed_folder(
+            &settings.managed_folder_for(&GameKey::HollowKnight),
+            &GameKey::HollowKnight,
+        );
         if let Err(error) = installer::recover_pending_hk_api_restore(&hk_settings).await {
             log::warn!("Could not recover pending Hollow Knight API restore: {error}");
         }
@@ -90,8 +91,7 @@ pub fn run() {
                 commands::game_availability,
                 commands::game_folder_valid,
                 commands::mod_readme,
-                // Modpack CRUD. Exposed as app commands because Tauri 2's ACL rejects calls
-                // into inline plugins that have no permissions defined (and none are).
+                // modpack commands live here because tauri rejects inline plugins without permissions
                 profile_plugin::profile_list,
                 profile_plugin::profile_get,
                 profile_plugin::profile_edit,

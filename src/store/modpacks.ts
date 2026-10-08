@@ -1,7 +1,4 @@
-/**
- * Modpacks and their installed mods. Mod operations update the affected modpack's installed
- * state from disk afterwards (cheap, local) instead of refetching the whole catalog.
- */
+// modpacks and their installed mods, mod operations reload only that modpack's installed state instead of the catalog
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { defineStore } from 'pinia'
@@ -28,7 +25,7 @@ import type { InstalledDb } from '@/helpers/types'
 import { usePreferences } from '@/store/preferences'
 
 function byRecent(a: Modpack, b: Modpack) {
-	// Recently played first, then most recently created.
+	// recently played first, then most recently created
 	const played = (b.last_played ?? '').localeCompare(a.last_played ?? '')
 	return played !== 0 ? played : b.created.localeCompare(a.created)
 }
@@ -40,17 +37,17 @@ export const useModpacks = defineStore('modpacks', () => {
 	const error = ref<string | null>(null)
 	const activeHk = ref<string | null>(null)
 
-	/** Installed mods per modpack path. */
+	// installed mods per modpack path
 	const installed = reactive<Record<string, InstalledDb>>({})
 	const installedErrors = reactive<Record<string, string>>({})
 
-	/** Mods with an operation in flight, as `${path}\n${mod}`. */
+	// mods with an operation in flight, keyed by path and mod name on separate lines
 	const busy = reactive(new Set<string>())
-	/** Download progress (0-100) per mod name, from the backend's progress events. */
+	// download progress from 0 to 100 per mod name, from the backend's progress events
 	const progress = reactive(new Map<string, number>())
-	/** Modpack paths currently launching. */
+	// the modpack path currently launching
 	const launching = ref<string | null>(null)
-	/** In-flight installs per modpack: what was asked for, and the file downloading right now. */
+	// in flight installs per modpack, what was asked for and the file downloading right now
 	const activity = reactive<Record<string, { names: string[]; current: string | null }>>({})
 
 	let listening = false
@@ -66,7 +63,7 @@ export const useModpacks = defineStore('modpacks', () => {
 			for (const [path, op] of Object.entries(activity)) {
 				if (value < 100 && op.current !== name) {
 					op.current = name
-					// The previous file has been extracted and recorded by now: show it in the list.
+					// the previous file is extracted and recorded by now, so show it in the list
 					void loadInstalled(path)
 				}
 			}
@@ -78,14 +75,10 @@ export const useModpacks = defineStore('modpacks', () => {
 	}
 
 	const byPath = computed(() => new Map(list.value.map((m) => [m.path, m])))
-	/** Every modpack, recently played (or created) first. */
+	// every modpack, recently played or created first
 	const recent = computed(() => [...list.value].sort(byRecent))
 
-	/**
-	 * Every modpack in sidebar order: the player's own order if they've rearranged, otherwise
-	 * Hollow Knight's modpacks above Silksong's, oldest first. A modpack the saved order doesn't
-	 * know yet (just created) goes after the last one of its game.
-	 */
+	// every modpack in sidebar order: the player's saved order, else hollow knight above silksong oldest first, new ones after the last of their game
 	const ordered = computed(() => {
 		const gameRank = (m: Modpack) => GAMES.findIndex((g) => g.key === m.game)
 		const natural = [...list.value].sort(
@@ -111,7 +104,7 @@ export const useModpacks = defineStore('modpacks', () => {
 		return result
 	})
 
-	/** Move a modpack to `index` in the sidebar order, and remember the order. */
+	// moves a modpack to an index in the sidebar order and remembers the order
 	function move(path: string, index: number) {
 		const paths = ordered.value.map((m) => m.path)
 		const from = paths.indexOf(path)
@@ -151,7 +144,7 @@ export const useModpacks = defineStore('modpacks', () => {
 		}
 	}
 
-	/** Installed state for several modpacks at once (used for the sidebar's counts). */
+	// installed state for several modpacks at once, used for the sidebar's counts
 	async function loadInstalledFor(paths: string[]) {
 		await Promise.all(paths.filter((p) => !installed[p]).map(loadInstalled))
 	}
@@ -168,13 +161,13 @@ export const useModpacks = defineStore('modpacks', () => {
 				busy.delete(key(path, mod))
 				progress.delete(mod)
 			}
-			// Dependencies report progress under their own names; clear any a failure left behind.
+			// dependencies report progress under their own names, so clear anything a failure left behind
 			if (busy.size === 0) progress.clear()
 			await loadInstalled(path)
 		}
 	}
 
-	/** Install (or update) mods and their dependencies. */
+	// installs or updates mods and their dependencies
 	async function install(path: string, names: string[]) {
 		for (const name of names) progress.set(name, 0)
 		activity[path] = { names, current: null }
@@ -189,8 +182,7 @@ export const useModpacks = defineStore('modpacks', () => {
 		return withBusy(path, [name], () => uninstallModpackMod(path, name))
 	}
 
-	/** Enable or disable several mods. Switches flip right away; the reload afterwards
-	 * confirms (or reverts) them. */
+	// enables or disables several mods, switches flip right away and the reload afterwards confirms or reverts them
 	function setEnabled(path: string, names: string[], enable: boolean) {
 		const db = installed[path]
 		for (const name of names) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** A modpack's generated icon: a mesh-gradient tile with a soft grain and a layered mark. */
+// a modpack's generated icon, a gradient tile with soft grain and a layered mark
 import { computed, useId } from 'vue'
 
 import { modpackArt } from '@/helpers/art'
@@ -54,7 +54,7 @@ const art = computed(() => modpackArt(props.seed, props.game))
 		/>
 		<rect width="100" height="100" :filter="`url(#${id}-grain)`" opacity="0.5" style="mix-blend-mode: overlay" />
 
-		<!-- A stack of layers: the same mark on every modpack, so the color does the identifying. -->
+		<!-- a stack of layers with the same mark on every modpack, so the color does the identifying -->
 		<g :filter="`url(#${id}-shadow)`" fill="none" stroke-linecap="round" stroke-linejoin="round">
 			<path d="M50 27 L73 39 L50 51 L27 39 Z" fill="#fff" fill-opacity="0.96" />
 			<path d="M27 50 L50 62 L73 50" stroke="#fff" stroke-opacity="0.85" stroke-width="5.5" />

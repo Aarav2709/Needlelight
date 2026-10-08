@@ -1,21 +1,9 @@
-/**
- * Mod state and relationship analysis.
- *
- * The catalog (per game) and a modpack's installed database are loaded separately and merged
- * here, mirroring the backend's `InstalledModsStore::state_for_manifest`. Everything the UI says
- * about dependencies comes from real catalog data:
- *
- * - Dependencies: `ModItem.dependencies` (ModLinks `<Dependencies>`, Thunderstore
- *   `dependencies`), with Thunderstore's minimum versions in `dependency_versions`.
- * - Optional companions: `ModItem.integrations` (ModLinks `<Integrations>` only).
- * - Neither catalog publishes conflicts between mods, so none are reported. The only
- *   incompatibility the data can show is a dependency older than the version a mod asks for.
- */
+// merges a game's catalog with a modpack's installed mods and works out dependencies from real catalog data only
 import type { GameKey } from '@/helpers/games'
 import type { InstalledDb, ModItem, ModState } from '@/helpers/types'
 
 export type ModEntry = ModItem & {
-	/** False for installed mods the catalog doesn't know (manual installs, or catalog offline). */
+	// false for installed mods the catalog doesn't know, like manual installs or an offline catalog
 	inCatalog: boolean
 }
 
@@ -58,7 +46,7 @@ function localEntry(name: string, state: ModState, version: string): ModEntry {
 	}
 }
 
-/** Catalog items with this modpack's install state, plus installed mods the catalog lacks. */
+// catalog items with this modpack's install state, plus installed mods the catalog lacks
 export function mergeInstallState(catalog: ModItem[] | null, db: InstalledDb | null): ModEntry[] {
 	const entries: ModEntry[] = []
 	const seen = new Set<string>()
@@ -101,7 +89,7 @@ export function lookup(index: ModIndex, name: string): ModEntry | null {
 	return index.byName.get(name) ?? index.byLowerName.get(name.toLowerCase()) ?? null
 }
 
-// ─── State helpers ──────────────────────────────────────────────────────────
+// state helpers
 
 export function isInstalled(mod: ModItem): boolean {
 	return (
@@ -117,12 +105,12 @@ export function needsUpdate(mod: ModItem): boolean {
 	return mod.state.kind === 'installed' && mod.state.updated === false
 }
 
-/** On disk and in the catalog, but installed outside Needlelight, so its version is unknown. */
+// on disk and in the catalog but installed outside needlelight, so its version is unknown
 export function isUntracked(mod: ModEntry): boolean {
 	return mod.inCatalog && mod.state.kind === 'not_in_modlinks'
 }
 
-/** Installed version, when known. */
+// installed version, when known
 export function installedVersion(mod: ModItem): string | null {
 	return mod.state.kind === 'installed' ? mod.state.version || null : null
 }
@@ -132,7 +120,7 @@ export function formatVersion(version?: string | null): string {
 	return /^v/i.test(version) ? version : `v${version}`
 }
 
-/** Compare dotted versions numerically ("1.10.0" is newer than "1.9.2"). */
+// compares dotted versions numerically so 1.10.0 is newer than 1.9.2
 export function compareVersions(a: string, b: string): number {
 	const left = a.replace(/^v/i, '').split(/[.+-]/)
 	const right = b.replace(/^v/i, '').split(/[.+-]/)
@@ -151,12 +139,12 @@ export function compareVersions(a: string, b: string): number {
 	return 0
 }
 
-/** The mod loader itself (BepInEx pack); every Silksong modpack already ships its own copy. */
+// the mod loader itself (the bepinex pack), which every silksong modpack already ships
 export function isLoaderDependency(name: string): boolean {
 	return /bepinexpack/i.test(name)
 }
 
-/** Thunderstore names are "Author-Mod_Name"; show just "Mod Name" for Silksong. */
+// thunderstore names start with the author, so silksong shows just the mod name with spaces
 export function displayModName(name: string, game: GameKey): string {
 	if (game !== 'silksong') return name
 	const parts = name.split('-')
@@ -164,21 +152,21 @@ export function displayModName(name: string, game: GameKey): string {
 	return withoutAuthor.replace(/_/g, ' ')
 }
 
-/** Author for display: the catalog's authors, or the Thunderstore owner prefix. */
+// author for display, from the catalog's authors or the thunderstore owner prefix
 export function authorLine(mod: ModItem, game: GameKey): string {
 	if (mod.authors.length) return mod.authors.join(', ')
 	if (game === 'silksong' && mod.name.includes('-')) return mod.name.split('-')[0]
 	return ''
 }
 
-/** "Serena", "Serena and Flib", "Serena and 8 others": for rows, where space is tight. */
+// short author line for rows, like serena, serena and flib, or serena and 8 others
 export function shortAuthorLine(mod: ModItem, game: GameKey): string {
 	if (mod.authors.length > 2) return `${mod.authors[0]} and ${mod.authors.length - 1} others`
 	if (mod.authors.length) return listNames(mod.authors)
 	return authorLine(mod, game)
 }
 
-/** "A", "A and B", "A, B and C". */
+// joins names as a, a and b, or a, b and c
 export function listNames(names: string[]): string {
 	if (names.length <= 1) return names[0] ?? ''
 	return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
@@ -192,9 +180,9 @@ export function formatCount(value?: number | null): string {
 	return value == null ? '' : compactNumber.format(value)
 }
 
-// ─── Links ──────────────────────────────────────────────────────────────────
+// links
 
-/** "https://github.com/owner/repo" for any URL inside a GitHub repository. */
+// the repository url for any url inside a github repository
 function githubRepo(url?: string | null): string | null {
 	const match = url?.match(/^https?:\/\/github\.com\/([^/#?]+)\/([^/#?]+)/i)
 	return match ? `https://github.com/${match[1]}/${match[2].replace(/\.git$/i, '')}` : null
@@ -203,11 +191,11 @@ function githubRepo(url?: string | null): string | null {
 const sameUrl = (a: string, b: string) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '')
 
 export type ProjectLinks = {
-	/** Where the project is published (its Thunderstore page or repository). */
+	// where the project is published, its thunderstore page or repository
 	page: string | null
-	/** The project's own website, when different from `page`. */
+	// the project's own website when it differs from the page
 	website: string | null
-	/** Where to report problems, when the project has somewhere for that. */
+	// where to report problems, when the project has somewhere for that
 	issues: string | null
 }
 
@@ -218,27 +206,27 @@ export function projectLinks(mod: ModItem): ProjectLinks {
 	return { page, website, issues: mod.issues || (repo ? `${repo}/issues` : null) }
 }
 
-// ─── Relationships ──────────────────────────────────────────────────────────
+// relationships
 
 export type DependencyStatus =
-	/** In the modpack and enabled. */
+	// in the modpack and enabled
 	| 'enabled'
-	/** In the modpack but disabled. */
+	// in the modpack but disabled
 	| 'disabled'
-	/** In the modpack, but older than the version the mod asks for. */
+	// in the modpack but older than the version the mod asks for
 	| 'outdated'
-	/** Not in the modpack, and can be downloaded. */
+	// not in the modpack and can be downloaded
 	| 'missing'
-	/** Not in the modpack, and can't be downloaded. */
+	// not in the modpack and can't be downloaded
 	| 'unavailable'
-	/** The mod loader, which every modpack includes. Never shown. */
+	// the mod loader, which every modpack includes and is never shown
 	| 'loader'
 
 export type DependencyRef = {
 	name: string
 	status: DependencyStatus
 	mod: ModEntry | null
-	/** Minimum version the mod asks for, when the catalog says. */
+	// minimum version the mod asks for, when the catalog says
 	minVersion: string | null
 	optional: boolean
 }
@@ -273,19 +261,19 @@ function resolve(
 	return out
 }
 
-/** Mods this one needs, excluding the mod loader. */
+// mods this one needs, excluding the mod loader
 export function dependenciesOf(mod: ModItem, index: ModIndex): DependencyRef[] {
 	return resolve(mod.dependencies, index, false, mod.dependency_versions).filter(
 		(dep) => dep.status !== 'loader',
 	)
 }
 
-/** Optional companion mods (Hollow Knight's ModLinks lists these as integrations). */
+// optional companion mods, which hollow knight's modlinks lists as integrations
 export function companionsOf(mod: ModItem, index: ModIndex): DependencyRef[] {
 	return resolve(mod.integrations, index, true).filter((dep) => dep.status !== 'loader')
 }
 
-/** Installed mods in the modpack that need `name` directly. */
+// installed mods in the modpack that need this one directly
 export function dependentsOf(name: string, installed: ModEntry[]): ModEntry[] {
 	const lower = name.toLowerCase()
 	return installed.filter((mod) =>
@@ -293,7 +281,7 @@ export function dependentsOf(name: string, installed: ModEntry[]): ModEntry[] {
 	)
 }
 
-/** Enabled mods that need `name`, directly or through other mods. */
+// enabled mods that need this one, directly or through other mods
 export function enabledDependentsDeep(name: string, installed: ModEntry[]): ModEntry[] {
 	const found = new Map<string, ModEntry>()
 	const queue = [name]
@@ -308,7 +296,7 @@ export function enabledDependentsDeep(name: string, installed: ModEntry[]): ModE
 	return [...found.values()]
 }
 
-/** Installed but disabled mods that `names` need, directly or through other mods. */
+// installed but disabled mods that these need, directly or through other mods
 export function disabledDependenciesDeep(names: string[], index: ModIndex): ModEntry[] {
 	const found = new Map<string, ModEntry>()
 	const visited = new Set(names.map((n) => n.toLowerCase()))
@@ -325,19 +313,14 @@ export function disabledDependenciesDeep(names: string[], index: ModIndex): ModE
 	return [...found.values()]
 }
 
-/**
- * What adding `name` to a modpack does. Mirrors the installer: dependencies that aren't in the
- * modpack are downloaded, ones that are out of date are updated to their latest version (the
- * installer doesn't look past dependencies that are already current), and afterwards any the
- * player had disabled are enabled again so the new mod can load.
- */
+// what adding a mod does, like the installer: missing dependencies download, outdated ones update, disabled ones are enabled again
 export type AddOutcome = {
 	added: ModEntry[]
 	updated: ModEntry[]
 	enabled: ModEntry[]
-	/** Direct dependencies already in the modpack as they are. */
+	// direct dependencies already in the modpack as they are
 	present: ModEntry[]
-	/** Dependencies Needlelight can't download. */
+	// dependencies needlelight can't download
 	unavailable: string[]
 }
 
@@ -371,7 +354,7 @@ export function addOutcome(name: string, index: ModIndex): AddOutcome {
 	return outcome
 }
 
-// ─── Modpack health ─────────────────────────────────────────────────────────
+// modpack health
 
 export type ModIssue = {
 	kind: 'missing' | 'unavailable' | 'disabled' | 'outdated'
@@ -382,21 +365,21 @@ export type PackHealth = {
 	installed: ModEntry[]
 	enabledCount: number
 	updates: ModEntry[]
-	/** Problems per installed mod name. */
+	// problems per installed mod name
 	issues: Map<string, ModIssue[]>
-	/** Missing dependencies that can be downloaded. */
+	// missing dependencies that can be downloaded
 	installableMissing: string[]
-	/** Dependencies older than a mod needs (updating them fixes it). */
+	// dependencies older than a mod needs, which updating fixes
 	outdatedRequired: string[]
-	/** Dependencies that aren't in the modpack and can't be downloaded. */
+	// dependencies that aren't in the modpack and can't be downloaded
 	unavailable: string[]
-	/** Disabled mods that enabled mods need. */
+	// disabled mods that enabled mods need
 	disabledRequired: string[]
-	/** Problems the Fix action can solve. */
+	// problems the fix action can solve
 	fixable: number
 }
 
-/** Issues only count for enabled mods: a disabled mod isn't loaded, so its needs don't matter. */
+// issues only count for enabled mods because a disabled mod isn't loaded
 export function modIssues(mod: ModItem, index: ModIndex): ModIssue[] {
 	if (!isEnabled(mod)) return []
 	const issues: ModIssue[] = []

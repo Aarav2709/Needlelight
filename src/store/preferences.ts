@@ -1,7 +1,4 @@
-/**
- * UI preferences. These only affect the frontend, so they persist in the webview's
- * localStorage (the backend's settings file holds where each game is installed).
- */
+// ui preferences, kept in the webview's local storage since only the frontend uses them
 import { defineStore } from 'pinia'
 import { reactive, watch } from 'vue'
 
@@ -18,15 +15,15 @@ export type Preferences = {
 	theme: ColorTheme
 	density: Density
 	reduceMotion: boolean
-	/** Blur and depth effects. */
+	// blur and depth effects
 	advancedRendering: boolean
 	confirmModRemoval: boolean
 	minimizeOnLaunch: boolean
-	/** Install available mod updates before a modpack launches. */
+	// install available mod updates before a modpack launches
 	updateBeforePlay: boolean
-	/** Last opened modpack per game, so the Modpacks page reopens where you left off. */
+	// last opened modpack per game, so the modpacks page reopens where you left off
 	lastModpack: Partial<Record<GameKey, string>>
-	/** The player's order of modpacks in the sidebar (folder paths). Empty until they rearrange. */
+	// the player's sidebar order of modpack folder paths, empty until they rearrange
 	modpackOrder: string[]
 }
 
@@ -47,7 +44,7 @@ function read(): Partial<Preferences> {
 		const raw = localStorage.getItem(STORAGE_KEY)
 		if (!raw) return {}
 		const stored = JSON.parse(raw) as Record<string, unknown>
-		// Keep only known keys, so preferences removed in later versions don't linger.
+		// keep only known keys so removed preferences don't linger
 		return Object.fromEntries(
 			Object.entries(stored).filter(([key]) => key in DEFAULT_PREFERENCES),
 		) as Partial<Preferences>
@@ -60,7 +57,7 @@ function write(value: Preferences) {
 	try {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
 	} catch {
-		/* storage unavailable: preferences just won't survive a restart */
+		// storage unavailable, so preferences just won't survive a restart
 	}
 }
 
@@ -69,7 +66,7 @@ export const usePreferences = defineStore('preferences', () => {
 	const theming = useTheming()
 	const systemDark = window.matchMedia('(prefers-color-scheme: dark)')
 
-	/** Push preferences into the DOM and the theme store. */
+	// pushes preferences into the dom and the theme store
 	function apply() {
 		const html = document.documentElement
 		theming.setThemeState(prefs.theme)
@@ -91,7 +88,7 @@ export const usePreferences = defineStore('preferences', () => {
 		{ deep: true },
 	)
 
-	/** Back to defaults, keeping which modpack each game had open. */
+	// back to defaults, keeping which modpack each game had open
 	function reset() {
 		const lastModpack = prefs.lastModpack
 		Object.assign(prefs, { ...DEFAULT_PREFERENCES, lastModpack })
@@ -113,6 +110,6 @@ export function setOnboarded(value: boolean) {
 		if (value) localStorage.setItem(ONBOARDED_KEY, '1')
 		else localStorage.removeItem(ONBOARDED_KEY)
 	} catch {
-		/* storage unavailable */
+		// storage unavailable
 	}
 }

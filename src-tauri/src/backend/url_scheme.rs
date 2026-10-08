@@ -97,15 +97,18 @@ pub fn decode_command(raw: &str) -> (UrlSchemeCommand, String) {
             UrlSchemeCommand::RemoveAllModsGlobalSettings,
             "removeAllModsGlobalSettings",
         ),
-        (UrlSchemeCommand::RemoveGlobalSettings, "removeGlobalSettings"),
+        (
+            UrlSchemeCommand::RemoveGlobalSettings,
+            "removeGlobalSettings",
+        ),
         (UrlSchemeCommand::Launch, "launch"),
         (UrlSchemeCommand::Modpack, "modpack"),
         (UrlSchemeCommand::Location, "location"),
     ];
 
     for (command, key) in commands {
-        if decoded.starts_with(key) {
-            return (command, decoded[key.len()..].trim_matches('/').to_string());
+        if let Some(rest) = decoded.strip_prefix(key) {
+            return (command, rest.trim_matches('/').to_string());
         }
     }
 

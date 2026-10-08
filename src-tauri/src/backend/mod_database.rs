@@ -33,7 +33,7 @@ const SS_APILINKS: &[&str] = &[
 const THUNDERSTORE_SS_URL: &str =
     "https://thunderstore.io/c/hollow-knight-silksong/api/v1/package/";
 
-// ─── Thunderstore DTOs ──────────────────────────────────────────────────────
+// thunderstore api responses
 #[derive(Debug, Clone, Deserialize)]
 #[allow(dead_code)]
 struct ThunderstorePackage {
@@ -84,9 +84,7 @@ impl CatalogCache {
             .timeout(Duration::from_secs(30))
             .build()?;
 
-        // A custom Silksong ModLinks feed follows the same schema as Hollow
-        // Knight's catalog. Use it when requested; Thunderstore remains the
-        // default Silksong source.
+        // silksong uses thunderstore unless a custom modlinks feed (same schema as hollow knight) is on
         if settings.game == GameKey::Silksong && !settings.use_custom_modlinks {
             return Self::build_silksong(&client, settings, installed).await;
         }
@@ -97,11 +95,7 @@ impl CatalogCache {
         let api = api_xml
             .ok()
             .and_then(|xml| parse_api_info(&xml).ok())
-            .unwrap_or_else(|| ApiInfo {
-                url: String::new(),
-                version: String::new(),
-                sha256: String::new(),
-            });
+            .unwrap_or_else(empty_api);
 
         let mut items = match modlinks_xml {
             Ok(xml) => parse_mod_items(&xml, installed)?,
@@ -153,7 +147,7 @@ impl CatalogCache {
         })
     }
 
-    /// Build catalog from Thunderstore API for Silksong
+    // builds the silksong catalog from the thunderstore api
     async fn build_silksong(
         client: &reqwest::Client,
         settings: &AppSettings,
@@ -162,7 +156,10 @@ impl CatalogCache {
         let packages: Vec<ThunderstorePackage> = match client.get(THUNDERSTORE_SS_URL).send().await
         {
             Ok(resp) => match resp.error_for_status() {
-                Ok(ok) => ok.json().await.unwrap_or_default(),
+                Ok(ok) => ok.json().await.unwrap_or_else(|e| {
+                    log::error!("Thunderstore sent an unreadable package list: {e}");
+                    Vec::new()
+                }),
                 Err(e) => {
                     log::error!("Thunderstore API error: {e}");
                     Vec::new()
@@ -174,50 +171,37 @@ impl CatalogCache {
             }
         };
 
-        // the Silksong BepInEx pack is published under silksong_modding, not
-        // BepInEx; check both, matching Cogfly's reference implementation
-        let excluded = [
+        // the silksong bepinex pack is published under silksong_modding as well as bepinex, like cogfly checks
+        const LOADER_PACKAGES: [&str; 2] = [
             "BepInEx-BepInExPack_Silksong",
             "silksong_modding-BepInExPack_Silksong",
-            "ebkr-r2modman",
-            "Kesomannen-GaleModManager",
         ];
+        // other mod managers that thunderstore lists as packages
+        const MANAGER_PACKAGES: [&str; 2] = ["ebkr-r2modman", "Kesomannen-GaleModManager"];
 
-        let mut api = fetch_apilinks_xml(client, settings)
-            .await
-            .ok()
-            .and_then(|xml| parse_api_info(&xml).ok())
-            .unwrap_or_else(|| ApiInfo {
-                url: String::new(),
-                version: String::new(),
-                sha256: String::new(),
-            });
-
+        let mut api: Option<ApiInfo> = None;
         let mut items: Vec<ModItem> = Vec::new();
         for pkg in packages
             .into_iter()
             .filter(|p| !p.is_deprecated && !p.versions.is_empty())
         {
-            if excluded.contains(&pkg.full_name.as_str()) {
-                if pkg.full_name == "BepInEx-BepInExPack_Silksong"
-                    || pkg.full_name == "silksong_modding-BepInExPack_Silksong"
-                {
-                    if let Some(latest) = pkg.versions.first() {
-                        api = ApiInfo {
-                            url: latest.download_url.clone(),
-                            version: latest.version_number.clone(),
-                            sha256: String::new(),
-                        };
-                    }
-                }
+            if LOADER_PACKAGES.contains(&pkg.full_name.as_str()) {
+                let latest = &pkg.versions[0];
+                api = Some(ApiInfo {
+                    url: latest.download_url.clone(),
+                    version: latest.version_number.clone(),
+                    sha256: String::new(),
+                });
+                continue;
+            }
+            if MANAGER_PACKAGES.contains(&pkg.full_name.as_str()) {
                 continue;
             }
 
             let latest = &pkg.versions[0];
             let name = pkg.full_name.clone();
 
-            // Keep dependency identifiers as owner-mod pairs (full_name without version), and
-            // remember the minimum version each one asks for.
+            // keep dependencies as owner and mod pairs and remember the minimum version each asks for
             let mut dependencies: Vec<String> = Vec::with_capacity(latest.dependencies.len());
             let mut dependency_versions = std::collections::BTreeMap::new();
             for dep in &latest.dependencies {
@@ -242,7 +226,8 @@ impl CatalogCache {
                 version: latest.version_number.clone(),
                 dependencies,
                 link: latest.download_url.clone(),
-                sha256: String::new(), // Thunderstore doesn't provide SHA256 in the listing
+                // thunderstore doesn't publish a sha256 in the listing
+                sha256: String::new(),
                 repository: format!(
                     "https://thunderstore.io/c/hollow-knight-silksong/p/{}/{}/",
                     pkg.owner, pkg.name
@@ -260,13 +245,22 @@ impl CatalogCache {
                 icon: Some(latest.icon.clone()).filter(|icon| !icon.trim().is_empty()),
                 downloads: Some(downloads),
                 updated_at: Some(pkg.date_updated.clone()).filter(|date| !date.trim().is_empty()),
-                homepage: Some(latest.website_url.trim().to_string()).filter(|url| {
-                    url.starts_with("https://") || url.starts_with("http://")
-                }),
+                homepage: Some(latest.website_url.trim().to_string())
+                    .filter(|url| url.starts_with("https://") || url.starts_with("http://")),
             });
         }
 
         items.sort_by(|a, b| a.name.cmp(&b.name));
+
+        // the apilinks feeds are only a fallback for when thunderstore doesn't list the loader
+        let api = match api {
+            Some(api) => api,
+            None => fetch_apilinks_xml(client, settings)
+                .await
+                .ok()
+                .and_then(|xml| parse_api_info(&xml).ok())
+                .unwrap_or_else(empty_api),
+        };
 
         Ok(Self {
             response: CatalogResponse {
@@ -279,8 +273,26 @@ impl CatalogCache {
     }
 }
 
-// Thunderstore returns literal category names like "(Deprecated category) Misc"
-// for legacy categories; strip that prefix so tags just read "Misc"
+fn empty_api() -> ApiInfo {
+    ApiInfo {
+        url: String::new(),
+        version: String::new(),
+        sha256: String::new(),
+    }
+}
+
+// the links entry name for this platform in modlinks and apilinks
+fn platform_key() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "Windows"
+    } else if cfg!(target_os = "macos") {
+        "Mac"
+    } else {
+        "Linux"
+    }
+}
+
+// thunderstore prefixes legacy categories with (deprecated category), strip it so tags read cleanly
 fn strip_deprecated_category_prefix(tag: &str) -> String {
     const PREFIX: &str = "(Deprecated category)";
     let trimmed = tag.trim();
@@ -339,8 +351,7 @@ async fn fetch_apilinks_xml(client: &reqwest::Client, settings: &AppSettings) ->
     fetch_first_ok(client, &with_mirror(settings, urls)).await
 }
 
-/// When the GitHub mirror is enabled, try the mirrored copy of each URL first and keep the
-/// originals as fallbacks.
+// with the github mirror on, try each mirrored url first and keep the originals as fallbacks
 fn with_mirror(settings: &AppSettings, urls: Vec<String>) -> Vec<String> {
     let mut out: Vec<String> = Vec::with_capacity(urls.len() * 2);
     for url in &urls {
@@ -416,17 +427,9 @@ fn parse_api_info(xml: &str) -> AppResult<ApiInfo> {
         .find(|n| n.has_tag_name("Links"))
         .ok_or_else(|| AppError::InvalidInput("ApiLinks has no Links".to_string()))?;
 
-    let os_key = if cfg!(target_os = "windows") {
-        "Windows"
-    } else if cfg!(target_os = "macos") {
-        "Mac"
-    } else {
-        "Linux"
-    };
-
     let os_link = links
         .children()
-        .find(|n| n.has_tag_name(os_key))
+        .find(|n| n.has_tag_name(platform_key()))
         .ok_or_else(|| AppError::InvalidInput("ApiLinks missing platform link".to_string()))?;
 
     let url = os_link.text().unwrap_or_default().trim().to_string();
@@ -457,32 +460,25 @@ fn parse_mod_items(xml: &str, installed: &InstalledModsStore) -> AppResult<Vec<M
         let links_node = manifest.children().find(|n| n.has_tag_name("Links"));
         let link_node = manifest.children().find(|n| n.has_tag_name("Link"));
 
-        let (link, sha256) = if let Some(links) = links_node {
-            let os_key = if cfg!(target_os = "windows") {
-                "Windows"
-            } else if cfg!(target_os = "macos") {
-                "Mac"
-            } else {
-                "Linux"
-            };
-            let target = links
+        // a malformed links entry only costs that mod its download, not the whole catalog
+        let selected = match links_node {
+            Some(links) => links
                 .children()
-                .find(|n| n.has_tag_name(os_key))
-                .or_else(|| links.children().find(|n| n.has_tag_name("Windows")));
-            let selected =
-                target.ok_or_else(|| AppError::InvalidInput("invalid Links node".to_string()))?;
-            (
-                selected.text().unwrap_or_default().trim().to_string(),
-                selected.attribute("SHA256").unwrap_or_default().to_string(),
-            )
-        } else if let Some(link) = link_node {
-            (
-                link.text().unwrap_or_default().trim().to_string(),
-                link.attribute("SHA256").unwrap_or_default().to_string(),
-            )
-        } else {
-            (String::new(), String::new())
+                .find(|n| n.has_tag_name(platform_key()))
+                .or_else(|| links.children().find(|n| n.has_tag_name("Windows"))),
+            None => link_node,
         };
+        if links_node.is_some() && selected.is_none() {
+            log::warn!("ModLinks entry {name} has no download for this platform");
+        }
+        let (link, sha256) = selected
+            .map(|node| {
+                (
+                    node.text().unwrap_or_default().trim().to_string(),
+                    node.attribute("SHA256").unwrap_or_default().to_string(),
+                )
+            })
+            .unwrap_or_default();
 
         let dependencies = list_children(manifest, "Dependencies", "Dependency");
         let tags = list_children(manifest, "Tags", "Tag");

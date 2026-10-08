@@ -1,15 +1,4 @@
-/**
- * Everything a modpack's pages show and do, in one place. ModpackShell provides it; the mod
- * list, Browse and the details panel read from it, so a mod's state and the actions on it are
- * defined once.
- *
- * Dependencies are handled here rather than by the player:
- * - installing or updating a mod downloads what it needs and re-enables anything it needs that
- *   was disabled,
- * - enabling a mod enables what it needs,
- * - disabling or uninstalling a mod other enabled mods need asks first, then disables those too,
- * - "Fix" repairs whatever is still broken (missing, outdated or disabled dependencies).
- */
+// everything a modpack's pages show and do, shared by the mod list, browse, and the details panel, with dependencies handled for the player
 import { injectNotificationManager } from '@modrinth/ui'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { computed, inject, type InjectionKey, provide, type Ref, ref } from 'vue'
@@ -72,7 +61,7 @@ function createModpackContext(path: Ref<string>) {
 		isBusy(name) ? (modpacks.progress.get(name) ?? undefined) : undefined
 	const label = (name: string) => displayModName(name, game.value)
 
-	/** A confirmation the page should show (it owns the dialog). */
+	// a confirmation the page should show, since it owns the dialog
 	const confirmRequest = ref<ConfirmRequest | null>(null)
 	function confirm(request: ConfirmRequest) {
 		confirmRequest.value = request
@@ -92,7 +81,7 @@ function createModpackContext(path: Ref<string>) {
 		}
 	}
 
-	/** Enable whatever `names` need that is installed but disabled. */
+	// enables whatever these need that is installed but disabled
 	async function enableNeeded(names: string[]) {
 		const needed = disabledDependenciesDeep(names, index.value).map((m) => m.name)
 		if (needed.length) await modpacks.setEnabled(path.value, needed, true)
@@ -119,7 +108,7 @@ function createModpackContext(path: Ref<string>) {
 
 	const updateAll = () => update(health.value.updates.map((m) => m.name))
 
-	/** Repair everything the data says is broken and Needlelight can fix. */
+	// repairs everything the data says is broken and needlelight can fix
 	async function fix() {
 		const h = health.value
 		const toInstall = [...new Set([...h.installableMissing, ...h.outdatedRequired])]
@@ -201,7 +190,7 @@ function createModpackContext(path: Ref<string>) {
 		}
 	}
 
-	// ─── Several mods at once (the selection bar) ────────────────────────────
+	// several mods at once, from the selection bar
 
 	async function setEnabledMany(names: string[], enable: boolean) {
 		if (!names.length) return
@@ -285,7 +274,7 @@ function createModpackContext(path: Ref<string>) {
 		await run(() => openUrl(url))
 	}
 
-	/** The catalog entry (or installed-only entry) for a mod name. */
+	// the catalog entry, or installed only entry, for a mod name
 	const find = (name: string) => lookup(index.value, name)
 
 	return {

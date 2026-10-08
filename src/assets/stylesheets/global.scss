@@ -33,7 +33,7 @@
   --brand-gradient-fade-out-color: linear-gradient(180deg, #00000000 0%, var(--color-raised-bg) 90%);
 }
 
-/* Game-based accent color theming */
+// game accent color theming
 html.game-hollow-knight {
   --color-brand: #a855f7;
   --color-brand-highlight: rgba(168, 85, 247, 0.25);
@@ -53,8 +53,7 @@ html.game-silksong {
   --brand-gradient-bg: linear-gradient(180deg, rgba(233, 35, 55, 0.12) 0%, transparent 100%);
 }
 
-/* Smooth color transition for game switching */
-/* Register brand properties as <color> so they can be interpolated */
+// smooth color transitions when switching games, the brand properties are registered as colors so they can be interpolated
 @property --color-brand {
   syntax: '<color>';
   inherits: true;
@@ -160,7 +159,7 @@ a {
   scrollbar-color: var(--color-scrollbar) var(--color-bg);
 }
 
-/* Chrome, Edge, and Safari */
+// scrollbars for chrome, edge, and safari
 *::-webkit-scrollbar {
   width: 16px;
   border: 3px solid transparent;

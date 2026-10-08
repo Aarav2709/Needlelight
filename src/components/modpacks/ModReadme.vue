@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * A mod's README, rendered with Modrinth's sanitizing markdown renderer. Relative links and
- * images are resolved against the project's repository, and links open in the browser.
- */
+// a mod's readme rendered with modrinth's sanitizing markdown renderer, relative urls resolve against the repository
 import { renderString } from '@modrinth/utils'
 import { computed } from 'vue'
 
@@ -26,22 +23,19 @@ function resolve(url: string, base: string) {
 
 const isRelative = (url: string) => !!url && !isAbsolute(url) && !url.startsWith('#')
 
-/**
- * Make relative image and link URLs absolute before rendering: the sanitizer drops relative
- * URLs, so they have to be resolved first (READMEs often use `images/screenshot.png`).
- */
+// makes relative image and link urls absolute first because the sanitizer drops relative urls
 function absolutize(markdown: string) {
 	const image = (url: string) => (props.imageBase && isRelative(url) ? resolve(url, props.imageBase) : url)
 	const link = (url: string) => (props.linkBase && isRelative(url) ? resolve(url, props.linkBase) : url)
 	return (
 		markdown
-			// ![alt](url "title") and [text](url "title")
+			// markdown images and links
 			.replace(
 				/(!?)\[([^\]]*)\]\(\s*<?([^)\s>]+)>?((?:\s+"[^"]*")?)\s*\)/g,
 				(_all, bang: string, text: string, url: string, title: string) =>
 					`${bang}[${text}](${bang ? image(url) : link(url)}${title})`,
 			)
-			// <img src="..."> and <a href="..."> written as HTML
+			// img and anchor tags written as html
 			.replace(
 				/(<img\b[^>]*?\bsrc=)(["'])([^"']+)\2/gi,
 				(_all, start: string, quote: string, url: string) => `${start}${quote}${image(url)}${quote}`,
@@ -50,7 +44,7 @@ function absolutize(markdown: string) {
 				/(<a\b[^>]*?\bhref=)(["'])([^"']+)\2/gi,
 				(_all, start: string, quote: string, url: string) => `${start}${quote}${link(url)}${quote}`,
 			)
-			// [id]: url   (reference-style definitions)
+			// reference style link definitions
 			.replace(/^(\s{0,3}\[[^\]]+\]:\s*)(\S+)/gm, (_all, start: string, url: string) => `${start}${link(url)}`)
 	)
 }
@@ -75,7 +69,7 @@ function onClick(event: MouseEvent) {
 </script>
 
 <template>
-	<!-- The HTML comes from renderString, which sanitizes it. -->
+	<!-- the html comes from render string, which sanitizes it -->
 	<!-- eslint-disable-next-line vue/no-v-html -->
 	<div class="markdown-body readme nl-selectable" @click="onClick" v-html="html" />
 </template>

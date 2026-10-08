@@ -1,8 +1,5 @@
 <script setup lang="ts" generic="T extends string">
-/**
- * A compact dropdown for filters and sorting: "Sort  Name (A–Z) ▾". An option's `subLabel` is
- * shown as a count on the right.
- */
+// a compact dropdown for filters and sorting, an option's sub label shows as a count on the right
 import { CheckIcon } from '@modrinth/assets'
 import { Combobox, type ComboboxOption } from '@modrinth/ui'
 import type { Component } from 'vue'
@@ -57,7 +54,7 @@ defineProps<{ label?: string; options: ComboboxOption<T>[]; icon?: Component }>(
 </style>
 
 <style>
-/* The list is teleported; Modrinth colors the chosen option green, Needlelight uses the game accent. */
+/* the list is teleported, so use the game accent for the chosen option instead of modrinth green */
 .nl-select-dropdown [role='option'] {
 	padding: 0.625rem 0.875rem !important;
 }

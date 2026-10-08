@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * First launch: find Hollow Knight (or ask where it is), give it a Default modpack, and land the
- * player on that modpack's page. Settings → General → "Welcome guide" shows it again.
- */
+// first launch guide that finds hollow knight or asks where it is, gives it a default modpack, and opens it
 import { CheckIcon, CircleAlertIcon, FolderSearchIcon, SpinnerIcon } from '@modrinth/assets'
 import { Button, injectNotificationManager, NewModal } from '@modrinth/ui'
 import { open } from '@tauri-apps/plugin-dialog'
@@ -32,7 +29,7 @@ const preparing = ref(false)
 const locateError = ref('')
 
 const found = computed(() => games.found[GAME])
-// The saved location is the game's Managed folder; show the game folder itself.
+// the saved location is the game's managed folder, show the game folder itself
 const folder = computed(() =>
 	(games.settings?.managed_folders?.[GAME] ?? '').replace(/[\\/][^\\/]*_Data[\\/]Managed[\\/]?$/i, ''),
 )
@@ -42,7 +39,7 @@ const state = computed<'checking' | 'found' | 'missing'>(() => {
 	return 'missing'
 })
 
-/** Once the game is found, make sure it has a modpack to land on. */
+// once the game is found, make sure it has a modpack to land on
 async function prepare() {
 	if (preparing.value || target.value) return
 	preparing.value = true
@@ -71,14 +68,14 @@ async function show() {
 	try {
 		await Promise.all([games.ensureLoaded(), modpacks.ensureLoaded()])
 		await games.refreshAvailability()
-		// Not where the backend expected: search the usual install locations once.
+		// not where the backend expected, so search the usual install locations once
 		if (found.value === false) void games.findGame(GAME)
 	} catch (err) {
 		handleError(err as Error)
 	}
 }
 
-/** Show the guide if it hasn't been seen yet. */
+// shows the guide if it hasn't been seen yet
 function showIfFirstLaunch() {
 	if (!isOnboarded()) void show()
 }

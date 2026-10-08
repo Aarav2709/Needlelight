@@ -67,7 +67,7 @@ const ui = useUi();
 const settingsModal = useTemplateRef('settingsModal');
 const welcomeModal = useTemplateRef('welcomeModal');
 
-// Apply saved UI preferences (theme, density, motion) before the shell first renders.
+// apply saved ui preferences before the shell first renders
 preferences.apply();
 
 const notificationManager = new AppNotificationManager();
@@ -127,20 +127,19 @@ async function setupApp() {
   isDevEnvironment.value = dev;
   stateInitialized.value = true;
 
-  // The active game (profile) tints the app with its accent color once settings load.
+  // the active game tints the app with its accent color once settings load
   applyGameTheme(localStorage.getItem("needlelight.game") ?? "hollow_knight");
   const gamesLoaded = games.load().catch((err) => console.warn("Failed to load settings", err));
   const modpacksLoaded = modpacks
     .load()
     .catch((err) => console.warn("Failed to load modpacks", err));
-  // The loading screen stays up until there's something to show.
+  // the loading screen stays up until there's something to show
   Promise.allSettled([gamesLoaded, modpacksLoaded]).then(hideSplash);
 
 
   const currentWindow = getCurrentWindow();
 
-  // Needlelight owns the title bar. Keep native OS decorations disabled even
-  // if an older persisted window state tries to restore them.
+  // needlelight draws its own title bar, so keep native decorations off even if old window state restores them
   await currentWindow.setDecorations(false);
   isMaximized.value = await currentWindow.isMaximized();
 
@@ -160,14 +159,14 @@ async function setupApp() {
   );
 }
 
-/** Fade out the loading screen from index.html. */
+// fades out the loading screen from index.html
 function hideSplash() {
   const splash = document.getElementById("splash");
   if (!splash || splash.classList.contains("is-done")) return;
   splash.classList.add("is-done");
   setTimeout(() => splash.remove(), 400);
 }
-// Never leave it up if something stalls; errors show in the app instead.
+// never leave the loading screen up if something stalls, errors show in the app instead
 setTimeout(hideSplash, 15000);
 
 const stateFailed = ref(false);
@@ -203,7 +202,7 @@ const errorModal = ref();
 void command_listener(handleCommand).catch(() => null);
 async function handleCommand(e) {
   if (!e) return;
-  // Handle scarab:// URL scheme commands
+  // url scheme commands are only logged for now
   console.log("Received command:", e);
 }
 
@@ -272,7 +271,7 @@ async function checkUpdates() {
     () => {
       checkUpdates();
     },
-    5 /* min */ * 60 /* sec */ * 1000 /* ms */,
+    5 * 60 * 1000, // five minutes
   );
 }
 
@@ -357,7 +356,7 @@ function handleClick(e) {
 }
 
 function handleAuxClick(e) {
-  // disables middle click -> new tab
+  // turns a middle click into a normal click instead of opening a new tab
   if (e.button === 1) {
     e.preventDefault();
     const event = new MouseEvent("click", {
@@ -382,7 +381,7 @@ watch(
   },
 );
 
-// The welcome guide shows once, on first launch, and again when asked from Settings.
+// the welcome guide shows once on first launch, and again when asked from settings
 watch(stateInitialized, (ready) => {
   if (ready) setTimeout(() => welcomeModal.value?.showIfFirstLaunch(), 600);
 });
@@ -399,8 +398,7 @@ watch(
 useShortcut("mod+,", () => settingsModal.value?.show());
 useShortcut("?", () => shortcutsModal.value?.show());
 
-// A game that was just set up (found, or located by the player) gets a Default modpack, if it
-// has none. The first-launch guide does the same for Hollow Knight and takes the player there.
+// a newly set up game gets a default modpack if it has none
 const { ensureDefaultModpack } = useGameSetup();
 watch(
   () => games.configured,
@@ -421,7 +419,7 @@ watch(
   },
 );
 
-// "New modpack" from anywhere (the rail, the welcome guide, empty states, Ctrl+N).
+// new modpack from anywhere: the rail, the welcome guide, empty states, or ctrl n
 const editorModal = ref(null);
 watch(
   () => ui.createRequest,
@@ -430,7 +428,7 @@ watch(
   },
 );
 async function onModpackCreated(modpack) {
-  // Straight to Browse, so the player can start adding mods.
+  // go straight to browse so the player can start adding mods
   if (modpack) await router.push(modpackRoute(modpack, "browse"));
 }
 useShortcut("mod+n", () => ui.createModpack());
@@ -443,7 +441,7 @@ const updateReady = computed(
     (finishedDownloading.value || metered.value),
 );
 
-// Back/forward buttons reflect whether there is somewhere to go.
+// back and forward buttons reflect whether there is somewhere to go
 const canGoBack = ref(false);
 const canGoForward = ref(false);
 watch(

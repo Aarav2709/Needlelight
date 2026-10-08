@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** /modpacks: reopens the last modpack used, or offers to make the first one. */
+// reopens the last modpack used, or offers to make the first one
 import { EmptyIllustration, PlusIcon, SpinnerIcon } from '@modrinth/assets'
 import { Button } from '@modrinth/ui'
 import { watch } from 'vue'
@@ -18,7 +18,7 @@ const modpacks = useModpacks()
 const { prefs } = usePreferences()
 const ui = useUi()
 
-// Reopen the last modpack used for the selected game, else the first one in the sidebar.
+// reopen the last modpack used for the selected game, else the first one in the sidebar
 watch(
 	[() => modpacks.loaded, () => modpacks.ordered],
 	([loaded, list]) => {

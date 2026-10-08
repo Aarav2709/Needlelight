@@ -1,14 +1,10 @@
-/**
- * Keyboard shortcuts. `useShortcut('mod+f', handler)` listens while the calling component is
- * mounted; `mod` is Ctrl (Cmd on macOS). Shortcuts stay quiet while a dialog is open and, unless
- * asked otherwise, while typing in a text field.
- */
+// keyboard shortcuts that listen while the component is mounted, mod means ctrl or cmd on macos, quiet in dialogs and text fields
 import { onBeforeUnmount, onMounted } from 'vue'
 
 type Options = {
-	/** Also fire while focus is in a text field (for Escape, Ctrl+Enter…). */
+	// also fire while focus is in a text field, for escape or ctrl enter
 	inInputs?: boolean
-	/** Extra condition checked on every key press. */
+	// extra condition checked on every key press
 	when?: () => boolean
 }
 
@@ -59,7 +55,7 @@ export function useShortcut(
 	onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
-/** How a shortcut is written for people, e.g. "Ctrl F". */
+// how a shortcut is written for people, like ctrl f
 export function describeKeys(combo: string): string[] {
 	const names: Record<string, string> = {
 		mod: isMac ? '⌘' : 'Ctrl',
@@ -75,7 +71,7 @@ export function describeKeys(combo: string): string[] {
 	return combo.split('+').map((part) => names[part.toLowerCase()] ?? part.toUpperCase())
 }
 
-/** Every shortcut, for the shortcuts list in the app. */
+// every shortcut, for the shortcuts list in the app
 export const SHORTCUTS: { group: string; items: { keys: string; label: string }[] }[] = [
 	{
 		group: 'Anywhere',
