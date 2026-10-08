@@ -53,7 +53,6 @@ function tooltip(pack: Modpack) {
 	const h = health.value.get(pack.path)
 	if (h?.issues.size) parts.push(`${h.issues.size} mod${h.issues.size === 1 ? '' : 's'} won't load`)
 	else if (h?.updates.length) parts.push(`${h.updates.length} update${h.updates.length === 1 ? '' : 's'}`)
-	if (pack.game === 'hollow_knight' && modpacks.activeHk === pack.path) parts.push('Loads when started from Steam')
 	return parts.join(' · ')
 }
 
@@ -64,7 +63,7 @@ function playPack(pack: Modpack) {
 const newOptions = computed<ButtonMenuOption[]>(() =>
 	GAMES.map((game) => ({
 		id: game.key,
-		label: `${game.name} modpack`,
+		label: `${game.name} Modpack`,
 		action: () => ui.createModpack(game.key),
 	})),
 )
@@ -204,6 +203,7 @@ const dropAtEnd = computed(() => dropIndex.value !== null && dropIndex.value >= 
 					size="lg"
 					:circular="false"
 					placement="right-end"
+					:distance="22"
 					:options="newOptions"
 				>
 					<PlusIcon />

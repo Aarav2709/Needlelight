@@ -49,6 +49,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint frontend
+        run: pnpm lint
+
+      - name: Typecheck frontend
+        run: pnpm typecheck
+
       - name: Build frontend
         run: pnpm build
 
@@ -60,6 +66,9 @@ jobs:
     name: Build ${{ matrix.platform }} release
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ matrix.os }}
+    env:
+      # updater artifacts are only signed and published once the signing key secret exists
+      HAS_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
 
     strategy:
       fail-fast: false
@@ -81,7 +90,7 @@ jobs:
             artifact_files: Needlelight-Windows.exe
           - os: macos-latest
             platform: macOS
-            bundle: dmg
+            bundle: app,dmg
             bundle_directory: dmg
             artifact_name: Needlelight-macOS
             release_file: Needlelight-macOS.dmg
@@ -124,7 +133,18 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build Tauri bundle
-        run: pnpm tauri build --bundles ${{ matrix.bundle }}
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          UPDATER_PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+        run: |
+          if [ "$HAS_SIGNING_KEY" = "true" ]; then
+            config=$(node -e "console.log(JSON.stringify({bundle:{createUpdaterArtifacts:true},plugins:{updater:{pubkey:process.env.UPDATER_PUBKEY}}}))")
+            pnpm tauri build --bundles ${{ matrix.bundle }} --config "$config"
+          else
+            pnpm tauri build --bundles ${{ matrix.bundle }}
+          fi
 
       - name: Name release files
         shell: bash
@@ -140,6 +160,7 @@ jobs:
                 exit 1
               fi
               cp "$source" "Needlelight-Windows.exe"
+              if [ "$HAS_SIGNING_KEY" = "true" ]; then cp "$source.sig" "Needlelight-Windows.exe.sig"; fi
               ;;
             Linux)
               echo "Looking for AppImage bundles under $root"
@@ -151,6 +172,7 @@ jobs:
               fi
               echo "Using bundle: $source"
               cp "$source" "Needlelight-Linux.AppImage"
+              if [ "$HAS_SIGNING_KEY" = "true" ]; then cp "$source.sig" "Needlelight-Linux.AppImage.sig"; fi
               ;;
             macOS)
               source=$(find "$root" -type f -name '*.dmg' -print -quit)
@@ -159,6 +181,11 @@ jobs:
                 exit 1
               fi
               cp "$source" "Needlelight-macOS.dmg"
+              if [ "$HAS_SIGNING_KEY" = "true" ]; then
+                archive=$(find src-tauri/target/release/bundle/macos -type f -name '*.app.tar.gz' -print -quit)
+                cp "$archive" "Needlelight-macOS.app.tar.gz"
+                cp "$archive.sig" "Needlelight-macOS.app.tar.gz.sig"
+              fi
               ;;
           esac
 
@@ -169,7 +196,67 @@ jobs:
           path: ${{ matrix.artifact_files }}
           if-no-files-found: error
 
+      - name: Upload updater signatures
+        if: env.HAS_SIGNING_KEY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-updater
+          path: |
+            Needlelight-*.sig
+            Needlelight-macOS.app.tar.gz
+          if-no-files-found: error
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.artifact_files }}
+          files: |
+            ${{ matrix.artifact_files }}
+            Needlelight-*.sig
+            Needlelight-macOS.app.tar.gz
+
+  updater-manifest:
+    name: Publish updater manifest
+    needs: release-build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    env:
+      HAS_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+
+    steps:
+      - name: Checkout
+        if: env.HAS_SIGNING_KEY == 'true'
+        uses: actions/checkout@v4
+
+      - name: Download updater signatures
+        if: env.HAS_SIGNING_KEY == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*-updater"
+          path: updater
+          merge-multiple: true
+
+      - name: Write latest.json
+        if: env.HAS_SIGNING_KEY == 'true'
+        env:
+          RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}
+        run: |
+          node -e "
+          const fs = require('fs')
+          const version = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8')).version
+          const platforms = {}
+          const add = (key, file) => {
+            const sig = 'updater/' + file + '.sig'
+            if (fs.existsSync(sig)) platforms[key] = { signature: fs.readFileSync(sig, 'utf8').trim(), url: process.env.RELEASE_URL + '/' + file }
+          }
+          add('windows-x86_64', 'Needlelight-Windows.exe')
+          add('linux-x86_64', 'Needlelight-Linux.AppImage')
+          add('darwin-aarch64', 'Needlelight-macOS.app.tar.gz')
+          fs.writeFileSync('latest.json', JSON.stringify({ version, pub_date: new Date().toISOString(), platforms }, null, 2))
+          console.log(fs.readFileSync('latest.json', 'utf8'))
+          "
+
+      - name: Attach latest.json to the release
+        if: env.HAS_SIGNING_KEY == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: latest.json

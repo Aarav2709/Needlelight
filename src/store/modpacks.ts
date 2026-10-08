@@ -75,8 +75,6 @@ export const useModpacks = defineStore('modpacks', () => {
 	}
 
 	const byPath = computed(() => new Map(list.value.map((m) => [m.path, m])))
-	// every modpack, recently played or created first
-	const recent = computed(() => [...list.value].sort(byRecent))
 
 	// every modpack in sidebar order: the player's saved order, else hollow knight above silksong oldest first, new ones after the last of their game
 	const ordered = computed(() => {
@@ -266,7 +264,6 @@ export const useModpacks = defineStore('modpacks', () => {
 		activity,
 		launching,
 		byPath,
-		recent,
 		ordered,
 		move,
 		forGame,

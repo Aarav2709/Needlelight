@@ -28,9 +28,20 @@ const buildCspHeader = (csp) => {
     .join('; ')
 }
 
+// modules whose top level code is setup only their own exports need, so rollup may drop them when unused
+const LAZY_ONLY_MODULES =
+  /packages\/utils\/(parse\.ts|highlightjs\/)|node_modules\/(markdown-it|highlight\.js|highlightjs-mcfunction|xss|cssfilter|entities|linkify-it|mdurl|punycode\.js|uc\.micro)\//
+
 // vite config
 export default defineConfig({
   assetsInclude: ['**/*.gltf'],
+  // vue i18n feature flags, the modrinth ui compiles messages itself and only the composition api is used
+  define: {
+    __VUE_I18N_FULL_INSTALL__: false,
+    __VUE_I18N_LEGACY_API__: false,
+    __INTLIFY_DROP_MESSAGE_COMPILER__: true,
+    __INTLIFY_PROD_DEVTOOLS__: false,
+  },
   css: {
     preprocessorOptions: {
       scss: {
@@ -101,13 +112,19 @@ export default defineConfig({
   envPrefix: ['VITE_', 'TAURI_'],
   build: {
     // tauri supports es2021
-    target: process.env.TAURI_ENV_PLATFORM == 'windows' ? 'chrome105' : 'safari13', // eslint-disable-line turbo/no-undeclared-env-vars
+    target: process.env.TAURI_ENV_PLATFORM == 'windows' ? 'chrome105' : 'safari13',
     // don't minify debug builds
-    minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false, // eslint-disable-line turbo/no-undeclared-env-vars
+    minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     // sourcemaps for debug builds
-    sourcemap: !!process.env.TAURI_ENV_DEBUG, // eslint-disable-line turbo/no-undeclared-env-vars
+    sourcemap: !!process.env.TAURI_ENV_DEBUG,
     commonjsOptions: {
       esmExternals: true,
+    },
+    rollupOptions: {
+      treeshake: {
+        // markdown and syntax highlighting only load where a readme is shown, not at startup
+        moduleSideEffects: (id) => !LAZY_ONLY_MODULES.test(id.replace(/\\/g, '/')),
+      },
     },
   },
   optimizeDeps: {

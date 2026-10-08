@@ -3,8 +3,8 @@ use super::{
     installed_mods::InstalledModsStore,
     models::{ApiInfo, CatalogResponse, ModItem},
     settings::{AppSettings, GameKey},
-    url_scheme::normalize_custom_modlinks_uri,
 };
+use regex::Regex;
 use roxmltree::Document;
 use serde::Deserialize;
 use std::time::Duration;
@@ -279,6 +279,28 @@ fn empty_api() -> ApiInfo {
         version: String::new(),
         sha256: String::new(),
     }
+}
+
+// turns github blob and pastebin page links into their raw file urls
+fn normalize_custom_modlinks_uri(input: &str) -> String {
+    let mut value = input.trim().to_string();
+    let github_regex = Regex::new(r"^(http(s?)://)?(www\.)?github.com").unwrap();
+    let pastebin_regex = Regex::new(r"^(http(s?)://)?(www\.)?pastebin.com").unwrap();
+
+    if github_regex.is_match(&value) {
+        value = value
+            .replace("https://github.com", "https://raw.githubusercontent.com")
+            .replace("http://github.com", "https://raw.githubusercontent.com")
+            .replace("/blob/", "/");
+    }
+
+    if pastebin_regex.is_match(&value) {
+        value = value
+            .replace("https://pastebin.com", "https://pastebin.com/raw")
+            .replace("http://pastebin.com", "https://pastebin.com/raw");
+    }
+
+    value
 }
 
 // the links entry name for this platform in modlinks and apilinks

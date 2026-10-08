@@ -1,158 +1,43 @@
 <script setup lang="ts">
-import {
-  DownloadIcon,
-  ExternalIcon,
-  RefreshCwIcon,
-  SpinnerIcon,
-  XIcon,
-} from "@modrinth/assets";
-import {
-  Button,
-  ButtonLink,
-  commonMessages,
-  defineMessages,
-  IconButton,
-  ProgressBar,
-  useVIntl,
-} from "@modrinth/ui";
-import { formatBytes } from "@modrinth/utils";
-import { ref } from "vue";
+// tells the player a downloaded update is ready and restarts into it
+import { ExternalIcon, RefreshCwIcon, SpinnerIcon, XIcon } from '@modrinth/assets'
+import { Button, IconButton } from '@modrinth/ui'
 
-import { injectAppUpdateDownloadProgress } from "@/providers/download-progress.ts";
+import { openExternal, RELEASES_URL } from '@/helpers/app'
+import { useUpdater } from '@/store/updater'
 
-const { formatMessage } = useVIntl();
-
-const emit = defineEmits<{
-  (e: "close" | "restart" | "download"): void;
-}>();
-
-defineProps<{
-  version: string;
-  size: number | null;
-  metered: boolean;
-}>();
-
-const downloading = ref(false);
-const { progress } = injectAppUpdateDownloadProgress();
-
-function download() {
-  emit("download");
-  downloading.value = true;
-}
-
-const messages = defineMessages({
-  title: {
-    id: "app.update-toast.title",
-    defaultMessage: "Update available",
-  },
-  body: {
-    id: "app.update-toast.body",
-    defaultMessage:
-      "Needlelight v{version} is ready to install! Reload to update now, or automatically when you close Needlelight.",
-  },
-  reload: {
-    id: "app.update-toast.reload",
-    defaultMessage: "Reload",
-  },
-  download: {
-    id: "app.update-toast.download",
-    defaultMessage: "Download ({size})",
-  },
-  downloading: {
-    id: "app.update-toast.downloading",
-    defaultMessage: "Downloading...",
-  },
-  changelog: {
-    id: "app.update-toast.changelog",
-    defaultMessage: "Changelog",
-  },
-  meteredBody: {
-    id: "app.update-toast.body.metered",
-    defaultMessage: `Needlelight v{version} is available now! Since you're on a metered network, we didn't automatically download it.`,
-  },
-  downloadCompleteTitle: {
-    id: "app.update-toast.title.download-complete",
-    defaultMessage: "Download complete",
-  },
-  downloadedBody: {
-    id: "app.update-toast.body.download-complete",
-    defaultMessage: `Needlelight v{version} has finished downloading. Reload to update now, or automatically when you close Needlelight.`,
-  },
-});
+const updater = useUpdater()
 </script>
+
 <template>
-  <div
-    class="grid grid-cols-[min-content] fixed card-shadow rounded-2xl top-[--top-bar-height] mt-6 right-6 p-4 z-10 bg-bg-raised border-surface-5 border-solid border-[2px]"
-    :class="{
-      'download-complete': progress === 1,
-    }"
-  >
-    <div class="flex min-w-[25rem] gap-4">
-      <h2
-        class="whitespace-nowrap text-base text-contrast font-semibold m-0 grow"
-      >
-        {{
-          formatMessage(
-            metered && progress === 1
-              ? messages.downloadCompleteTitle
-              : messages.title,
-          )
-        }}
-      </h2>
-      <IconButton
-        v-tooltip="formatMessage(commonMessages.closeButton)"
-        size="sm"
-        label="Close"
-        @click="emit('close')"
-      >
-        <XIcon />
-      </IconButton>
-    </div>
-    <p class="text-sm mt-2 mb-0">
-      {{
-        formatMessage(
-          metered
-            ? progress === 1
-              ? messages.downloadedBody
-              : messages.meteredBody
-            : messages.body,
-          { version },
-        )
-      }}
-    </p>
-    <p
-      v-if="metered && progress < 1"
-      class="text-sm text-secondary mt-2 mb-0 flex items-center gap-1"
-    >
-      <template v-if="progress > 0">
-        <ProgressBar :progress="progress" class="max-w-[unset]" />
-      </template>
-    </p>
-    <div class="flex gap-2 mt-4">
-      <Button
-        v-if="metered && progress < 1"
-        type="colored"
-        color="brand"
-        :disabled="downloading"
-        @click="download"
-      >
-        <SpinnerIcon v-if="downloading" class="animate-spin" />
-        <DownloadIcon v-else />
-        {{
-          formatMessage(
-            downloading ? messages.downloading : messages.download,
-            {
-              size: formatBytes(size ?? 0),
-            },
-          )
-        }}
-      </Button>
-      <Button v-else type="colored" color="brand" @click="emit('restart')">
-        <RefreshCwIcon /> {{ formatMessage(messages.reload) }}
-      </Button>
-      <ButtonLink href="https://modrinth.com/news/changelog?filter=app">
-        {{ formatMessage(messages.changelog) }} <ExternalIcon />
-      </ButtonLink>
-    </div>
-  </div>
+	<div
+		class="fixed right-6 top-[--top-bar-height] z-10 mt-6 grid w-[25rem] rounded-2xl border-[2px] border-solid border-surface-5 bg-bg-raised p-4 card-shadow"
+		role="status"
+	>
+		<div class="flex items-center gap-4">
+			<h2 class="m-0 grow text-base font-semibold text-contrast">Update ready</h2>
+			<IconButton v-tooltip="'Close'" size="sm" label="Close" @click="updater.dismissed = true">
+				<XIcon />
+			</IconButton>
+		</div>
+		<p class="mb-0 mt-2 text-sm">
+			Needlelight {{ updater.version }} has downloaded. Restart now to finish updating, your
+			modpacks stay as they are.
+		</p>
+		<div class="mt-4 flex gap-2">
+			<Button
+				type="colored"
+				color="brand"
+				:disabled="updater.status === 'installing'"
+				@click="updater.installAndRestart()"
+			>
+				<SpinnerIcon v-if="updater.status === 'installing'" class="animate-spin" />
+				<RefreshCwIcon v-else />
+				{{ updater.status === 'installing' ? 'Restarting…' : 'Restart now' }}
+			</Button>
+			<Button @click="openExternal(`${RELEASES_URL}/latest`)">
+				What's new <ExternalIcon />
+			</Button>
+		</div>
+	</div>
 </template>

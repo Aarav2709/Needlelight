@@ -1,16 +1,22 @@
 <script setup lang="ts">
+import type { ComboboxOption } from '@modrinth/ui'
 import { Toggle } from '@modrinth/ui'
 import { usePreferredDark } from '@vueuse/core'
 
-import FilterChips from '@/components/ui/FilterChips.vue'
+import SelectMenu from '@/components/ui/SelectMenu.vue'
 import SettingRow from '@/components/ui/settings/SettingRow.vue'
 import SettingsGroup from '@/components/ui/settings/SettingsGroup.vue'
 import ThemeSelector from '@/components/ui/settings/ThemeSelector.vue'
-import { usePreferences } from '@/store/preferences'
+import { type Density, usePreferences } from '@/store/preferences'
 import { THEME_OPTIONS } from '@/store/theme'
 
 const { prefs } = usePreferences()
 const prefersDark = usePreferredDark()
+
+const densityOptions: ComboboxOption<Density>[] = [
+	{ value: 'comfortable', label: 'Comfortable' },
+	{ value: 'compact', label: 'Compact' },
+]
 </script>
 
 <template>
@@ -36,14 +42,7 @@ const prefersDark = usePreferredDark()
 				description="Compact fits more mods on screen by tightening lists and margins."
 			>
 				<template #control>
-					<FilterChips
-						v-model="prefs.density"
-						label="Density"
-						:options="[
-							{ value: 'comfortable', label: 'Comfortable' },
-							{ value: 'compact', label: 'Compact' },
-						]"
-					/>
+					<SelectMenu v-model="prefs.density" :options="densityOptions" aria-label="Density" />
 				</template>
 			</SettingRow>
 			<SettingRow

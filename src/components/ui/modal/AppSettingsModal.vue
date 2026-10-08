@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import { CodeIcon, GameIcon, LayersIcon, PaintbrushIcon, Settings2Icon, SettingsIcon } from '@modrinth/assets'
-import { defineMessage, defineMessages, ProgressBar, TabbedModal, useVIntl } from '@modrinth/ui'
-import { ref } from 'vue'
+import {
+	CodeIcon,
+	GameIcon,
+	LayersIcon,
+	PaintbrushIcon,
+	RefreshCwIcon,
+	Settings2Icon,
+	SettingsIcon,
+} from '@modrinth/assets'
+import { Button, defineMessage, ProgressBar, TabbedModal } from '@modrinth/ui'
+import { computed, ref } from 'vue'
 
 import AdvancedSettings from '@/components/ui/settings/AdvancedSettings.vue'
 import AppearanceSettings from '@/components/ui/settings/AppearanceSettings.vue'
@@ -9,11 +17,11 @@ import GameSettings from '@/components/ui/settings/GameSettings.vue'
 import GeneralSettings from '@/components/ui/settings/GeneralSettings.vue'
 import ModpackSettings from '@/components/ui/settings/ModpackSettings.vue'
 import { APP_VERSION } from '@/helpers/version'
-import { injectAppUpdateDownloadProgress } from '@/providers/download-progress.ts'
 import type { SettingsTab } from '@/store/ui'
+import { useUpdater } from '@/store/updater'
 
 // modrinth's tabbed modal already wraps a modal, so it is used directly to avoid stacking two overlays
-const { formatMessage } = useVIntl()
+const updater = useUpdater()
 
 const tabs = [
 	{
@@ -62,13 +70,23 @@ function hide() {
 
 defineExpose({ show, hide })
 
-const { progress, version: downloadingVersion } = injectAppUpdateDownloadProgress()
-
-const messages = defineMessages({
-	downloading: {
-		id: 'app.settings.downloading',
-		defaultMessage: 'Downloading v{version}',
-	},
+const updateLine = computed(() => {
+	switch (updater.status) {
+		case 'checking':
+			return 'Checking for updates…'
+		case 'none':
+			return "You're up to date"
+		case 'downloading':
+			return `Downloading ${updater.version}`
+		case 'ready':
+			return `${updater.version} is ready to install`
+		case 'installing':
+			return 'Restarting…'
+		case 'error':
+			return "Couldn't install the update"
+		default:
+			return null
+	}
 })
 </script>
 <template>
@@ -80,15 +98,28 @@ const messages = defineMessages({
 		</template>
 		<template #footer>
 			<div class="mt-auto flex flex-col gap-3 pt-3 text-sm text-secondary">
-				<template v-if="progress > 0 && progress < 1">
-					<p class="m-0">
-						{{ formatMessage(messages.downloading, { version: downloadingVersion }) }}
+				<ProgressBar
+					v-if="updater.status === 'downloading' && updater.progress != null"
+					:progress="updater.progress"
+					class="px-4"
+				/>
+				<div class="flex flex-col gap-2 px-4">
+					<div class="flex items-center gap-2">
+						<span class="font-bold text-contrast">Needlelight</span>
+						<span class="nl-badge nl-badge--neutral">v{{ APP_VERSION }}</span>
+					</div>
+					<p v-if="updateLine" class="m-0 text-xs" :title="updater.error ?? undefined">
+						{{ updateLine }}
 					</p>
-					<ProgressBar :progress="progress" />
-				</template>
-				<div class="flex items-center gap-2 px-4">
-					<span class="font-bold text-contrast">Needlelight</span>
-					<span class="nl-badge nl-badge--neutral">v{{ APP_VERSION }}</span>
+					<Button
+						v-if="updater.status === 'ready'"
+						size="sm"
+						color="brand"
+						type="colored"
+						@click="updater.installAndRestart()"
+					>
+						<RefreshCwIcon /> Restart to update
+					</Button>
 				</div>
 			</div>
 		</template>

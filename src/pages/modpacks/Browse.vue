@@ -259,7 +259,6 @@ function onListKeydown(event: KeyboardEvent) {
 					class="side-panel"
 					:name="selectedName"
 					@close="selectedName = null"
-					@open="(name) => (selectedName = name)"
 				/>
 			</Transition>
 		</div>

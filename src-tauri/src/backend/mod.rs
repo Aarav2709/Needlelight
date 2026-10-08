@@ -6,4 +6,3 @@ pub mod models;
 pub mod modpacks;
 pub mod profiles;
 pub mod settings;
-pub mod url_scheme;
