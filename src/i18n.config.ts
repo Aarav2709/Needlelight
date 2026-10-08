@@ -1,7 +1,8 @@
 import { buildLocaleMessages, createMessageCompiler, type CrowdinMessages } from '@modrinth/ui'
 import { createI18n } from 'vue-i18n'
 
-const localeModules = import.meta.glob<{ default: CrowdinMessages }>('./locales/*/index.json', {
+// needlelight is english only, so only en us is bundled and the other locales stay on disk
+const localeModules = import.meta.glob<{ default: CrowdinMessages }>('./locales/en-US/index.json', {
 	eager: true,
 })
 

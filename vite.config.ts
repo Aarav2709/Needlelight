@@ -18,7 +18,7 @@ const buildCspHeader = (csp) => {
   return Object.entries(csp)
     .map(([directive, sources]) => {
       let values = Array.isArray(sources) ? sources : [sources]
-      // An additional websocket connect-src is required for Vite dev tools to work
+      // vite dev tools need an extra websocket connect source
       if (directive === 'connect-src') {
         values = [...values, 'ws://localhost:1420']
       }
@@ -28,24 +28,32 @@ const buildCspHeader = (csp) => {
     .join('; ')
 }
 
-// https://vitejs.dev/config/
+// modules whose top level code is setup only their own exports need, so rollup may drop them when unused
+const LAZY_ONLY_MODULES =
+  /packages\/utils\/(parse\.ts|highlightjs\/)|node_modules\/(markdown-it|highlight\.js|highlightjs-mcfunction|xss|cssfilter|entities|linkify-it|mdurl|punycode\.js|uc\.micro)\//
+
+// vite config
 export default defineConfig({
   assetsInclude: ['**/*.gltf'],
+  // vue i18n feature flags, the modrinth ui compiles messages itself and only the composition api is used
+  define: {
+    __VUE_I18N_FULL_INSTALL__: false,
+    __VUE_I18N_LEGACY_API__: false,
+    __INTLIFY_DROP_MESSAGE_COMPILER__: true,
+    __INTLIFY_PROD_DEVTOOLS__: false,
+  },
   css: {
     preprocessorOptions: {
       scss: {
-        // TODO: dont forget about this
+        // todo: silences sass import deprecation warnings, remove once the styles stop using import
         silenceDeprecations: ['import'],
       },
     },
   },
   resolve: {
+    // one copy of vue for everything so a second runtime never loads
     dedupe: ['vue'],
     alias: [
-      {
-        find: 'vue',
-        replacement: resolve(projectRootDir, 'node_modules/vue/dist/vue.runtime.esm-bundler.js'),
-      },
       {
         find: 'fuse.js/dist/fuse.basic',
         replacement: 'fuse.js/dist/fuse.basic.esm.js',
@@ -86,10 +94,9 @@ export default defineConfig({
     }),
   ],
 
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  // prevent vite from obscuring rust errors
+  // tauri dev options, keep the screen so vite doesn't hide rust errors
   clearScreen: false,
-  // tauri expects a fixed port, fail if that port is not available
+  // tauri expects a fixed port, so fail if it is taken
   server: {
     port: 1420,
     strictPort: true,
@@ -101,23 +108,28 @@ export default defineConfig({
       })(),
     },
   },
-  // to make use of `TAURI_ENV_DEBUG` and other env variables
-  // https://v2.tauri.app/reference/environment-variables/#tauri-cli-hook-commands
+  // expose the tauri environment variables to the app
   envPrefix: ['VITE_', 'TAURI_'],
   build: {
-    // Tauri supports es2021
-    target: process.env.TAURI_ENV_PLATFORM == 'windows' ? 'chrome105' : 'safari13', // eslint-disable-line turbo/no-undeclared-env-vars
-    // don't minify for debug builds
-    minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false, // eslint-disable-line turbo/no-undeclared-env-vars
-    // produce sourcemaps for debug builds
-    sourcemap: !!process.env.TAURI_ENV_DEBUG, // eslint-disable-line turbo/no-undeclared-env-vars
+    // tauri supports es2021
+    target: process.env.TAURI_ENV_PLATFORM == 'windows' ? 'chrome105' : 'safari13',
+    // don't minify debug builds
+    minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
+    // sourcemaps for debug builds
+    sourcemap: !!process.env.TAURI_ENV_DEBUG,
     commonjsOptions: {
       esmExternals: true,
+    },
+    rollupOptions: {
+      treeshake: {
+        // markdown and syntax highlighting only load where a readme is shown, not at startup
+        moduleSideEffects: (id) => !LAZY_ONLY_MODULES.test(id.replace(/\\/g, '/')),
+      },
     },
   },
   optimizeDeps: {
     entries: ['index.html'],
-    exclude: ['@modrinth/assets', '@modrinth/ui', '@modrinth/utils'],
+    // the modrinth packages are aliased to local source, excluding them caused repeated reoptimizing and two vue runtimes
     include: [
       'dayjs',
       'dayjs/plugin/duration',

@@ -1,0 +1,470 @@
+// needlelight's shared visual language on top of modrinth's tokens, recurring patterns live here so every screen matches
+
+:root {
+	--nl-page-px: 2rem;
+	--nl-page-py: 1.5rem;
+	--nl-row-py: 0.625rem;
+	--nl-row-px: 0.875rem;
+	--nl-row-gap: 0.875rem;
+	--nl-panel-radius: var(--radius-md);
+	--nl-control-radius: 0.625rem;
+	--nl-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+	--nl-rail-width: 4.25rem;
+}
+
+html.density-compact {
+	--nl-page-px: 1.5rem;
+	--nl-page-py: 1.125rem;
+	--nl-row-py: 0.375rem;
+	--nl-row-px: 0.75rem;
+	--nl-row-gap: 0.75rem;
+}
+
+@media (max-width: 1180px) {
+	:root {
+		--nl-page-px: 1.25rem;
+	}
+}
+
+// motion
+
+@mixin reduced-motion {
+	*:not(.animate-spin),
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+html.reduce-motion {
+	@include reduced-motion;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html {
+		@include reduced-motion;
+	}
+}
+
+// focus
+
+.nl-focusable:focus-visible,
+.nl-row:focus-visible {
+	outline: 2px solid var(--color-brand);
+	outline-offset: -2px;
+}
+
+// text
+
+.nl-section-label {
+	margin: 0;
+	font-size: 0.6875rem;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--color-secondary);
+}
+
+// text people may want to copy, like descriptions and paths
+.nl-selectable,
+.nl-selectable * {
+	user-select: text;
+	-webkit-user-select: text;
+
+	&::selection {
+		background: var(--color-brand-highlight);
+	}
+}
+
+.nl-mono {
+	font-family: var(--font-mono, ui-monospace, 'Cascadia Code', Consolas, monospace);
+	font-size: 0.8125rem;
+}
+
+// badges: small squared status labels, colored by modifier through a private color variable
+
+.nl-badge {
+	--_c: var(--color-secondary);
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	flex-shrink: 0;
+	height: 1.375rem;
+	padding: 0 0.5rem;
+	border-radius: 0.375rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	line-height: 1;
+	white-space: nowrap;
+	color: var(--_c);
+	background: color-mix(in srgb, var(--_c) 13%, transparent);
+
+	svg {
+		width: 0.8rem;
+		height: 0.8rem;
+		flex-shrink: 0;
+	}
+
+	&--brand {
+		--_c: var(--color-brand);
+	}
+	&--green {
+		--_c: var(--color-green);
+	}
+	&--orange {
+		--_c: var(--color-orange);
+	}
+	&--red {
+		--_c: var(--color-red);
+	}
+	&--blue {
+		--_c: var(--color-blue);
+	}
+	&--neutral {
+		color: var(--color-base);
+		background: var(--surface-4);
+	}
+	&--sm {
+		height: 1.125rem;
+		padding: 0 0.375rem;
+		font-size: 0.6875rem;
+	}
+}
+
+// status dot, like the one before enabled
+.nl-dot {
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: 50%;
+	flex-shrink: 0;
+	background: currentColor;
+}
+
+// segmented control
+
+.nl-segmented {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.125rem;
+	padding: 0.1875rem;
+	border-radius: var(--nl-control-radius);
+	background: var(--surface-2);
+	border: 1px solid var(--color-divider);
+
+	> button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		height: 1.875rem;
+		padding: 0 0.75rem;
+		border: none;
+		border-radius: 0.4375rem;
+		background: transparent;
+		color: var(--color-secondary);
+		font-size: 0.8125rem;
+		font-weight: 600;
+		white-space: nowrap;
+		cursor: pointer;
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease;
+
+		&:hover:not(:disabled) {
+			color: var(--color-contrast);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--color-brand);
+			outline-offset: 1px;
+		}
+
+		&[aria-pressed='true'],
+		&[aria-selected='true'] {
+			background: var(--surface-4);
+			color: var(--color-contrast);
+			box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+		}
+
+		.nl-count {
+			font-size: 0.75rem;
+			font-weight: 600;
+			color: var(--color-secondary);
+		}
+	}
+}
+
+// underline tabs
+
+.nl-tabs {
+	display: flex;
+	align-items: stretch;
+	gap: 1.25rem;
+	border-bottom: 1px solid var(--color-divider);
+
+	> button {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0 0 0.75rem;
+		border: none;
+		background: none;
+		color: var(--color-secondary);
+		font-size: 0.875rem;
+		font-weight: 600;
+		white-space: nowrap;
+		cursor: pointer;
+		transition: color 0.15s ease;
+
+		&::after {
+			content: '';
+			position: absolute;
+			left: 0;
+			right: 0;
+			bottom: -1px;
+			height: 2px;
+			border-radius: 2px 2px 0 0;
+			background: transparent;
+			transition: background-color 0.15s ease;
+		}
+
+		&:hover {
+			color: var(--color-contrast);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--color-brand);
+			outline-offset: 2px;
+			border-radius: 4px;
+		}
+
+		&[aria-selected='true'] {
+			color: var(--color-contrast);
+
+			&::after {
+				background: var(--color-brand);
+			}
+		}
+
+		.nl-count {
+			font-size: 0.75rem;
+			color: var(--color-secondary);
+			font-weight: 600;
+		}
+	}
+}
+
+// action buttons in lists and panels, named nl btn so modrinth's global btn styles don't leak in
+
+.nl-btn {
+	--_bg: var(--surface-4);
+	--_bg-hover: var(--surface-5);
+	--_fg: var(--color-contrast);
+	--_bd: transparent;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4375rem;
+	height: 2.25rem;
+	padding: 0 0.875rem;
+	border: 1px solid var(--_bd);
+	border-radius: 0.625rem;
+	background: var(--_bg);
+	color: var(--_fg);
+	font-size: 0.875rem;
+	font-weight: 700;
+	line-height: 1;
+	white-space: nowrap;
+	cursor: pointer;
+	user-select: none;
+	transition:
+		background-color 0.12s ease,
+		color 0.12s ease,
+		border-color 0.12s ease,
+		transform 0.08s ease;
+
+	svg {
+		width: 1rem;
+		height: 1rem;
+		flex-shrink: 0;
+	}
+
+	&:hover:not(:disabled) {
+		background: var(--_bg-hover);
+	}
+	&:active:not(:disabled) {
+		transform: scale(0.97);
+	}
+	&:focus-visible {
+		outline: 2px solid var(--color-brand);
+		outline-offset: 2px;
+	}
+	&:disabled {
+		cursor: default;
+		opacity: 0.7;
+	}
+
+	&--primary {
+		--_bg: var(--color-brand);
+		--_bg-hover: color-mix(in srgb, var(--color-brand) 86%, #fff);
+		--_fg: var(--color-accent-contrast);
+	}
+	&--tonal {
+		--_bg: color-mix(in srgb, var(--color-brand) 14%, transparent);
+		--_bg-hover: color-mix(in srgb, var(--color-brand) 24%, transparent);
+		--_fg: var(--color-brand);
+		--_bd: color-mix(in srgb, var(--color-brand) 32%, transparent);
+	}
+	&--update {
+		--_bg: color-mix(in srgb, var(--color-orange) 14%, transparent);
+		--_bg-hover: color-mix(in srgb, var(--color-orange) 24%, transparent);
+		--_fg: var(--color-orange);
+		--_bd: color-mix(in srgb, var(--color-orange) 36%, transparent);
+	}
+	// quiet until hovered, then clearly destructive
+	&--danger {
+		--_bg: var(--surface-3);
+		--_fg: var(--color-base);
+		--_bd: var(--color-divider);
+
+		&:hover:not(:disabled) {
+			--_fg: var(--color-red);
+			--_bd: color-mix(in srgb, var(--color-red) 45%, transparent);
+			background: color-mix(in srgb, var(--color-red) 13%, var(--surface-3));
+		}
+	}
+
+	&--sm {
+		height: 1.875rem;
+		padding: 0 0.625rem;
+		border-radius: 0.5rem;
+		font-size: 0.8125rem;
+
+		svg {
+			width: 0.875rem;
+			height: 0.875rem;
+		}
+	}
+	&--lg {
+		height: 2.75rem;
+		padding: 0 1.25rem;
+		border-radius: 0.75rem;
+		font-size: 0.9375rem;
+		font-weight: 800;
+
+		svg {
+			width: 1.25rem;
+			height: 1.25rem;
+		}
+	}
+	&--block {
+		width: 100%;
+	}
+}
+
+// square icon only buttons, like close or uninstall in a row
+.nl-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 2.125rem;
+	height: 2.125rem;
+	padding: 0;
+	border: none;
+	border-radius: 0.5rem;
+	background: transparent;
+	color: var(--color-secondary);
+	cursor: pointer;
+	transition:
+		background-color 0.12s ease,
+		color 0.12s ease;
+
+	svg {
+		width: 1.125rem;
+		height: 1.125rem;
+	}
+
+	&:hover:not(:disabled) {
+		background: var(--surface-4);
+		color: var(--color-contrast);
+	}
+	&--danger:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--color-red) 14%, transparent);
+		color: var(--color-red);
+	}
+	&:focus-visible {
+		outline: 2px solid var(--color-brand);
+		outline-offset: 1px;
+	}
+	&:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+}
+
+// rows and panels
+
+.nl-panel {
+	border-radius: var(--nl-panel-radius);
+	background: var(--surface-2);
+	border: 1px solid var(--color-divider);
+}
+
+.nl-row {
+	display: flex;
+	align-items: center;
+	gap: var(--nl-row-gap);
+	min-width: 0;
+	padding: var(--nl-row-py) var(--nl-row-px);
+	border-radius: 0.5rem;
+	transition: background-color 0.12s ease;
+}
+
+.nl-row--interactive {
+	cursor: pointer;
+
+	&:hover {
+		background: var(--surface-2-5);
+	}
+}
+
+// loading skeleton
+
+.nl-skeleton {
+	border-radius: 0.375rem;
+	background: linear-gradient(
+		90deg,
+		var(--surface-2-5) 0%,
+		var(--surface-3) 50%,
+		var(--surface-2-5) 100%
+	);
+	background-size: 200% 100%;
+	animation: nl-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes nl-shimmer {
+	from {
+		background-position: 200% 0;
+	}
+	to {
+		background-position: -200% 0;
+	}
+}
+
+// thin scrollbars for inner panels
+
+.nl-scroll {
+	overflow-y: auto;
+	scrollbar-width: thin;
+
+	&::-webkit-scrollbar {
+		width: 10px;
+	}
+	&::-webkit-scrollbar-thumb {
+		border-width: 3px;
+	}
+}

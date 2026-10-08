@@ -5,7 +5,8 @@
 			v-bind="$attrs"
 			class="smart-clickable__contents"
 			:class="{
-				'pointer-events-none': !!$slots.clickable,
+				'smart-clickable__contents--disabled': disabled,
+				'pointer-events-none': !!$slots.clickable && !disabled,
 			}"
 		>
 			<slot />
@@ -14,6 +15,10 @@
 </template>
 
 <script setup lang="ts">
+defineProps<{
+	disabled?: boolean
+}>()
+
 defineOptions({
 	inheritAttrs: false,
 })
@@ -48,7 +53,8 @@ defineOptions({
 
 	// When clickable is being hovered or focus-visible, give contents an effect
 	:first-child:hover + .smart-clickable__contents,
-	:first-child:focus-visible + .smart-clickable__contents {
+	:first-child:focus-visible + .smart-clickable__contents,
+	.smart-clickable__contents:hover {
 		// Utility classes for contents
 		:deep(.smart-clickable\:underline-on-hover) {
 			text-decoration: underline;
@@ -76,8 +82,8 @@ defineOptions({
 	}
 
 	// When clickable is being clicked, give contents an effect
-	:first-child:active + .smart-clickable__contents {
-		scale: 0.97;
+	:first-child:active + .smart-clickable__contents:not(.smart-clickable__contents--disabled) {
+		scale: var(--active-scale, 0.98);
 	}
 }
 </style>

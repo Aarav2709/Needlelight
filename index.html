@@ -7,11 +7,100 @@
 		<title>Needlelight</title>
 
 		<link rel="stylesheet" href="/src/assets/stylesheets/global.scss" />
+
+		<script>
+			// show the loading screen in the player's theme and game color from the first frame
+			try {
+				var prefs = JSON.parse(localStorage.getItem('needlelight.preferences.v1') || '{}')
+				var theme = prefs.theme || 'dark'
+				if (theme === 'system') {
+					theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+				}
+				var game = localStorage.getItem('needlelight.game') === 'silksong' ? 'silksong' : 'hollow-knight'
+				document.documentElement.className = theme + '-mode game-' + game
+			} catch (e) {}
+		</script>
+
+		<style>
+			#splash {
+				position: fixed;
+				inset: 0;
+				z-index: 10000;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: var(--color-bg, #16181c);
+				transition: opacity 0.35s ease;
+				cursor: default;
+				user-select: none;
+			}
+			#splash.is-done {
+				opacity: 0;
+				pointer-events: none;
+			}
+			#splash .splash-inner {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 1.25rem;
+				animation: splash-in 0.5s ease both;
+			}
+			#splash .splash-name {
+				font-size: 2.25rem;
+				font-weight: 800;
+				letter-spacing: -0.03em;
+				color: var(--color-brand, #a855f7);
+			}
+			#splash .splash-bar {
+				position: relative;
+				width: 9rem;
+				height: 3px;
+				border-radius: 3px;
+				background: color-mix(in srgb, var(--color-brand, #a855f7) 18%, transparent);
+				overflow: hidden;
+			}
+			#splash .splash-bar::after {
+				content: '';
+				position: absolute;
+				inset: 0 auto 0 0;
+				width: 40%;
+				border-radius: 3px;
+				background: var(--color-brand, #a855f7);
+				animation: splash-slide 1.1s ease-in-out infinite;
+			}
+			@keyframes splash-in {
+				from {
+					opacity: 0;
+					transform: translateY(6px);
+				}
+			}
+			@keyframes splash-slide {
+				from {
+					transform: translateX(-100%);
+				}
+				to {
+					transform: translateX(250%);
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				#splash .splash-inner {
+					animation: none;
+				}
+				#splash .splash-bar::after {
+					animation-duration: 3s;
+				}
+			}
+		</style>
 	</head>
 
 	<body>
+		<div id="splash" role="status" aria-label="Loading Needlelight">
+			<div class="splash-inner">
+				<span class="splash-name">Needlelight</span>
+				<div class="splash-bar"></div>
+			</div>
+		</div>
 		<div id="app"></div>
-		<script src="https://tally.so/widgets/embed.js" async></script>
 		<script type="module" src="/src/main.js"></script>
 	</body>
 </html>

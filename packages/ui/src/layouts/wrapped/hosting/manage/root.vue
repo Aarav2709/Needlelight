@@ -1,0 +1,1429 @@
+<template>
+	<div
+		v-if="filteredNotices.length > 0"
+		class="relative mx-auto mb-4 flex w-full min-w-0 flex-col gap-3 px-6"
+		:class="{
+			'max-w-[1280px]': constrainWidth,
+		}"
+	>
+		<ServerNotice
+			v-for="notice in filteredNotices"
+			:key="`notice-${notice.id}`"
+			:level="notice.level"
+			:message="notice.message"
+			:dismissable="notice.dismissable"
+			:title="notice.title"
+			class="w-full"
+			@dismiss="() => dismissNotice(notice.id)"
+		/>
+	</div>
+	<div
+		v-if="serverData && serverData.node === null && serverData.status !== 'suspended'"
+		class="flex min-h-[calc(100vh-4rem)] items-center justify-center text-contrast"
+	>
+		<ErrorInformationCard
+			title="We're getting your server ready"
+			description="Your server's hardware is being prepared and will be available shortly!"
+			:icon="TransferIcon"
+			icon-color="blue"
+			:action="generalErrorAction"
+		/>
+	</div>
+	<div
+		v-else-if="serverData?.status === 'suspended' && serverData.suspension_reason === 'upgrading'"
+		class="flex min-h-[calc(100vh-4rem)] items-center justify-center text-contrast"
+	>
+		<ErrorInformationCard
+			title="Server upgrading"
+			description="Your server's hardware is currently being upgraded and will be back online shortly!"
+			:icon="TransferIcon"
+			icon-color="blue"
+			:action="generalErrorAction"
+		/>
+	</div>
+	<div
+		v-else-if="serverData?.status === 'suspended'"
+		class="flex min-h-[calc(100vh-4rem)] items-center justify-center text-contrast"
+	>
+		<ErrorInformationCard
+			title="Server suspended"
+			:description="suspendedDescription"
+			:icon="LockIcon"
+			icon-color="orange"
+			:action="suspendedAction"
+		/>
+	</div>
+	<div
+		v-else-if="serverError?.statusCode === 403 || serverError?.statusCode === 404"
+		class="flex min-h-[calc(100vh-4rem)] items-center justify-center text-contrast"
+	>
+		<ErrorInformationCard
+			title="An error occured."
+			description="Please contact Modrinth Support."
+			:icon="TransferIcon"
+			icon-color="orange"
+			:error-details="generalErrorDetails"
+			:action="generalErrorAction"
+		/>
+	</div>
+	<div
+		v-else-if="serverError || !nodeAccessible"
+		class="flex min-h-[calc(100vh-4rem)] items-center justify-center text-contrast"
+	>
+		<ErrorInformationCard
+			title="Server Node Unavailable"
+			:icon="TriangleAlertIcon"
+			icon-color="red"
+			:action="nodeUnavailableAction"
+			:error-details="nodeUnavailableDetails"
+		>
+			<template #description>
+				<div class="text-md space-y-4">
+					<p class="leading-[170%] text-secondary">
+						Your server's node, where your Modrinth Server is physically hosted, is not accessible
+						at the moment. We are working to resolve the issue as quickly as possible.
+					</p>
+					<p class="leading-[170%] text-secondary">
+						Your data is safe and will not be lost, and your server will be back online as soon as
+						the issue is resolved.
+					</p>
+					<p class="leading-[170%] text-secondary">
+						If reloading does not work initially, please contact Modrinth Support via the chat
+						bubble in the bottom right corner and we'll be happy to help.
+					</p>
+				</div>
+			</template>
+		</ErrorInformationCard>
+	</div>
+	<!-- SERVER START -->
+	<div
+		v-else-if="serverData"
+		data-pyro-server-manager-root
+		class="relative mx-auto box-border flex w-full min-w-0 flex-col gap-4 px-6 transition-all duration-300"
+		:style="{
+			'--server-bg-image': serverImage
+				? `url(${serverImage})`
+				: `linear-gradient(180deg, rgba(153,153,153,1) 0%, rgba(87,87,87,1) 100%)`,
+		}"
+		:class="[
+			'server-panel-' + revealState,
+			containedLayout
+				? 'h-full min-h-0 overflow-hidden pb-6'
+				: constrainWidth
+					? 'min-h-[100svh] max-w-[1280px] pb-16'
+					: 'min-h-[calc(100svh-100px)] pb-6',
+		]"
+	>
+		<template v-if="revealState !== 'pending' || isOnboarding">
+			<div
+				v-if="!isOnboarding"
+				class="w-full flex flex-col gap-4"
+				:class="['server-stagger-item', containedLayout ? 'shrink-0' : '', { 'mt-4': isNuxt }]"
+				:style="{ '--si': 0 }"
+			>
+				<PageHeader :title="serverData?.name || 'Server'">
+					<template #leading>
+						<ServerIcon
+							:image="serverHeaderImage"
+							:class="isNuxt ? 'size-20 !rounded-2xl' : 'size-16 !rounded-xl'"
+						/>
+					</template>
+
+					<template #metadata>
+						<PageHeaderMetadata>
+							<PageHeaderMetadataItem
+								v-if="serverData.flows?.intro"
+								:icon="SettingsIcon"
+								class="font-semibold"
+							>
+								Configuring server...
+							</PageHeaderMetadataItem>
+
+							<template v-else>
+								<PageHeaderMetadataItem
+									v-if="serverData.loader"
+									:icon="TagIcon"
+									:icon-props="{ tag: serverData.loader, enforceType: 'loader' }"
+								>
+									{{ formatLoaderLabel(serverData.loader) }} {{ serverData.mc_version }}
+								</PageHeaderMetadataItem>
+								<PageHeaderMetadataItem
+									v-if="serverData.net?.domain && !serverPreferences.hideSubdomainLabel"
+									:icon="LinkIcon"
+									tooltip="Copy server address"
+									:action="copyServerAddress"
+								>
+									{{ serverData.net.domain }}.modrinth.gg
+								</PageHeaderMetadataItem>
+								<PageHeaderMetadataItem v-if="showServerUptime" :icon="TimerIcon">
+									{{ formattedUptime }}
+								</PageHeaderMetadataItem>
+								<PageHeaderMetadataItem
+									v-if="serverProject"
+									:to="serverProjectLink"
+									class="!text-primary"
+								>
+									Linked to
+									<Avatar :src="serverProject.icon_url" :alt="serverProject.title" size="24px" />
+									{{ serverProject.title }}
+								</PageHeaderMetadataItem>
+							</template>
+						</PageHeaderMetadata>
+					</template>
+
+					<template #actions>
+						<PageHeaderActions>
+							<PanelServerActionButton />
+							<Tooltip
+								theme="dismissable-prompt"
+								:triggers="[]"
+								:shown="showSettingsHint"
+								:auto-hide="false"
+								placement="bottom-end"
+							>
+								<IconButton
+									v-tooltip="showSettingsHint ? undefined : 'Server settings'"
+									size="xl"
+									label="Server settings"
+									native-type="button"
+									@click="handleOpenServerSettings"
+								>
+									<SettingsIcon />
+								</IconButton>
+								<template #popper>
+									<div class="grid grid-cols-[min-content] gap-1">
+										<div class="flex min-w-48 items-center justify-between gap-8">
+											<h3 class="m-0 whitespace-nowrap text-base font-bold text-contrast">
+												{{ formatMessage(settingsHintMessages.title) }}
+											</h3>
+											<IconButton
+												class="!size-6"
+												size="xs"
+												:label="formatMessage(settingsHintMessages.dismiss)"
+												native-type="button"
+												@click="dismissSettingsHint"
+											>
+												<XIcon aria-hidden="true" />
+											</IconButton>
+										</div>
+										<p class="m-0 text-wrap text-sm font-medium leading-tight text-secondary">
+											{{ formatMessage(settingsHintMessages.description) }}
+										</p>
+									</div>
+								</template>
+							</Tooltip>
+							<TeleportOverflowMenu
+								type="quiet"
+								size="xl"
+								label="More server options"
+								:options="serverMenuOptions"
+							>
+								<MoreVerticalIcon aria-hidden="true" />
+							</TeleportOverflowMenu>
+						</PageHeaderActions>
+					</template>
+				</PageHeader>
+			</div>
+
+			<ServerOnboardingPanelPage v-if="isOnboarding" :browse-modpacks="handleBrowseModpacks" />
+
+			<template v-else>
+				<div class="server-stagger-item -mb-3">
+					<NavTabs
+						:links="navLinks"
+						replace
+						page-nav
+						data-pyro-navigation
+						:class="containedLayout ? 'shrink-0' : ''"
+						:style="{ '--si': 1 }"
+					/>
+				</div>
+
+				<div
+					data-pyro-mount
+					class="server-stagger-item w-full flex-1"
+					:class="containedLayout ? 'flex min-h-0 flex-col overflow-hidden' : 'h-full'"
+					:style="{ '--si': 2 }"
+				>
+					<div v-if="serverData.is_medal" class="mb-4">
+						<MedalServerCountdown
+							:server-id="serverId"
+							:stripe-publishable-key="stripePublishableKey"
+							:site-url="siteUrl"
+							:products="products"
+						/>
+					</div>
+
+					<div
+						v-if="!isConnected && !isReconnecting && !isLoading"
+						data-pyro-server-ws-error
+						class="mb-4 flex w-full flex-row items-center gap-4 rounded-2xl bg-bg-red p-4 text-contrast"
+					>
+						<IssuesIcon class="size-5 text-red" />
+						Something went wrong...
+					</div>
+
+					<div
+						v-if="isReconnecting"
+						data-pyro-server-ws-reconnecting
+						class="mb-4 flex w-full flex-row items-center gap-4 rounded-2xl bg-bg-orange p-4 text-sm text-contrast"
+					>
+						<LoaderCircleIcon class="h-5 w-5 animate-spin" />
+						Hang on, we're reconnecting to your server.
+					</div>
+
+					<ServerPanelAdmonitions
+						class="mb-4 shrink-0"
+						@installation-retry="handleInstallationRetry"
+					/>
+					<slot :on-reinstall="onReinstall" :on-reinstall-failed="onReinstallFailed" />
+				</div>
+			</template>
+		</template>
+	</div>
+	<div
+		v-if="showAdvancedDebugInfo"
+		class="relative mx-auto mt-6 box-border w-full min-w-0 max-w-[1280px] px-6"
+	>
+		<h2 class="m-0 text-lg font-extrabold text-contrast">Server data</h2>
+		<pre class="markdown-body w-full overflow-auto rounded-2xl bg-bg-raised p-4 text-sm">{{
+			safeStringify(serverData)
+		}}</pre>
+	</div>
+	<Suspense>
+		<ServerSettingsModal
+			ref="serverSettingsModal"
+			:resolve-viewer="resolveViewer"
+			:browse-modpacks="handleBrowseModpacks"
+		/>
+	</Suspense>
+	<ConfirmLeaveModal
+		ref="confirmLeaveModal"
+		:header="formatMessage(leaveMessages.uploadInProgress)"
+		:body="formatMessage(leaveMessages.leavePageBody)"
+		admonition-type="critical"
+	/>
+</template>
+
+<script setup lang="ts">
+import type { Archon, Labrinth } from '@modrinth/api-client'
+import { ModrinthApiError, NuxtModrinthClient } from '@modrinth/api-client'
+import {
+	BoxesIcon,
+	CopyIcon,
+	DatabaseBackupIcon,
+	FolderOpenIcon,
+	IssuesIcon,
+	LayoutTemplateIcon,
+	LinkIcon,
+	LoaderCircleIcon,
+	LockIcon,
+	MoreVerticalIcon,
+	ServerIcon as ServerAssetIcon,
+	SettingsIcon,
+	TimerIcon,
+	TransferIcon,
+	TriangleAlertIcon,
+	UsersIcon,
+	XIcon,
+} from '@modrinth/assets'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useStorage } from '@vueuse/core'
+import DOMPurify from 'dompurify'
+import { Tooltip } from 'floating-vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+
+import Avatar from '#ui/components/base/Avatar.vue'
+import { IconButton, TeleportOverflowMenu } from '#ui/components/base/buttons'
+import ErrorInformationCard from '#ui/components/base/ErrorInformationCard.vue'
+import NavTabs from '#ui/components/base/NavTabs.vue'
+import PageHeader from '#ui/components/base/page-header/index.vue'
+import PageHeaderMetadata from '#ui/components/base/page-header/metadata/index.vue'
+import PageHeaderMetadataItem from '#ui/components/base/page-header/metadata/page-header-metadata-item.vue'
+import PageHeaderActions from '#ui/components/base/page-header/page-header-actions.vue'
+import ServerNotice from '#ui/components/base/ServerNotice.vue'
+import TagIcon from '#ui/components/base/TagIcon.vue'
+import ConfirmLeaveModal from '#ui/components/modal/ConfirmLeaveModal.vue'
+import ServerPanelAdmonitions from '#ui/components/servers/admonitions/ServerPanelAdmonitions.vue'
+import ServerIcon from '#ui/components/servers/icons/ServerIcon.vue'
+import MedalServerCountdown from '#ui/components/servers/marketing/MedalServerCountdown.vue'
+import { PanelServerActionButton } from '#ui/components/servers/server-header'
+import ServerSettingsModal from '#ui/components/servers/ServerSettingsModal.vue'
+import {
+	hasServerPermission,
+	useDebugLogger,
+	useLoadingBarToken,
+	useModrinthServersConsole,
+	useReadyState,
+	useServerImage,
+	useServerProject,
+} from '#ui/composables'
+import { defineMessages, useVIntl } from '#ui/composables/i18n'
+import { useServerBackupsQueue } from '#ui/composables/server-backups-queue'
+import type {
+	ServerInstallationKey,
+	ServerInstallationState,
+} from '#ui/composables/server-installation-tracker'
+import { useServerManageCoreRuntime } from '#ui/composables/server-manage-core-runtime'
+import { useServerPanelSync } from '#ui/composables/server-panel-sync'
+import type { LogLine } from '#ui/layouts/shared/console'
+import type { ServerSettingsTabId } from '#ui/layouts/shared/server-settings'
+import {
+	injectModrinthClient,
+	injectNotificationManager,
+	provideServerSettingsModal,
+} from '#ui/providers'
+import type { ServerStats } from '#ui/providers/server-context'
+import { commonMessages } from '#ui/utils/common-messages'
+import { formatLoaderLabel } from '#ui/utils/loaders'
+
+import ServerOnboardingPanelPage from './[id]/onboarding.vue'
+
+interface Tab {
+	label: string
+	href: string
+	icon?: object
+	subpages?: string[]
+}
+
+const props = withDefaults(
+	defineProps<{
+		serverId: string
+		reloadPage: () => void
+		resolveViewer: () => Promise<{ userId: string | null; userRole: string | null }>
+		showCopyIdAction?: boolean
+		showAdvancedDebugInfo?: boolean
+		showUptime?: boolean
+		additionalTabs?: Tab[]
+		stripePublishableKey?: string
+		siteUrl?: string
+		products?: Labrinth.Billing.Internal.Product[]
+		authUser?: { id: string; username: string; email: string; created: string }
+		navigateToBilling?: () => void
+		navigateToServers?: () => void
+		browseModpacks?: (args: {
+			serverId: string
+			worldId: string | null
+			from: 'reset-server' | 'onboarding'
+		}) => void | Promise<void>
+		browseContent?: (args: {
+			serverId: string
+			worldId: string | null
+			type: 'mod' | 'plugin' | 'datapack'
+		}) => void | Promise<void>
+		constrainWidth?: boolean
+		layoutMode?: 'page' | 'contained'
+	}>(),
+	{
+		showCopyIdAction: false,
+		showAdvancedDebugInfo: false,
+		showUptime: true,
+		additionalTabs: () => [],
+		stripePublishableKey: undefined,
+		siteUrl: undefined,
+		products: () => [],
+		authUser: undefined,
+		navigateToBilling: undefined,
+		navigateToServers: undefined,
+		browseModpacks: undefined,
+		browseContent: undefined,
+		constrainWidth: false,
+		layoutMode: 'page',
+	},
+)
+
+const { formatMessage } = useVIntl()
+
+const leaveMessages = defineMessages({
+	uploadInProgress: {
+		id: 'servers.manage.confirm-leave.upload-in-progress',
+		defaultMessage: 'Upload in progress',
+	},
+	leavePageBody: {
+		id: 'servers.manage.confirm-leave.body',
+		defaultMessage: 'A file upload is in progress. Leaving this page will cancel the upload.',
+	},
+})
+
+const settingsHintMessages = defineMessages({
+	title: {
+		id: 'servers.manage.settings-hint.title',
+		defaultMessage: 'Your server settings have moved',
+	},
+	description: {
+		id: 'servers.manage.settings-hint.description',
+		defaultMessage: 'They can now be found here!',
+	},
+	dismiss: {
+		id: 'servers.manage.settings-hint.dismiss',
+		defaultMessage: "Don't show again",
+	},
+})
+
+// disabled, keeping the animation logic cos it's really nice and we might want to re-enable in future
+const DISABLE_LOADING_ANIM = true
+
+const { addNotification } = injectNotificationManager()
+const client = injectModrinthClient()
+const constrainWidth = computed(() => props.constrainWidth)
+const containedLayout = computed(() => props.layoutMode === 'contained')
+const isNuxt = computed(() => client instanceof NuxtModrinthClient)
+const queryClient = useQueryClient()
+const route = useRoute()
+const router = useRouter()
+const debug = useDebugLogger('ServerManage')
+
+const isReconnecting = ref(false)
+const isLoading = ref(true)
+const isMounted = ref(true)
+const isOnboarding = computed(() => serverData.value?.flows?.intro)
+
+const SETTINGS_HINT_KEY = 'server-panel-settings-hint-dismissed'
+const settingsHintDismissed = useStorage(SETTINGS_HINT_KEY, false)
+const showSettingsHint = ref(!settingsHintDismissed.value)
+const serverPreferences = useStorage(`pyro-server-${props.serverId}-preferences`, {
+	hideSubdomainLabel: false,
+})
+
+function dismissSettingsHint() {
+	showSettingsHint.value = false
+	settingsHintDismissed.value = true
+}
+
+const serverSettingsModal = ref<InstanceType<typeof ServerSettingsModal> | null>(null)
+const confirmLeaveModal = ref<InstanceType<typeof ConfirmLeaveModal>>()
+
+const {
+	data: serverData,
+	error: serverQueryError,
+	isLoading: serverLoading,
+} = useQuery({
+	queryKey: ['servers', 'detail', props.serverId],
+	queryFn: () => client.archon.servers_v0.get(props.serverId)!,
+})
+
+useLoadingBarToken(useReadyState({ isLoading: serverLoading, data: serverData }))
+
+function updateServerData(patch: Partial<Archon.Servers.v0.Server>) {
+	if (!serverData.value) return
+	queryClient.setQueryData(['servers', 'detail', props.serverId], {
+		...serverData.value,
+		...patch,
+	})
+}
+
+const serverError = computed(() => {
+	const err = serverQueryError.value
+	if (err instanceof ModrinthApiError) return err
+	return err ? ModrinthApiError.fromUnknown(err) : null
+})
+
+const { data: serverFull } = useQuery({
+	queryKey: ['servers', 'v1', 'detail', props.serverId],
+	queryFn: () => client.archon.servers_v1.get(props.serverId),
+})
+
+const worldId = computed(() => {
+	if (!serverFull.value) return null
+	const activeWorld = serverFull.value.worlds.find((w) => w.is_active)
+	return activeWorld?.id ?? serverFull.value.worlds[0]?.id ?? null
+})
+
+const { data: serverContent } = useQuery({
+	queryKey: ['content', 'list', 'v1', props.serverId],
+	queryFn: () =>
+		client.archon.content_v1.getAddons(props.serverId, worldId.value!, { from_modpack: false }),
+	enabled: computed(() => worldId.value !== null),
+})
+
+const { handleWsBackupProgress, busyReasons: backupsBusy } = useServerBackupsQueue(
+	computed(() => props.serverId),
+	worldId,
+)
+
+const { disconnect: disconnectPanelSync } = useServerPanelSync({
+	serverId: computed(() => props.serverId),
+	worldId,
+})
+
+const { image: serverImage } = useServerImage(
+	props.serverId,
+	computed(() => serverData.value?.upstream ?? null),
+)
+const { data: serverProject } = useServerProject(computed(() => serverData.value?.upstream ?? null))
+
+const onStateEvent = (data: Archon.Websocket.v0.WSStateEvent) => {
+	debug('[root.vue] handleState received:', {
+		power_variant: data.power_variant,
+		serverStatus: serverData.value?.status,
+	})
+	hasReceivedWsData.value = true
+}
+
+const {
+	beginInstallation,
+	cancelUpload,
+	cancelOptimisticInstallation,
+	cleanupCoreRuntime,
+	connectSocket,
+	cpuData,
+	dismissInstallation,
+	fsOps,
+	fsQueuedOps,
+	installation,
+	isConnected,
+	ramData,
+	serverPowerState,
+	stats,
+	uptimeSeconds,
+	uploadState,
+} = useServerManageCoreRuntime({
+	serverId: computed(() => props.serverId),
+	worldId,
+	server: serverData,
+	serverFull,
+	content: serverContent,
+	extraBusyReasons: backupsBusy,
+	setDisconnectedOnAuthIncorrect: false,
+	syncUptimeFromState: true,
+	incrementUptimeLocally: true,
+	eventGuard: () => isMounted.value,
+	onStateEvent,
+})
+
+const serverHeaderImage = computed(() =>
+	serverData.value?.is_medal ? 'https://cdn.modrinth.com/medal_icon.webp' : serverImage.value,
+)
+
+const showServerUptime = computed(() => props.showUptime && serverPowerState.value === 'running')
+
+const formattedUptime = computed(() => formatUptime(uptimeSeconds.value))
+
+const serverProjectLink = computed(() => {
+	if (!serverProject.value) return ''
+	return `/project/${serverProject.value.slug ?? serverProject.value.id}`
+})
+
+const serverMenuOptions = computed(() => [
+	{
+		id: 'all-servers',
+		label: 'All servers',
+		icon: ServerAssetIcon,
+		action: () => void router.push('/hosting/manage'),
+	},
+	{
+		id: 'copy-id',
+		label: 'Copy ID',
+		icon: CopyIcon,
+		action: copyServerId,
+		shown: props.showCopyIdAction,
+	},
+])
+
+function formatUptime(uptime: number) {
+	const days = Math.floor(uptime / (24 * 3600))
+	const hours = Math.floor((uptime % (24 * 3600)) / 3600)
+	const minutes = Math.floor((uptime % 3600) / 60)
+	const seconds = uptime % 60
+
+	let formatted = ''
+	if (days > 0) formatted += `${days}d `
+	if (hours > 0 || days > 0) formatted += `${hours}h `
+	formatted += `${minutes}m ${seconds}s`
+	return formatted.trim()
+}
+
+function copyServerAddress() {
+	const domain = serverData.value?.net?.domain
+	if (!domain) return
+
+	void navigator.clipboard.writeText(`${domain}.modrinth.gg`)
+	addNotification({
+		title: 'Server address copied',
+		text: "Your server's address has been copied to your clipboard.",
+		type: 'success',
+	})
+}
+
+function copyServerId() {
+	void navigator.clipboard.writeText(props.serverId)
+}
+
+function handleOpenServerSettings() {
+	openServerSettingsModal()
+	dismissSettingsHint()
+}
+
+const isUploading = computed(() => uploadState.value.isUploading)
+const canSetup = computed(() =>
+	hasServerPermission(serverData.value?.current_user_permissions ?? 0, 'SETUP'),
+)
+const permissionDeniedMessage = computed(() => formatMessage(commonMessages.noPermissionAction))
+
+function handleBeforeUnload(e: BeforeUnloadEvent) {
+	if (isUploading.value) {
+		e.preventDefault()
+		return ''
+	}
+}
+
+if (typeof window !== 'undefined') {
+	watch(isUploading, (uploading) => {
+		if (uploading) {
+			window.addEventListener('beforeunload', handleBeforeUnload)
+		} else {
+			window.removeEventListener('beforeunload', handleBeforeUnload)
+		}
+	})
+
+	onBeforeUnmount(() => {
+		window.removeEventListener('beforeunload', handleBeforeUnload)
+	})
+
+	onBeforeRouteLeave(async () => {
+		if (isUploading.value) {
+			const shouldLeave = (await confirmLeaveModal.value?.prompt()) ?? false
+			if (shouldLeave) cancelUpload.value?.()
+			return shouldLeave
+		}
+		return true
+	})
+}
+
+type CachedWsState = {
+	stats: ServerStats
+	cpuData: number[]
+	ramData: number[]
+	powerState: Archon.Websocket.v0.PowerState
+	uptimeSeconds: number
+	consoleLines: LogLine[]
+}
+
+const modrinthServersConsole = useModrinthServersConsole()
+const wsStateCacheKey = ['servers', 'ws-state', props.serverId] as const
+const cachedWsState = queryClient.getQueryData<CachedWsState>(wsStateCacheKey)
+if (cachedWsState) {
+	stats.value = cachedWsState.stats
+	cpuData.value = cachedWsState.cpuData
+	ramData.value = cachedWsState.ramData
+	serverPowerState.value = cachedWsState.powerState
+	uptimeSeconds.value = cachedWsState.uptimeSeconds
+}
+
+const log = useDebugLogger('server-panel-reveal')
+
+const hasReceivedWsData = ref(!!cachedWsState)
+log('init', {
+	hasCachedWsState: !!cachedWsState,
+	hasReceivedWsData: hasReceivedWsData.value,
+	isConnected: isConnected.value,
+	serverData: !!serverData.value,
+})
+
+const saveWsStateToCache = () => {
+	if (!hasReceivedWsData.value) return
+	queryClient.setQueryData(wsStateCacheKey, {
+		stats: stats.value,
+		cpuData: cpuData.value,
+		ramData: ramData.value,
+		powerState: serverPowerState.value,
+		uptimeSeconds: uptimeSeconds.value,
+		consoleLines: modrinthServersConsole.output.value,
+	} satisfies CachedWsState)
+}
+
+watch([stats, serverPowerState], () => {
+	if (!isConnected.value) return
+	hasReceivedWsData.value = true
+})
+
+const canReveal = computed(() => serverData.value && hasReceivedWsData.value)
+log('canReveal initial', {
+	canReveal: canReveal.value,
+	serverData: !!serverData.value,
+	hasReceivedWsData: hasReceivedWsData.value,
+})
+
+const revealState = ref<'pending' | 'revealing' | 'visible'>(
+	DISABLE_LOADING_ANIM || canReveal.value ? 'visible' : 'pending',
+)
+log('revealState initial', revealState.value)
+
+const REVEAL_TOTAL_MS = 2 * 80 + 400
+
+watch(canReveal, (ready) => {
+	log('canReveal changed', { ready, revealState: revealState.value })
+	if (ready && revealState.value === 'pending') {
+		if (DISABLE_LOADING_ANIM) {
+			revealState.value = 'visible'
+		} else {
+			revealState.value = 'revealing'
+			setTimeout(() => {
+				revealState.value = 'visible'
+				log('revealState -> visible')
+			}, REVEAL_TOTAL_MS)
+		}
+	}
+})
+
+watch(isConnected, (connected) => {
+	log('isConnected changed', connected)
+})
+
+watch(serverData, (data) => {
+	log('serverData changed', !!data)
+})
+
+const navLinks = computed<Tab[]>(() => [
+	{
+		label: 'Overview',
+		href: `/hosting/manage/${props.serverId}`,
+		icon: LayoutTemplateIcon,
+		subpages: [],
+	},
+	{
+		label: 'Content',
+		href: `/hosting/manage/${props.serverId}/content`,
+		icon: BoxesIcon,
+		subpages: ['mods', 'datapacks'],
+	},
+	{
+		label: 'Files',
+		href: `/hosting/manage/${props.serverId}/files`,
+		icon: FolderOpenIcon,
+		subpages: [],
+	},
+	{
+		label: 'Backups',
+		href: `/hosting/manage/${props.serverId}/backups`,
+		icon: DatabaseBackupIcon,
+		subpages: [],
+	},
+	{
+		label: 'Access',
+		href: `/hosting/manage/${props.serverId}/access`,
+		icon: UsersIcon,
+		subpages: [],
+	},
+	...props.additionalTabs,
+])
+
+const filteredNotices = computed(
+	() => serverData.value?.notices?.filter((n) => n.level !== 'survey') ?? [],
+)
+const surveyNotice = computed(() => serverData.value?.notices?.find((n) => n.level === 'survey'))
+
+async function dismissNotice(noticeId: number) {
+	await client.archon.servers_v0.dismissNotice(props.serverId, noticeId).catch((err) => {
+		addNotification({
+			title: 'Error dismissing notice',
+			text: err,
+			type: 'error',
+		})
+	})
+	await queryClient.invalidateQueries({ queryKey: ['servers', 'detail', props.serverId] })
+}
+
+async function dismissSurvey() {
+	const noticeId = surveyNotice.value?.id
+	if (noticeId === undefined) return
+	await dismissNotice(noticeId)
+}
+
+type TallyPopupOptions = {
+	key?: string
+	layout?: 'default' | 'modal'
+	width?: number
+	alignLeft?: boolean
+	hideTitle?: boolean
+	overlay?: boolean
+	emoji?: {
+		text: string
+		animation:
+			| 'none'
+			| 'wave'
+			| 'tada'
+			| 'heart-beat'
+			| 'spin'
+			| 'flash'
+			| 'bounce'
+			| 'rubber-band'
+			| 'head-shake'
+	}
+	autoClose?: number
+	showOnce?: boolean
+	doNotShowAfterSubmit?: boolean
+	customFormUrl?: string
+	hiddenFields?: { [key: string]: unknown }
+	onOpen?: () => void
+	onClose?: () => void
+	onPageView?: (page: number) => void
+	onSubmit?: (payload: unknown) => void
+}
+
+const popupOptions = computed(
+	() =>
+		({
+			layout: 'default',
+			width: 400,
+			autoClose: 2000,
+			hideTitle: true,
+			hiddenFields: {
+				username: props.authUser?.username,
+				user_id: props.authUser?.id,
+				user_email: props.authUser?.email,
+				server_id: serverData.value?.server_id,
+				loader: serverData.value?.loader,
+				game_version: serverData.value?.mc_version,
+				modpack_id: serverProject.value?.id,
+				modpack_name: serverProject.value?.title,
+			},
+			onOpen: () => debug(`Opened survey notice: ${surveyNotice.value?.id}`),
+			onClose: async () => await dismissSurvey(),
+			onSubmit: (payload: unknown) => {
+				debug('Form submitted:', payload)
+			},
+		}) satisfies TallyPopupOptions,
+)
+
+function getTally(): { openPopup?: (id: string, opts: TallyPopupOptions) => void } | undefined {
+	return (
+		window as Window & { Tally?: { openPopup?: (id: string, opts: TallyPopupOptions) => void } }
+	).Tally
+}
+
+function showSurvey() {
+	if (!surveyNotice.value) return
+
+	try {
+		const tally = getTally()
+		if (tally?.openPopup) {
+			tally.openPopup(surveyNotice.value.message, popupOptions.value)
+		}
+	} catch (e) {
+		console.error('Error opening Tally popup:', e)
+	}
+}
+
+function loadTallyScript() {
+	if (document.querySelector('script[src*="tally.so"]')) return
+	const script = document.createElement('script')
+	script.src = 'https://tally.so/widgets/embed.js'
+	script.defer = true
+	document.head.appendChild(script)
+}
+
+async function handleInstallationRetry() {
+	if (!worldId.value) return
+	if (!canSetup.value) {
+		addNotification({
+			type: 'error',
+			text: permissionDeniedMessage.value,
+		})
+		return
+	}
+	const failedInstallationId =
+		installation.value?.status === 'failed' ? installation.value.id : null
+	if (failedInstallationId) dismissInstallation(failedInstallationId)
+	beginInstallation({ type: 'unknown' })
+	updateServerData({ status: 'installing' })
+	try {
+		await client.archon.content_v1.repair(props.serverId, worldId.value)
+	} catch (err) {
+		cancelOptimisticInstallation()
+		updateServerData({ status: 'available' })
+		addNotification({
+			type: 'error',
+			text: err instanceof Error ? err.message : 'Failed to retry installation',
+		})
+	}
+}
+
+const handleBackupProgress = (data: Archon.Websocket.v0.WSBackupProgressEvent) => {
+	handleWsBackupProgress(data)
+}
+
+const handleFilesystemOps = (data: Archon.Websocket.v0.WSFilesystemOpsEvent) => {
+	const allOps = data.all
+
+	if (JSON.stringify(fsOps.value) !== JSON.stringify(allOps)) {
+		fsOps.value = allOps
+	}
+
+	fsQueuedOps.value = fsQueuedOps.value.filter(
+		(queuedOp) => !allOps.some((x) => x.src === queuedOp.src),
+	)
+
+	const cancelled = allOps.filter((x) => x.state === 'cancelled')
+	Promise.all(
+		cancelled.map((x) =>
+			client.kyros.files_v0.modifyOperation(x.id, 'dismiss').catch((error) => {
+				console.error('Failed to dismiss cancelled operation:', error)
+			}),
+		),
+	)
+}
+
+let newModInvalidateTimer: ReturnType<typeof setTimeout> | null = null
+const handleNewMod = () => {
+	if (newModInvalidateTimer) clearTimeout(newModInvalidateTimer)
+	newModInvalidateTimer = setTimeout(() => {
+		newModInvalidateTimer = null
+		void queryClient.invalidateQueries({ queryKey: ['content', 'list'] })
+	}, 500)
+}
+
+type InstallationServerSnapshot = Pick<
+	Archon.Servers.v0.Server,
+	'loader' | 'loader_version' | 'mc_version'
+>
+
+let installationServerSnapshot: InstallationServerSnapshot | null = null
+
+function applyInstallationTarget(current: ServerInstallationState) {
+	if (!serverData.value) return
+
+	if (!installationServerSnapshot) {
+		installationServerSnapshot = {
+			loader: serverData.value.loader,
+			loader_version: serverData.value.loader_version,
+			mc_version: serverData.value.mc_version,
+		}
+	}
+
+	const patch: Partial<Archon.Servers.v0.Server> = { status: 'installing' }
+	if (current.key.type === 'platform') {
+		patch.loader = formatLoaderLabel(current.key.platform) as Archon.Servers.v0.Loader
+		patch.loader_version = current.key.platform === 'vanilla' ? null : current.key.platform_version
+		patch.mc_version = current.key.game_version
+	}
+
+	if (
+		serverData.value.status === patch.status &&
+		(current.key.type !== 'platform' ||
+			(serverData.value.loader === patch.loader &&
+				serverData.value.loader_version === patch.loader_version &&
+				serverData.value.mc_version === patch.mc_version))
+	) {
+		return
+	}
+
+	void queryClient.cancelQueries({
+		queryKey: ['servers', 'detail', props.serverId],
+		exact: true,
+	})
+	updateServerData(patch)
+}
+
+function restoreInstallationServerSnapshot() {
+	const snapshot = installationServerSnapshot
+	updateServerData({
+		...(snapshot ?? {}),
+		status: 'available',
+	})
+	installationServerSnapshot = null
+}
+
+const onReinstall = async (
+	potentialArgs: { loader?: string; lVersion?: string; mVersion?: string } | undefined,
+) => {
+	debug('[root.vue] onReinstall called with:', potentialArgs)
+
+	if (serverData.value?.flows?.intro) {
+		await client.archon.servers_v1.endIntro(props.serverId)
+		queryClient.invalidateQueries({ queryKey: ['servers', 'detail', props.serverId] })
+	}
+
+	if (!serverData.value) return
+
+	if (
+		!installation.value ||
+		installation.value.status === 'complete' ||
+		installation.value.status === 'failed'
+	) {
+		if (potentialArgs?.loader && potentialArgs.mVersion) {
+			beginInstallation({
+				type: 'platform',
+				platform: potentialArgs.loader as Extract<
+					Archon.Websocket.v0.InstallProgressKey,
+					{ type: 'platform' }
+				>['platform'],
+				platform_version: potentialArgs.lVersion ?? '',
+				game_version: potentialArgs.mVersion,
+			})
+		} else {
+			beginInstallation({ type: 'unknown' })
+		}
+	}
+
+	modrinthServersConsole.clear()
+}
+
+const onReinstallFailed = () => {
+	debug('[root.vue] onReinstallFailed: reverting status to available')
+	cancelOptimisticInstallation()
+	restoreInstallationServerSnapshot()
+}
+
+function applyInstallationCompletion(key: ServerInstallationKey) {
+	const platformKey = key?.type === 'platform' ? key : null
+	const patch: Partial<Archon.Servers.v0.Server> = { status: 'available' }
+	if (platformKey) {
+		patch.loader = formatLoaderLabel(platformKey.platform) as Archon.Servers.v0.Loader
+		patch.loader_version = platformKey.platform === 'vanilla' ? null : platformKey.platform_version
+		patch.mc_version = platformKey.game_version
+	}
+
+	debug('[root.vue] applyInstallationCompletion: patch:', patch)
+	updateServerData(patch)
+
+	const addonsQueries = queryClient.getQueriesData<Archon.Content.v1.Addons>({
+		queryKey: ['content', 'list', 'v1', props.serverId],
+	})
+	for (const [key, data] of addonsQueries) {
+		if (!data || !platformKey) continue
+		queryClient.setQueryData(key, {
+			...data,
+			modloader: platformKey.platform === 'neoforge' ? 'neo_forge' : platformKey.platform,
+			modloader_version: platformKey.platform === 'vanilla' ? null : platformKey.platform_version,
+			game_version: platformKey.game_version,
+		})
+	}
+}
+
+async function invalidateAfterInstall() {
+	debug('[root.vue] invalidateAfterInstall: scheduling 2s delayed invalidation')
+	setTimeout(async () => {
+		try {
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: ['servers', 'detail', props.serverId] }),
+				queryClient.invalidateQueries({
+					queryKey: ['servers', 'startup', 'v1', props.serverId],
+				}),
+				queryClient.invalidateQueries({ queryKey: ['content', 'list'] }),
+			])
+		} catch (err: unknown) {
+			console.error('Error refreshing data after installation:', err)
+		}
+	}, 2000)
+}
+
+let handledFailedInstallationId: string | null = null
+watch(
+	installation,
+	(current, previous) => {
+		if (!current) {
+			if (
+				isMounted.value &&
+				previous?.source === 'optimistic' &&
+				previous.status === 'pending' &&
+				serverData.value?.status === 'installing'
+			) {
+				restoreInstallationServerSnapshot()
+			}
+			return
+		}
+		if (current.status === 'pending' || current.status === 'installing') {
+			handledFailedInstallationId = null
+			applyInstallationTarget(current)
+			return
+		}
+
+		if (current.status === 'failed') {
+			if (handledFailedInstallationId === current.id) return
+			handledFailedInstallationId = current.id
+			if (current.source === 'server') return
+			onReinstallFailed()
+			void invalidateAfterInstall()
+			return
+		}
+
+		applyInstallationCompletion(current.key)
+		installationServerSnapshot = null
+		dismissInstallation(current.id)
+		void invalidateAfterInstall()
+	},
+	{ flush: 'sync' },
+)
+
+const nodeAccessible = ref(true)
+
+const nodeUnavailableDetails = computed(() => [
+	{
+		label: 'Server ID',
+		value: props.serverId,
+		type: 'inline' as const,
+	},
+	{
+		label: 'Node',
+		value:
+			(serverError.value?.responseData as { hostname?: string } | undefined)?.hostname ??
+			serverData.value?.datacenter ??
+			'Unknown',
+		type: 'inline' as const,
+	},
+	{
+		label: 'Error message',
+		value: nodeAccessible.value
+			? (serverError.value?.message ?? 'Unknown')
+			: 'Unable to establish the node WebSocket connection.',
+		type: 'block' as const,
+	},
+])
+
+const suspendedDescription = computed(() => {
+	if (serverData.value?.suspension_reason === 'cancelled') {
+		return 'Your subscription has been cancelled.\nContact Modrinth Support if you believe this is an error.'
+	}
+	if (serverData.value?.suspension_reason) {
+		return `Your server has been suspended: ${serverData.value.suspension_reason}\nContact Modrinth Support if you believe this is an error.`
+	}
+	return 'Your server has been suspended.\nContact Modrinth Support if you believe this is an error.'
+})
+
+const generalErrorDetails = computed(() => [
+	{
+		label: 'Server ID',
+		value: props.serverId,
+		type: 'inline' as const,
+	},
+	{
+		label: 'Timestamp',
+		value: String(new Date().toISOString()),
+		type: 'inline' as const,
+	},
+	{
+		label: 'Error Name',
+		value: serverError.value?.name,
+		type: 'inline' as const,
+	},
+	{
+		label: 'Error Message',
+		value: serverError.value?.message,
+		type: 'block' as const,
+	},
+	...(serverError.value?.originalError
+		? [
+				{
+					label: 'Original Error',
+					value: String(serverError.value.originalError),
+					type: 'hidden' as const,
+				},
+			]
+		: []),
+	...(serverError.value?.stack
+		? [
+				{
+					label: 'Stack Trace',
+					value: serverError.value.stack,
+					type: 'hidden' as const,
+				},
+			]
+		: []),
+])
+
+const suspendedAction = computed(() => ({
+	label: 'Go to billing settings',
+	onClick: () => props.navigateToBilling?.(),
+	color: 'brand' as const,
+}))
+
+const generalErrorAction = computed(() => ({
+	label: 'Go back to all servers',
+	onClick: () => props.navigateToServers?.(),
+	color: 'brand' as const,
+}))
+
+const nodeUnavailableAction = computed(() => ({
+	label: 'Reload',
+	onClick: () => props.reloadPage(),
+	color: 'brand' as const,
+	disabled: false,
+}))
+
+function openServerSettingsModal(tabId?: ServerSettingsTabId) {
+	if (!props.serverId) return
+	serverSettingsModal.value?.show({ serverId: props.serverId, tabId })
+}
+
+function handleBrowseModpacks(args: {
+	serverId: string
+	worldId: string | null
+	from: 'reset-server' | 'onboarding'
+}) {
+	props.browseModpacks?.(args)
+}
+
+function handleBrowseContent(args: {
+	serverId: string
+	worldId: string | null
+	type: 'mod' | 'plugin' | 'datapack'
+}) {
+	props.browseContent?.(args)
+}
+
+provideServerSettingsModal({
+	openServerSettings: (options) => openServerSettingsModal(options?.tabId),
+	browseServerContent: (args) => handleBrowseContent(args),
+})
+
+function safeStringify(obj: unknown, indent = ' '): string {
+	const seen = new WeakSet()
+	return JSON.stringify(
+		obj,
+		(_key, value) => {
+			if (typeof value === 'object' && value !== null) {
+				if (seen.has(value)) {
+					return '[Circular]'
+				}
+				seen.add(value)
+			}
+			return value
+		},
+		indent,
+	)
+}
+
+function initializeServer() {
+	if (serverData.value?.status === 'suspended') {
+		isLoading.value = false
+		return
+	}
+
+	if (serverData.value?.node === null) {
+		isLoading.value = false
+		return
+	}
+
+	if (serverError.value) {
+		isLoading.value = false
+	} else {
+		void connectSocket(props.serverId, {
+			extraSubscriptions: (targetServerId) => [
+				client.archon.sockets.on(targetServerId, 'backup-progress', handleBackupProgress),
+				client.archon.sockets.on(targetServerId, 'filesystem-ops', handleFilesystemOps),
+				client.archon.sockets.on(targetServerId, 'new-mod', handleNewMod),
+			],
+		})
+			.then((connected) => {
+				nodeAccessible.value = connected
+				if (connected && cachedWsState?.consoleLines?.length) {
+					modrinthServersConsole.clear()
+					modrinthServersConsole.addLines(cachedWsState.consoleLines)
+				}
+			})
+			.finally(() => {
+				isLoading.value = false
+			})
+	}
+
+	if (serverData.value?.flows?.intro && serverProject.value) {
+		client.archon.servers_v1.endIntro(props.serverId).then(() => {
+			queryClient.invalidateQueries({ queryKey: ['servers', 'detail', props.serverId] })
+		})
+	}
+}
+
+const cleanup = () => {
+	isMounted.value = false
+	if (newModInvalidateTimer) {
+		clearTimeout(newModInvalidateTimer)
+		newModInvalidateTimer = null
+	}
+
+	saveWsStateToCache()
+
+	cleanupCoreRuntime(props.serverId)
+	disconnectPanelSync()
+
+	isReconnecting.value = false
+	isLoading.value = true
+
+	DOMPurify.removeHook('afterSanitizeAttributes')
+}
+
+onMounted(() => {
+	isMounted.value = true
+
+	if (serverData.value) {
+		initializeServer()
+	} else {
+		const stopWatch = watch(serverData, (data) => {
+			if (data) {
+				stopWatch()
+				initializeServer()
+			}
+		})
+	}
+
+	DOMPurify.addHook(
+		'afterSanitizeAttributes',
+		(node: {
+			tagName: string
+			getAttribute: (arg0: string) => string | null
+			setAttribute: (arg0: string, arg1: string) => void
+		}) => {
+			if (node.tagName === 'A' && node.getAttribute('target')) {
+				node.setAttribute('rel', 'noopener noreferrer')
+			}
+		},
+	)
+
+	loadTallyScript()
+	if (surveyNotice.value) {
+		showSurvey()
+	}
+
+	if (route.query.openSettings) {
+		const tabId = route.query.openSettings as ServerSettingsTabId
+		router.replace({ query: { ...route.query, openSettings: undefined } })
+		queryClient.invalidateQueries({ queryKey: ['servers', 'detail', props.serverId] })
+		queryClient.invalidateQueries({ queryKey: ['content', 'list', 'v1', props.serverId] })
+		queryClient.invalidateQueries({ queryKey: ['servers', 'startup', 'v1', props.serverId] })
+		nextTick(() => openServerSettingsModal(tabId))
+	}
+})
+
+onUnmounted(() => {
+	cleanup()
+})
+</script>
+
+<style>
+@keyframes server-action-buttons-anim {
+	0% {
+		opacity: 0;
+		transform: translateX(1rem);
+	}
+
+	100% {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.server-action-buttons-anim {
+	animation: server-action-buttons-anim 0.2s ease-out;
+}
+
+.server-panel-pending .server-stagger-item {
+	opacity: 0;
+}
+
+.server-panel-revealing .server-stagger-item {
+	animation: serverReveal 0.4s ease-out both;
+	animation-delay: calc(var(--si) * 80ms);
+}
+
+@keyframes serverReveal {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+</style>

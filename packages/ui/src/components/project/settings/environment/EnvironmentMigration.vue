@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CheckIcon } from '@modrinth/assets'
 import {
 	Admonition,
 	commonProjectSettingsMessages,
@@ -15,7 +16,16 @@ import { computed } from 'vue'
 
 const { formatMessage } = useVIntl()
 
-const { currentMember, projectV2, projectV3, refreshProject } = injectProjectPageContext()
+const props = withDefaults(
+	defineProps<{
+		showFloatingSave?: boolean
+	}>(),
+	{
+		showFloatingSave: true,
+	},
+)
+
+const { currentMember, projectV2, projectV3, invalidate } = injectProjectPageContext()
 const { handleError } = injectNotificationManager()
 const client = injectModrinthClient()
 
@@ -41,7 +51,7 @@ function getInitialEnv() {
 	return env?.length === 1 ? env[0] : undefined
 }
 
-const { saved, current, saving, reset, save } = useSavable(
+const { saved, current, saving, reset, save, hasChanges } = useSavable(
 	() => ({
 		environment: getInitialEnv(),
 		side_types_migration_review_status: projectV3.value?.side_types_migration_review_status,
@@ -52,7 +62,7 @@ const { saved, current, saving, reset, save } = useSavable(
 				environment,
 				side_types_migration_review_status: 'reviewed',
 			})
-			await refreshProject()
+			await invalidate()
 			reset()
 		} catch (err) {
 			handleError(err as Error)
@@ -65,6 +75,24 @@ const originalEnv = getInitialEnv()
 if (originalEnv && originalEnv !== 'unknown') {
 	current.value.side_types_migration_review_status = 'reviewed'
 }
+
+const canReset = computed(() => !needsToVerify.value)
+const canSave = computed(
+	() =>
+		supportsEnvironment.value &&
+		hasPermission.value &&
+		(projectV3.value?.environment?.length ?? 0) <= 1,
+)
+
+defineExpose({
+	hasChanges,
+	saving,
+	canReset,
+	canSave,
+	needsToVerify,
+	reset,
+	save,
+})
 
 const messages = defineMessages({
 	verifyButton: {
@@ -159,11 +187,11 @@ const messages = defineMessages({
 			/>
 		</template>
 		<UnsavedChangesPopup
-			v-if="supportsEnvironment && hasPermission && (projectV3?.environment?.length ?? 0) <= 1"
+			v-if="props.showFloatingSave && canSave"
 			:original="saved"
 			:modified="current"
 			:saving="saving"
-			:can-reset="!needsToVerify"
+			:can-reset="canReset"
 			:text="needsToVerify ? messages.verifyLabel : undefined"
 			:save-label="needsToVerify ? messages.verifyButton : undefined"
 			:save-icon="needsToVerify ? CheckIcon : undefined"

@@ -1,19 +1,20 @@
 use super::errors::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::{Path, PathBuf}};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 use walkdir::WalkDir;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+// how deep the fallback drive scan looks for the game's managed folder
+const SCAN_MAX_DEPTH: usize = 5;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GameKey {
+    #[default]
     HollowKnight,
     Silksong,
-}
-
-impl Default for GameKey {
-    fn default() -> Self {
-        Self::HollowKnight
-    }
 }
 
 impl GameKey {
@@ -31,7 +32,15 @@ impl GameKey {
     pub fn display_name(&self) -> &'static str {
         match self {
             GameKey::HollowKnight => "Hollow Knight",
-            GameKey::Silksong => "Silksong",
+            GameKey::Silksong => "Hollow Knight: Silksong",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<GameKey> {
+        match key {
+            "hollow_knight" => Some(GameKey::HollowKnight),
+            "silksong" => Some(GameKey::Silksong),
+            _ => None,
         }
     }
 
@@ -53,8 +62,7 @@ pub struct AppSettings {
     pub use_custom_modlinks: bool,
     #[serde(default)]
     pub custom_modlinks_uri: String,
-    /// Per-game custom catalog values. The two legacy fields above remain the
-    /// frontend-facing values for the selected game and keep old configs valid.
+    // per game custom catalogs, the two fields above mirror the selected game for the frontend and old configs
     #[serde(default)]
     pub custom_modlinks_by_game: HashMap<String, CustomModlinksConfig>,
     #[serde(default)]
@@ -63,6 +71,9 @@ pub struct AppSettings {
     pub github_mirror_format: String,
     #[serde(default)]
     pub low_storage_mode: bool,
+    // runtime only override for the installed mods database, modpacks point it inside their own folder
+    #[serde(skip)]
+    pub installed_db_override: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -83,8 +94,13 @@ impl Default for AppSettings {
             use_github_mirror: false,
             github_mirror_format: String::new(),
             low_storage_mode: false,
+            installed_db_override: None,
         }
     }
+}
+
+fn file_name(path: &Path) -> Option<&str> {
+    path.file_name().and_then(|name| name.to_str())
 }
 
 impl AppSettings {
@@ -96,23 +112,21 @@ impl AppSettings {
     }
 
     pub fn normalize_managed_folder(raw: &str, game: &GameKey) -> String {
-        let path = PathBuf::from(raw.trim());
-        if raw.trim().is_empty() {
+        let raw = raw.trim();
+        if raw.is_empty() {
             return String::new();
         }
+        let path = PathBuf::from(raw);
 
-        if path.file_name().and_then(|n| n.to_str()) == Some("Managed") {
+        if file_name(&path) == Some("Managed") {
             return path.to_string_lossy().to_string();
         }
 
-        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if name.ends_with("_Data") {
-                return path.join("Managed").to_string_lossy().to_string();
-            }
+        if file_name(&path).is_some_and(|name| name.ends_with("_Data")) {
+            return path.join("Managed").to_string_lossy().to_string();
         }
 
-        let data_name = Self::game_data_dir_name(game);
-        let data_candidate = path.join(data_name);
+        let data_candidate = path.join(Self::game_data_dir_name(game));
         if data_candidate.exists() {
             return data_candidate.join("Managed").to_string_lossy().to_string();
         }
@@ -123,35 +137,34 @@ impl AppSettings {
     pub fn game_root_path(&self) -> PathBuf {
         let managed = PathBuf::from(&self.managed_folder);
 
-        if managed.file_name().and_then(|n| n.to_str()) == Some("Managed") {
+        if file_name(&managed) == Some("Managed") {
             if let Some(data_folder) = managed.parent() {
-                if data_folder
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|name| name.ends_with("_Data"))
-                    .unwrap_or(false)
-                {
+                // windows and linux keep it in the game folder under name_data/managed
+                if file_name(data_folder).is_some_and(|name| name.ends_with("_Data")) {
                     if let Some(root) = data_folder.parent() {
+                        return root.to_path_buf();
+                    }
+                }
+                // macos keeps it inside the app bundle under contents/resources/data/managed
+                if file_name(data_folder) == Some("Data") {
+                    let app = data_folder
+                        .parent()
+                        .filter(|resources| file_name(resources) == Some("Resources"))
+                        .and_then(Path::parent)
+                        .filter(|contents| file_name(contents) == Some("Contents"))
+                        .and_then(Path::parent)
+                        .filter(|app| file_name(app).is_some_and(|name| name.ends_with(".app")));
+                    if let Some(root) = app.and_then(Path::parent) {
                         return root.to_path_buf();
                     }
                 }
             }
         }
 
-        if managed
-            .file_name()
-            .and_then(|n| n.to_str())
-            .map(|name| name.ends_with("_Data"))
-            .unwrap_or(false)
-        {
+        if file_name(&managed).is_some_and(|name| name.ends_with("_Data")) {
             if let Some(root) = managed.parent() {
                 return root.to_path_buf();
             }
-        }
-
-        let data_candidate = managed.join(Self::game_data_dir_name(&self.game));
-        if data_candidate.exists() {
-            return managed;
         }
 
         managed
@@ -161,6 +174,30 @@ impl AppSettings {
         let mut copy = self.clone();
         copy.managed_folder = Self::normalize_managed_folder(&self.managed_folder, &self.game);
         copy
+    }
+
+    // routes a github download through the mirror, the format holds {url} or is a prefix for the url
+    pub fn mirrored_url(&self, url: &str) -> String {
+        let format = self.github_mirror_format.trim();
+        if !self.use_github_mirror || format.is_empty() {
+            return url.to_string();
+        }
+        let is_github = [
+            "https://github.com/",
+            "https://raw.githubusercontent.com/",
+            "https://objects.githubusercontent.com/",
+            "https://codeload.github.com/",
+        ]
+        .iter()
+        .any(|prefix| url.starts_with(prefix));
+        if !is_github {
+            return url.to_string();
+        }
+        if format.contains("{url}") {
+            format.replace("{url}", url)
+        } else {
+            format!("{}/{}", format.trim_end_matches('/'), url)
+        }
     }
 
     pub fn managed_folder_for(&self, game: &GameKey) -> String {
@@ -214,24 +251,24 @@ impl AppSettings {
     }
 
     pub fn config_dir() -> AppResult<PathBuf> {
+        let unresolved = || AppError::InvalidInput("cannot resolve config directory".to_string());
+
         if cfg!(target_os = "windows") {
-            if let Ok(appdata) = std::env::var("APPDATA") {
-                return Ok(PathBuf::from(appdata).join("HKModInstaller"));
-            }
-            if let Ok(local) = std::env::var("LOCALAPPDATA") {
-                return Ok(PathBuf::from(local).join("HKModInstaller"));
-            }
-            return Err(AppError::InvalidInput("cannot resolve config directory".to_string()));
+            return std::env::var("APPDATA")
+                .or_else(|_| std::env::var("LOCALAPPDATA"))
+                .map(|base| PathBuf::from(base).join("HKModInstaller"))
+                .map_err(|_| unresolved());
         }
 
         if cfg!(target_os = "macos") {
-            if let Ok(home) = std::env::var("HOME") {
-                return Ok(Path::new(&home)
-                    .join("Library")
-                    .join("Application Support")
-                    .join("HKModInstaller"));
-            }
-            return Err(AppError::InvalidInput("cannot resolve config directory".to_string()));
+            return std::env::var("HOME")
+                .map(|home| {
+                    Path::new(&home)
+                        .join("Library")
+                        .join("Application Support")
+                        .join("HKModInstaller")
+                })
+                .map_err(|_| unresolved());
         }
 
         let base = std::env::var("XDG_CONFIG_HOME")
@@ -239,7 +276,7 @@ impl AppSettings {
             .or_else(|_| {
                 std::env::var("HOME")
                     .map(|home| Path::new(&home).join(".config"))
-                    .map_err(|_| AppError::InvalidInput("cannot resolve config directory".to_string()))
+                    .map_err(|_| unresolved())
             })?;
 
         Ok(base.join("HKModInstaller"))
@@ -249,21 +286,11 @@ impl AppSettings {
         Ok(Self::config_dir()?.join("HKInstallerSettings.json"))
     }
 
-    pub fn cache_folder(&self) -> AppResult<PathBuf> {
-        Ok(Self::config_dir()?.join("HKInstallerCache"))
-    }
-
     pub fn mods_folder(&self) -> PathBuf {
-        if matches!(self.game, GameKey::Silksong) {
+        if self.game.is_silksong() {
             return self.game_root_path().join("BepInEx").join("plugins");
         }
-
-        let managed = PathBuf::from(&self.managed_folder);
-        if managed.file_name().and_then(|n| n.to_str()) == Some("Managed") {
-            return managed.join("Mods");
-        }
-
-        managed.join("Mods")
+        PathBuf::from(&self.managed_folder).join("Mods")
     }
 
     pub fn disabled_folder(&self) -> PathBuf {
@@ -271,11 +298,10 @@ impl AppSettings {
     }
 
     pub fn installed_mods_path(&self) -> AppResult<PathBuf> {
-        let key = match self.game {
-            GameKey::HollowKnight => "hollow_knight",
-            GameKey::Silksong => "silksong",
-        };
-        Ok(Self::config_dir()?.join(format!("InstalledMods.{key}.json")))
+        if let Some(path) = &self.installed_db_override {
+            return Ok(path.clone());
+        }
+        Ok(Self::config_dir()?.join(format!("InstalledMods.{}.json", self.game.as_str())))
     }
 
     pub async fn load() -> AppResult<Self> {
@@ -301,15 +327,17 @@ impl AppSettings {
     }
 
     pub async fn auto_detect(game: &GameKey) -> AppResult<Option<String>> {
+        // the search touches the disk a lot, so it runs off the async runtime
+        let game = game.clone();
+        tokio::task::spawn_blocking(move || Self::detect_blocking(&game))
+            .await
+            .map_err(|error| AppError::InvalidInput(format!("game search failed: {error}")))
+    }
+
+    fn detect_blocking(game: &GameKey) -> Option<String> {
         let data_dir = Self::game_data_dir_name(game);
 
         let candidates: Vec<PathBuf> = if cfg!(target_os = "windows") {
-            let mut roots = Vec::new();
-            for drive in b'A'..=b'Z' {
-                roots.push(PathBuf::from(format!("{}:\\", drive as char)));
-            }
-
-            let mut paths = Vec::new();
             let windows_paths = match game {
                 GameKey::HollowKnight => vec![
                     "Program Files/Steam/steamapps/common/Hollow Knight",
@@ -334,72 +362,66 @@ impl AppSettings {
                 ],
             };
 
-            for root in roots {
-                for relative in &windows_paths {
-                    paths.push(root.join(relative).join(data_dir).join("Managed"));
-                }
-            }
-            paths
+            Self::drive_roots()
+                .into_iter()
+                .flat_map(|root| {
+                    windows_paths
+                        .iter()
+                        .map(move |relative| root.join(relative).join(data_dir).join("Managed"))
+                })
+                .collect()
         } else if cfg!(target_os = "macos") {
             let home = std::env::var("HOME").unwrap_or_default();
-            let base = Path::new(&home).join("Library/Application Support/Steam/steamapps/common");
-            let app_name = match game {
-                GameKey::HollowKnight => "Hollow Knight.app",
-                GameKey::Silksong => "Hollow Knight Silksong.app",
+            let (folder, app_name) = match game {
+                GameKey::HollowKnight => ("Hollow Knight", "Hollow Knight.app"),
+                GameKey::Silksong => ("Hollow Knight Silksong", "Hollow Knight Silksong.app"),
             };
-            vec![
-                base.join(match game {
-                    GameKey::HollowKnight => "Hollow Knight",
-                    GameKey::Silksong => "Hollow Knight Silksong",
-                })
+            vec![Path::new(&home)
+                .join("Library/Application Support/Steam/steamapps/common")
+                .join(folder)
                 .join(app_name)
-                .join("Contents/Resources/Data/Managed"),
-            ]
+                .join("Contents/Resources/Data/Managed")]
         } else {
             let home = std::env::var("HOME").unwrap_or_default();
-            let candidates = match game {
-                GameKey::HollowKnight => vec![
-                    ".local/share/Steam/steamapps/common/Hollow Knight",
-                    ".steam/steam/steamapps/common/Hollow Knight",
-                    ".steam/root/steamapps/common/Hollow Knight",
-                    ".var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Hollow Knight",
-                ],
-                GameKey::Silksong => vec![
-                    ".local/share/Steam/steamapps/common/Hollow Knight Silksong",
-                    ".steam/steam/steamapps/common/Hollow Knight Silksong",
-                    ".steam/root/steamapps/common/Hollow Knight Silksong",
-                    ".var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Hollow Knight Silksong",
-                ],
+            let folder = match game {
+                GameKey::HollowKnight => "Hollow Knight",
+                GameKey::Silksong => "Hollow Knight Silksong",
             };
-            candidates
-                .into_iter()
-                .map(|relative| Path::new(&home).join(relative).join(data_dir).join("Managed"))
-                .collect()
+            [
+                ".local/share/Steam/steamapps/common",
+                ".steam/steam/steamapps/common",
+                ".steam/root/steamapps/common",
+                ".var/app/com.valvesoftware.Steam/data/Steam/steamapps/common",
+            ]
+            .iter()
+            .map(|library| {
+                Path::new(&home)
+                    .join(library)
+                    .join(folder)
+                    .join(data_dir)
+                    .join("Managed")
+            })
+            .collect()
         };
 
-        for path in candidates {
-            if path.exists() {
-                return Ok(Some(path.to_string_lossy().to_string()));
-            }
+        if let Some(path) = candidates.into_iter().find(|path| path.exists()) {
+            return Some(path.to_string_lossy().to_string());
         }
 
-        if let Some(path) = Self::scan_for_managed_folder(game, data_dir) {
-            return Ok(Some(path.to_string_lossy().to_string()));
-        }
-
-        Ok(None)
+        Self::scan_for_managed_folder(data_dir).map(|path| path.to_string_lossy().to_string())
     }
 
-    fn scan_for_managed_folder(game: &GameKey, data_dir: &str) -> Option<PathBuf> {
+    // drive letters that exist on this machine
+    fn drive_roots() -> Vec<PathBuf> {
+        (b'A'..=b'Z')
+            .map(|drive| PathBuf::from(format!("{}:\\", drive as char)))
+            .filter(|root| root.exists())
+            .collect()
+    }
+
+    fn scan_for_managed_folder(data_dir: &str) -> Option<PathBuf> {
         let roots: Vec<PathBuf> = if cfg!(target_os = "windows") {
-            let mut roots = Vec::new();
-            for drive in b'A'..=b'Z' {
-                let drive_root = PathBuf::from(format!("{}:\\", drive as char));
-                if drive_root.exists() {
-                    roots.push(drive_root);
-                }
-            }
-            roots
+            Self::drive_roots()
         } else if cfg!(target_os = "macos") {
             vec![
                 PathBuf::from("/Applications"),
@@ -413,45 +435,26 @@ impl AppSettings {
             ]
         };
 
-        let max_depth = match game {
-            GameKey::HollowKnight => 5,
-            GameKey::Silksong => 5,
-        };
-
-        for root in roots {
-            if !root.exists() {
-                continue;
-            }
-
-            for entry in WalkDir::new(&root)
+        for root in roots.into_iter().filter(|root| root.exists()) {
+            let found = WalkDir::new(&root)
                 .follow_links(false)
-                .max_depth(max_depth)
+                .max_depth(SCAN_MAX_DEPTH)
                 .into_iter()
                 .filter_map(Result::ok)
-            {
-                if !entry.file_type().is_dir() {
-                    continue;
-                }
-
-                if !entry
-                    .file_name()
-                    .to_string_lossy()
-                    .eq_ignore_ascii_case("Managed")
-                {
-                    continue;
-                }
-
-                let Some(parent) = entry.path().parent() else {
-                    continue;
-                };
-
-                let Some(parent_name) = parent.file_name().and_then(|name| name.to_str()) else {
-                    continue;
-                };
-
-                if parent_name.eq_ignore_ascii_case(data_dir) {
-                    return Some(entry.path().to_path_buf());
-                }
+                .find(|entry| {
+                    entry.file_type().is_dir()
+                        && entry
+                            .file_name()
+                            .to_string_lossy()
+                            .eq_ignore_ascii_case("Managed")
+                        && entry
+                            .path()
+                            .parent()
+                            .and_then(file_name)
+                            .is_some_and(|parent| parent.eq_ignore_ascii_case(data_dir))
+                });
+            if let Some(entry) = found {
+                return Some(entry.into_path());
             }
         }
 

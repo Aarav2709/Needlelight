@@ -2,9 +2,10 @@
 	<div
 		class="vue-notification-group"
 		:class="{
+			'intercom-present': isIntercomPresent,
 			'location-left': notificationLocation === 'left',
 			'location-right': notificationLocation === 'right',
-			'has-sidebar': hasSidebar,
+			'has-sidebar': hasSidebar && !hasModalActive,
 		}"
 	>
 		<transition-group name="notifs">
@@ -15,40 +16,104 @@
 				@mouseenter="stopTimer(item)"
 				@mouseleave="setNotificationTimer(item)"
 			>
-				<div class="flex w-full gap-3 rounded-lg bg-bg-raised p-3 shadow-xl">
+				<div
+					class="flex w-full gap-2 overflow-hidden rounded-lg bg-bg-raised border border-solid border-surface-5"
+					:class="item.containerClass"
+				>
 					<div
-						class="shrink-0"
+						class="w-2"
 						:class="{
-							'text-red': item.type === 'error',
-							'text-orange': item.type === 'warning',
-							'text-green': item.type === 'success',
-							'text-blue': !item.type || !['error', 'warning', 'success'].includes(item.type),
+							'bg-red': item.type === 'error',
+							'bg-orange': item.type === 'warning',
+							'bg-green': item.type === 'success',
+							'bg-blue': !item.type || item.type === 'info',
+							'bg-transparent': item.type === 'neutral',
 						}"
+					></div>
+					<div
+						class="grid w-full grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1 py-2 pl-1 pr-3"
 					>
-						<IssuesIcon v-if="item.type === 'warning'" class="h-5 w-5" />
-						<CheckCircleIcon v-else-if="item.type === 'success'" class="h-5 w-5" />
-						<XCircleIcon v-else-if="item.type === 'error'" class="h-5 w-5" />
-						<InfoIcon v-else class="h-5 w-5" />
-					</div>
-
-					<div class="flex-1 min-w-0 flex flex-col gap-1">
-						<div class="text-sm font-bold text-contrast">{{ item.title }}</div>
-						<div v-if="item.text" class="text-sm text-secondary">{{ item.text }}</div>
-						<div v-if="item.count && item.count > 1" class="text-xs text-secondary">
-							{{ item.count }} occurrences
+						<div
+							v-if="!item.noIcon"
+							class="flex items-center"
+							:class="{
+								'text-red': item.type === 'error',
+								'text-orange': item.type === 'warning',
+								'text-green': item.type === 'success',
+								'text-blue': !item.type || item.type === 'info',
+								'text-contrast': item.type === 'neutral',
+							}"
+						>
+							<IssuesIcon v-if="item.type === 'warning'" class="h-6 w-6" />
+							<CheckCircleIcon v-else-if="item.type === 'success'" class="h-6 w-6" />
+							<XCircleIcon v-else-if="item.type === 'error'" class="h-6 w-6" />
+							<InfoIcon v-else class="h-6 w-6" />
 						</div>
-						<div v-if="item.errorCode" class="text-xs font-mono text-secondary">
-							{{ item.errorCode }}
+						<div
+							class="m-0 text-wrap font-bold text-contrast"
+							:class="{ 'col-span-2': item.noIcon }"
+						>
+							{{ item.title }}
 						</div>
+						<div class="flex items-center gap-1">
+							<div v-if="item.count && item.count > 1" class="text-xs font-bold text-contrast">
+								x{{ item.count }}
+							</div>
+							<IconButton
+								v-if="item.copyable !== false"
+								v-tooltip="
+									item.supportData ? 'Copy error details for support' : 'Copy to clipboard'
+								"
+								size="xs"
+								:label="item.supportData ? 'Copy error details for support' : 'Copy to clipboard'"
+								@click="copyToClipboard(item)"
+							>
+								<CheckIcon v-if="copied[getCopyKey(item)]" />
+								<CopyIcon v-else />
+							</IconButton>
+							<IconButton
+								v-if="item.dismissible !== false"
+								v-tooltip="`Dismiss`"
+								size="xs"
+								:label="`Dismiss`"
+								@click="dismissNotification(index)"
+							>
+								<XIcon />
+							</IconButton>
+						</div>
+						<div v-if="item.type !== 'neutral'"></div>
+						<div
+							class="col-span-2 whitespace-pre-wrap text-sm text-primary max-h-[80vh] overflow-y-auto"
+						>
+							{{ item.text }}
+						</div>
+						<template v-if="item.errorCode">
+							<div></div>
+							<div class="m-0 text-wrap text-xs font-medium text-secondary">
+								{{ item.errorCode }}
+							</div>
+						</template>
+						<template v-if="item.buttons?.length">
+							<div class="col-span-2 flex flex-wrap gap-1.5 pt-1">
+								<Button
+									v-for="(button, buttonIndex) in item.buttons"
+									:key="buttonIndex"
+									:type="button.color && button.color !== 'standard' ? 'colored' : 'base'"
+									:color="
+										button.color && button.color !== 'standard'
+											? button.color === 'medal-promo'
+												? 'medal_promotion'
+												: button.color
+											: undefined
+									"
+									@click="handleButtonClick(item, button)"
+								>
+									<component :is="button.icon" v-if="button.icon" />
+									{{ button.label }}
+								</Button>
+							</div>
+						</template>
 					</div>
-
-					<button
-						class="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-secondary outline-none hover:bg-button-bg hover:text-contrast"
-						aria-label="Dismiss notification"
-						@click="dismissNotification(index)"
-					>
-						<XIcon class="h-4 w-4" />
-					</button>
 				</div>
 			</div>
 		</transition-group>
@@ -56,18 +121,90 @@
 </template>
 
 <script setup lang="ts">
-import { CheckCircleIcon, InfoIcon, IssuesIcon, XCircleIcon, XIcon } from '@modrinth/assets'
-import { computed } from 'vue'
+import {
+	CheckCircleIcon,
+	CheckIcon,
+	CopyIcon,
+	InfoIcon,
+	IssuesIcon,
+	XCircleIcon,
+	XIcon,
+} from '@modrinth/assets'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
-import { injectNotificationManager, type WebNotification } from '../../providers'
+import { Button, IconButton } from '#ui/components/base/buttons'
+import { useModalStack } from '#ui/composables/modal-stack.ts'
+
+import {
+	injectNotificationManager,
+	type WebNotification,
+	type WebNotificationButton,
+} from '../../providers'
 
 const notificationManager = injectNotificationManager()
 const notifications = computed<WebNotification[]>(() => notificationManager.getNotifications())
 const notificationLocation = computed(() => notificationManager.getNotificationLocation())
 
+const isIntercomPresent = ref<boolean>(false)
+const copied = ref<Record<string, boolean>>({})
+
 const stopTimer = (n: WebNotification) => notificationManager.stopNotificationTimer(n)
 const setNotificationTimer = (n: WebNotification) => notificationManager.setNotificationTimer(n)
 const dismissNotification = (n: number) => notificationManager.removeNotificationByIndex(n)
+
+async function handleButtonClick(item: WebNotification, button: WebNotificationButton) {
+	await button.action()
+	if (!button.keepOpen) {
+		notificationManager.removeNotification(item.id)
+	}
+}
+
+function createNotifText(notif: WebNotification): string {
+	return [notif.title, notif.text, notif.errorCode].filter(Boolean).join('\n')
+}
+
+function getCopyKey(notif: WebNotification): string {
+	return notif.supportData ? `support-${notif.id}` : createNotifText(notif)
+}
+
+function checkIntercomPresence(): void {
+	isIntercomPresent.value = !!document.querySelector('.intercom-lightweight-app')
+}
+
+function copyToClipboard(notif: WebNotification): void {
+	// If supportData is present, copy the full JSON for support; otherwise copy plain text
+	const text = notif.supportData
+		? JSON.stringify(notif.supportData, null, 2)
+		: createNotifText(notif)
+
+	const key = getCopyKey(notif)
+	copied.value[key] = true
+	navigator.clipboard.writeText(text)
+
+	setTimeout(() => {
+		const { [key]: _, ...rest } = copied.value
+		copied.value = rest
+	}, 2000)
+}
+
+onMounted(() => {
+	checkIntercomPresence()
+
+	const observer = new MutationObserver(() => {
+		checkIntercomPresence()
+	})
+
+	observer.observe(document.body, {
+		childList: true,
+		subtree: true,
+	})
+
+	onBeforeUnmount(() => {
+		observer.disconnect()
+	})
+})
+
+const { hasModal: hasModalActive } = useModalStack()
 
 withDefaults(
 	defineProps<{
@@ -84,11 +221,12 @@ withDefaults(
 	position: fixed;
 	bottom: 1.5rem;
 	z-index: 200;
-	width: 380px;
-	max-width: calc(100% - 1.5rem * 2);
+	width: 460px;
+	transition: bottom 0.25s ease-in-out;
 
 	&.location-right {
 		right: 1.5rem;
+		transition: right 0.25s ease-in-out;
 
 		&.has-sidebar {
 			right: 325px;
@@ -99,38 +237,70 @@ withDefaults(
 		left: 1.5rem;
 	}
 
+	@media screen and (max-width: 500px) {
+		width: calc(100% - 0.75rem * 2);
+		bottom: 0.75rem;
+
+		&.location-right {
+			right: 0.75rem;
+			left: auto;
+		}
+
+		&.location-left {
+			left: 0.75rem;
+			right: auto;
+		}
+	}
+
+	&.intercom-present {
+		bottom: 5rem;
+	}
+
 	.vue-notification-wrapper {
 		width: 100%;
 		overflow: hidden;
-		margin-bottom: 0.5rem;
+		margin-bottom: 10px;
 
 		&:last-child {
 			margin: 0;
 		}
 	}
+
+	@media screen and (max-width: 750px) {
+		transition: bottom 0.25s ease-in-out;
+		bottom: calc(var(--size-mobile-navbar-height) + 10px) !important;
+
+		&.browse-menu-open {
+			bottom: calc(var(--size-mobile-navbar-height-expanded) + 10px) !important;
+		}
+	}
 }
 
 .notifs-enter-active,
-.notifs-leave-active {
-	transition: opacity 0.25s ease, transform 0.25s ease;
-}
+.notifs-leave-active,
 .notifs-move {
-	transition: transform 0.25s ease;
+	transition: all 0.25s ease-in-out;
+}
+.notifs-enter-from,
+.notifs-leave-to {
+	opacity: 0;
 }
 
 .notifs-enter-from {
-	opacity: 0;
-	transform: translateY(0.5rem);
-}
-
-// taken out of flow while leaving so the remaining notifications can slide
-// smoothly into the gap instead of snapping into place
-.notifs-leave-active {
-	position: absolute;
+	transform: translateY(100%) scale(0.8);
 }
 
 .notifs-leave-to {
-	opacity: 0;
-	transform: translateY(1rem);
+	.location-right & {
+		transform: translateX(100%) scale(0.8);
+	}
+
+	.location-left & {
+		transform: translateX(-100%) scale(0.8);
+	}
+}
+
+body.floating-action-bar-shown .vue-notification-group {
+	bottom: calc(90px);
 }
 </style>

@@ -1,10 +1,12 @@
 <template>
-	<NewModal ref="modal" :noblur="noblur" :danger="danger" :on-hide="onHide">
-		<template #title>
-			<slot name="title">
-				<span class="font-extrabold text-contrast text-lg">{{ title }}</span>
-			</slot>
-		</template>
+	<NewModal
+		ref="modal"
+		:noblur="noblur"
+		:danger="danger"
+		:on-hide="onHide"
+		max-width="800px"
+		:header="title"
+	>
 		<div class="flex flex-col gap-4">
 			<template v-if="description">
 				<div
@@ -20,29 +22,30 @@
 			<label v-if="hasToType" for="confirmation">
 				<span>
 					To confirm you want to proceed, type
-					<span class="italic font-bold">{{ confirmationText }}</span> below:
+					<span class="font-semibold text-contrast">{{ confirmationText }}</span> below:
 				</span>
 			</label>
-			<StyledInput
+			<Input
 				v-if="hasToType"
 				id="confirmation"
 				v-model="confirmation_typed"
 				placeholder="Type here..."
 				wrapper-class="max-w-[20rem]"
 			/>
-			<div class="flex gap-2">
-				<ButtonStyled :color="danger ? 'red' : 'brand'">
-					<button :disabled="action_disabled" @click="proceed">
-						<component :is="proceedIcon" />
-						{{ proceedLabel }}
-					</button>
-				</ButtonStyled>
-				<ButtonStyled>
-					<button @click="modal.hide()">
-						<XIcon />
-						Cancel
-					</button>
-				</ButtonStyled>
+			<div class="flex gap-2 justify-end">
+				<Button @click="hide()">
+					<XIcon />
+					Cancel
+				</Button>
+				<Button
+					type="colored"
+					:color="danger ? 'red' : 'brand'"
+					:disabled="action_disabled"
+					@click="proceed"
+				>
+					<component :is="proceedIcon" />
+					{{ proceedLabel }}
+				</Button>
 			</div>
 		</div>
 	</NewModal>
@@ -53,8 +56,9 @@ import { TrashIcon, XIcon } from '@modrinth/assets'
 import { renderString } from '@modrinth/utils'
 import { computed, ref } from 'vue'
 
-import ButtonStyled from '../base/ButtonStyled.vue'
-import StyledInput from '../base/StyledInput.vue'
+import { Button } from '#ui/components/base/buttons'
+
+import Input from '../base/inputs/Input.vue'
 import NewModal from './NewModal.vue'
 
 const props = defineProps({
@@ -124,6 +128,9 @@ function proceed() {
 function show() {
 	modal.value.show()
 }
+function hide() {
+	modal.value.hide()
+}
 
-defineExpose({ show })
+defineExpose({ show, hide })
 </script>

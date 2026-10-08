@@ -5,10 +5,10 @@ import i18n from '@/i18n.config'
 
 export default {
 	install(app: App) {
-		// Install vue-i18n as before
+		// install vue i18n
 		app.use(i18n)
 
-		// Wrap it in our I18nContext interface
+		// wrap it in the i18n context interface
 		const context: I18nContext = {
 			locale: i18n.global.locale,
 			t: (key, values) => i18n.global.t(key, values ?? {}) as string,
@@ -17,7 +17,7 @@ export default {
 			},
 		}
 
-		// Provide the context at app-level
+		// provide the context app wide
 		app.provide(I18N_INJECTION_KEY, context)
 	},
 }
