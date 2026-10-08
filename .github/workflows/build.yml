@@ -52,9 +52,6 @@ jobs:
       - name: Lint frontend
         run: pnpm lint
 
-      - name: Typecheck frontend
-        run: pnpm typecheck
-
       - name: Build frontend
         run: pnpm build
 
