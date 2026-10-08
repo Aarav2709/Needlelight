@@ -25,7 +25,7 @@ A modern desktop mod manager for Hollow Knight and Hollow Knight: Silksong, buil
 - The project was inspired by the work that came before it.
 - ***Blog post regarding the controversy is out on my <a href="https://aarav2709.github.io/blog/needlelight">portfolio</a> now! Fianlly, the repo is mine, thank you Github Support!***
 
-### Reference and Investigation Sources
+## Reference and Investigation Sources
 
 The following projects and repositories were referred to during Needlelight development, debugging, and implementation research. They are credited here as references and sources of ideas or implementation patterns. This does not mean their code is included wholesale in Needlelight.
 
