@@ -106,7 +106,7 @@ fn file_name(path: &Path) -> Option<&str> {
 impl AppSettings {
     fn game_data_dir_name(game: &GameKey) -> &'static str {
         match game {
-            GameKey::HollowKnight => "Hollow Knight_Data",
+            GameKey::HollowKnight => "hollow_knight_Data",
             GameKey::Silksong => "Hollow Knight Silksong_Data",
         }
     }
