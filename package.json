@@ -33,7 +33,7 @@
     "pinia": "^3.0.0",
     "vite-svg-loader": "^5.1.0",
     "vue": "^3.5.13",
-    "vue-i18n": "^10.0.0",
+    "vue-i18n": "^11.4.14",
     "vue-router": "^4.6.0"
   },
   "devDependencies": {
