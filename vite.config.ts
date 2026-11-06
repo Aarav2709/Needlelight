@@ -3,9 +3,9 @@ import { resolve } from 'path'
 import { defineConfig } from 'vite'
 import svgLoader from 'vite-svg-loader'
 
-import tauriConf from './src-tauri/tauri.conf.json'
+import tauriConf from './src-tauri/tauri.conf.json' with { type: 'json' }
 
-const projectRootDir = resolve(__dirname)
+const projectRootDir = import.meta.dirname
 
 const buildCspHeader = (csp) => {
   if (!csp) {
@@ -114,13 +114,13 @@ export default defineConfig({
     // tauri supports es2021
     target: process.env.TAURI_ENV_PLATFORM == 'windows' ? 'chrome105' : 'safari13',
     // don't minify debug builds
-    minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
+    minify: !process.env.TAURI_ENV_DEBUG,
     // sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
     commonjsOptions: {
       esmExternals: true,
     },
-    rollupOptions: {
+    rolldownOptions: {
       treeshake: {
         // markdown and syntax highlighting only load where a readme is shown, not at startup
         moduleSideEffects: (id) => !LAZY_ONLY_MODULES.test(id.replace(/\\/g, '/')),
