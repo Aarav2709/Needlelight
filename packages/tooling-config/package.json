@@ -29,7 +29,7 @@
 	"peerDependencies": {
 		"eslint": "^9.31.0",
 		"prettier": "^3.6.2",
-		"typescript": ">=5.0.0"
+		"typescript": "^6.0.3"
 	},
 	"dependencies": {
 		"@prettier/plugin-xml": "^3.4.2",
@@ -38,10 +38,10 @@
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.1.1",
-		"@eslint/js": "^9.39.5",
+		"@eslint/js": "^10.0.1",
 		"@nuxt/eslint-config": "^1.17.0",
 		"@vue/tsconfig": "^0.7.0",
-		"eslint": "^9.39.5",
+		"eslint": "^10.14.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-prettier": "^5.5.7",
 		"eslint-plugin-simple-import-sort": "^14.0.0",
