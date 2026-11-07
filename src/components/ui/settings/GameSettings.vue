@@ -26,11 +26,11 @@ onMounted(async () => {
 	for (const game of GAMES) if (games.found[game.key] === false) void games.findGame(game.key)
 })
 
+// the line under a game's name, the radio already shows which game is active
 function status(game: GameInfo) {
 	if (games.searching.has(game.key)) return 'Looking for the game…'
 	if (games.found[game.key] === false) return 'Not found on this computer'
-	if (games.found[game.key] === null) return 'Checking…'
-	return 'Installed'
+	return modpackCount(modpacks.forGame(game.key).length)
 }
 
 async function choose(game: GameKey) {
@@ -90,21 +90,18 @@ const HOLLOW_KNIGHT_STEPS = [
 					</span>
 					<span class="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
 						<span class="truncate text-base font-bold text-contrast">{{ game.name }}</span>
-						<span class="flex min-w-0 items-center gap-1.5 text-sm text-secondary">
-							<SpinnerIcon v-if="games.searching.has(game.key)" class="h-3.5 w-3.5 animate-spin" />
-							<span v-else-if="games.found[game.key] === false" class="nl-dot text-orange" />
-							<span class="truncate">
-								{{ status(game) }} · {{ modpackCount(modpacks.forGame(game.key).length) }}
-							</span>
+						<span
+							class="truncate text-sm"
+							:class="games.found[game.key] === false && !games.searching.has(game.key) ? 'text-orange' : 'text-secondary'"
+						>
+							{{ status(game) }}
 						</span>
 					</span>
-					<span
-						class="nl-badge"
-						:class="games.activeGame === game.key ? 'nl-badge--brand' : 'nl-badge--neutral'"
-					>
-						<SpinnerIcon v-if="games.switching === game.key" class="animate-spin" />
-						{{ games.activeGame === game.key ? 'Active' : 'Inactive' }}
-					</span>
+					<SpinnerIcon
+						v-if="games.switching === game.key || games.searching.has(game.key)"
+						class="h-4 w-4 shrink-0 animate-spin text-secondary"
+						aria-hidden="true"
+					/>
 				</button>
 
 				<div

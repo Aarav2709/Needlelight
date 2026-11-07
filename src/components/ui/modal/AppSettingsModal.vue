@@ -106,7 +106,7 @@ const updateLine = computed(() => {
 				<div class="flex flex-col gap-2 px-4">
 					<div class="flex items-center gap-2">
 						<span class="font-bold text-contrast">Needlelight</span>
-						<span class="nl-badge nl-badge--neutral">v{{ APP_VERSION }}</span>
+						<span class="text-secondary">v{{ APP_VERSION }}</span>
 					</div>
 					<p v-if="updateLine" class="m-0 text-xs" :title="updater.error ?? undefined">
 						{{ updateLine }}

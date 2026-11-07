@@ -353,17 +353,9 @@ const problemText = computed(() => {
 		<div class="modpack-scroll nl-scroll min-w-0 flex-1">
 			<!-- header -->
 			<header class="hero" :style="art ? { '--_tint': art.tint } : undefined">
-				<ModpackArt :seed="modpack.path" :game="modpack.game" size="6.5rem" />
+				<ModpackArt :seed="modpack.path" :game="modpack.game" size="4.5rem" />
 				<div class="flex min-w-0 flex-1 flex-col gap-1.5 self-center">
-					<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-						<h1 class="title" :title="modpack.name">{{ modpack.name }}</h1>
-						<span
-							v-if="isActiveInGame"
-							v-tooltip="'Hollow Knight loads this modpack, even when started from Steam'"
-							class="nl-badge nl-badge--brand"
-							>Active</span
-						>
-					</div>
+					<h1 class="title" :title="modpack.name">{{ modpack.name }}</h1>
 					<p
 						v-if="modpack.description"
 						class="nl-selectable m-0 line-clamp-2 max-w-3xl break-words text-[0.9375rem] leading-relaxed text-base"
@@ -385,15 +377,22 @@ const problemText = computed(() => {
 						<span class="inline-flex items-center gap-1.5" :title="modpack.last_played ?? undefined">
 							<ClockIcon class="h-4 w-4" aria-hidden="true" /> {{ playedLabel(modpack.last_played) }}
 						</span>
+						<span
+							v-if="isActiveInGame"
+							v-tooltip="`${gameName} loads this modpack, even when started from Steam`"
+							class="inline-flex items-center gap-1.5 text-brand"
+						>
+							<CheckCircleIcon class="h-4 w-4" aria-hidden="true" /> Active in game
+						</span>
 					</div>
 				</div>
 				<div class="actions">
-					<Button type="colored" color="brand" size="xl" :disabled="!!modpacks.launching" @click="ctx.play()">
+					<Button type="colored" color="brand" size="lg" :disabled="!!modpacks.launching" @click="ctx.play()">
 						<SpinnerIcon v-if="modpacks.launching === modpack.path" class="animate-spin" />
 						<PlayIcon v-else />
 						{{ modpacks.launching === modpack.path ? 'Launching…' : 'Play' }}
 					</Button>
-					<Button size="xl" @click="router.push(browseRoute)"><PlusIcon /> Browse mods</Button>
+					<Button size="lg" @click="router.push(browseRoute)"><PlusIcon /> Browse mods</Button>
 					<TeleportOverflowMenu
 						size="lg"
 						type="quiet"
@@ -653,8 +652,8 @@ const problemText = computed(() => {
 	isolation: isolate;
 	display: flex;
 	align-items: center;
-	gap: 1.5rem;
-	padding: calc(var(--nl-page-py) + 0.75rem) var(--nl-page-px) 1.75rem;
+	gap: 1rem 1.25rem;
+	padding: calc(var(--nl-page-py) + 0.25rem) var(--nl-page-px) 1.25rem;
 }
 /* a wash of the modpack's own artwork color behind the header */
 .hero::before {
@@ -663,16 +662,15 @@ const problemText = computed(() => {
 	inset: 0;
 	z-index: -1;
 	background:
-		radial-gradient(48rem 16rem at 4% 0%, color-mix(in srgb, var(--_tint, var(--color-brand)) 20%, transparent), transparent 70%),
-		linear-gradient(to bottom, color-mix(in srgb, var(--_tint, var(--color-brand)) 6%, transparent), transparent);
+		radial-gradient(40rem 12rem at 0% 0%, color-mix(in srgb, var(--_tint, var(--color-brand)) 12%, transparent), transparent 70%);
 	pointer-events: none;
 }
 .title {
 	margin: 0;
 	min-width: 0;
-	font-size: 2rem;
+	font-size: 1.625rem;
 	font-weight: 800;
-	line-height: 1.15;
+	line-height: 1.2;
 	letter-spacing: -0.02em;
 	color: var(--color-contrast);
 	overflow-wrap: anywhere;
