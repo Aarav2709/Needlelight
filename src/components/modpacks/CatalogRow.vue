@@ -44,24 +44,22 @@ const extra = computed(() =>
 		<div v-if="progress !== undefined" class="progress-fill" aria-hidden="true" />
 
 		<div class="relative flex min-w-0 flex-1 flex-col gap-1">
-			<div class="flex min-w-0 items-baseline gap-2">
-				<h3 class="name" :title="name">{{ name }}</h3>
-				<span v-if="author" class="author" :title="allAuthors">by {{ author }}</span>
-			</div>
+			<h3 class="name" :title="name">{{ name }}</h3>
 			<p class="m-0 line-clamp-2 text-sm leading-snug text-base" :title="mod.description || undefined">
 				{{ mod.description || 'No description provided.' }}
 			</p>
 			<div class="meta">
 				<span v-for="tag in mod.tags.slice(0, 3)" :key="tag" class="tag">{{ tag }}</span>
 				<span v-if="mod.version">{{ formatVersion(mod.version) }}</span>
+				<span v-if="author" class="author" :title="allAuthors">by {{ author }}</span>
 			</div>
 		</div>
 
-		<div class="relative flex w-[7.5rem] shrink-0 flex-col items-stretch gap-1.5 self-center" @click.stop @keydown.stop>
+		<div class="relative flex w-[6.75rem] shrink-0 flex-col items-stretch gap-1.5 self-center" @click.stop @keydown.stop>
 			<button
 				v-if="!installed"
 				type="button"
-				class="nl-btn nl-btn--primary"
+				class="nl-btn nl-btn--tonal"
 				:disabled="busy"
 				:aria-label="`Install ${name}`"
 				@click="ctx.install(mod.name)"
@@ -120,7 +118,6 @@ const extra = computed(() =>
 	background: color-mix(in srgb, var(--color-brand) 9%, var(--surface-2));
 }
 .name {
-	flex: 0 1 auto;
 	min-width: 0;
 	margin: 0;
 	overflow: hidden;
@@ -131,13 +128,10 @@ const extra = computed(() =>
 	color: var(--color-contrast);
 }
 .author {
-	flex: 0 100 auto;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	font-size: 0.875rem;
-	color: var(--color-secondary);
 }
 .meta {
 	display: flex;
