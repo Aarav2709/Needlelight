@@ -1,6 +1,6 @@
 [package]
 name = "Needlelight"
-version = "8.0.0"
+version = "8.1.100"
 description = "Needlelight Tauri rewrite"
 authors = ["Aarav Gupta"]
 edition = "2021"
