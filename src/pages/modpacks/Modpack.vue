@@ -497,11 +497,13 @@ const problemText = computed(() => {
 						<XIcon class="h-3.5 w-3.5" />
 					</button>
 				</label>
-				<SelectMenu v-model="show" label="Show" :icon="FilterIcon" :options="showOptions" />
-				<SelectMenu v-model="sort" label="Sort" :icon="SortAscIcon" :options="sortOptions" />
-				<span v-if="catalogState?.loading" class="flex items-center gap-2 text-xs text-secondary">
-					<SpinnerIcon class="h-3.5 w-3.5 animate-spin" /> Checking for updates…
-				</span>
+				<div class="filters">
+					<span v-if="catalogState?.loading" class="flex items-center gap-2 text-xs text-secondary">
+						<SpinnerIcon class="h-3.5 w-3.5 animate-spin" /> Checking for updates…
+					</span>
+					<SelectMenu v-model="show" label="Show" :icon="FilterIcon" :options="showOptions" />
+					<SelectMenu v-model="sort" label="Sort" :icon="SortAscIcon" :options="sortOptions" />
+				</div>
 			</div>
 
 			<!-- body -->
@@ -732,6 +734,13 @@ const problemText = computed(() => {
 	padding: 0.75rem var(--nl-page-px);
 	background: var(--color-bg);
 	border-bottom: 1px solid var(--color-divider);
+}
+/* show and sort stay together so they wrap as a pair */
+.filters {
+	display: flex;
+	align-items: center;
+	gap: 0.625rem;
+	margin-left: auto;
 }
 .section-title {
 	display: flex;
