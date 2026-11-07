@@ -248,7 +248,7 @@ watch(
     <AppSettingsModal ref="settingsModal" />
     <div
       data-tauri-drag-region
-      class="app-grid-statusbar bg-bg-raised h-[--top-bar-height] flex"
+      class="app-grid-statusbar bg-bg-raised h-[--top-bar-height] flex min-w-0 overflow-hidden"
     >
       <div data-tauri-drag-region class="flex min-w-0 items-center px-3">
         <span
@@ -275,7 +275,7 @@ watch(
         </div>
         <Breadcrumbs class="min-w-0" />
       </div>
-      <section data-tauri-drag-region class="flex ml-auto items-center">
+      <section data-tauri-drag-region class="flex ml-auto shrink-0 items-center">
         <div class="flex mr-2">
           <RunningAppBar />
         </div>
