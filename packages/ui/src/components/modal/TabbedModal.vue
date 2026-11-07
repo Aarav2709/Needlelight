@@ -135,7 +135,7 @@ defineExpose({ show, hide, selectedTab, setTab })
 		<template v-if="$slots.title" #title>
 			<slot name="title" />
 		</template>
-		<div class="grid grid-cols-[minmax(12.5rem,18rem)_minmax(0,1fr)] p-6 pb-3 pr-0">
+		<div class="grid grid-cols-[clamp(10rem,30%,15rem)_minmax(0,1fr)] p-6 pb-3 pr-0">
 			<div
 				class="flex min-w-0 max-h-[min(65vh,600px)] flex-col border-0 border-r-[1px] border-solid border-divider pr-4"
 			>
