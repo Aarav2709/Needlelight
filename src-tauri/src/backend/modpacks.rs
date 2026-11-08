@@ -210,18 +210,18 @@ pub fn silksong_launch_extras(real: &AppSettings, profile_dir: &Path) -> AppResu
     let target = preloader.to_string_lossy().to_string();
     let game_root = real.game_root_path();
 
+    // the windows build under proton loads the same winhttp proxy as windows, launched through steam
+    if is_proton_install(&game_root) {
+        ensure_doorstop_proxy(profile_dir, &game_root)?;
+        ensure_proton_dll_override()?;
+        let mut args = doorstop_args(&game_root, profile_dir);
+        args.push(wine_path(&preloader));
+        return Ok(LaunchExtras { args, envs: vec![] });
+    }
+
     if cfg!(target_os = "windows") {
         ensure_doorstop_proxy(profile_dir, &game_root)?;
-        // match the argument style to the proxy in the game folder, which may predate this modpack's pack
-        let major = doorstop_major(&game_root)
-            .or_else(|| doorstop_major(profile_dir))
-            .unwrap_or(4);
-        let args = if major >= 4 {
-            vec!["--doorstop-enabled", "true", "--doorstop-target-assembly"]
-        } else {
-            vec!["--doorstop-enable", "true", "--doorstop-target"]
-        };
-        let mut args: Vec<String> = args.into_iter().map(String::from).collect();
+        let mut args = doorstop_args(&game_root, profile_dir);
         args.push(target);
         return Ok(LaunchExtras { args, envs: vec![] });
     }
@@ -269,6 +269,107 @@ pub fn silksong_launch_extras(real: &AppSettings, profile_dir: &Path) -> AppResu
     };
     envs.push((preload_var.to_string(), preload));
     Ok(LaunchExtras { args: vec![], envs })
+}
+
+// doorstop's enable arguments, matched to the proxy in the game folder, which may predate this modpack's pack
+fn doorstop_args(game_root: &Path, profile_dir: &Path) -> Vec<String> {
+    let major = doorstop_major(game_root)
+        .or_else(|| doorstop_major(profile_dir))
+        .unwrap_or(4);
+    let args = if major >= 4 {
+        ["--doorstop-enabled", "true", "--doorstop-target-assembly"]
+    } else {
+        ["--doorstop-enable", "true", "--doorstop-target"]
+    };
+    args.into_iter().map(String::from).collect()
+}
+
+// a linux install of the windows build, which steam runs through proton
+fn is_proton_install(game_root: &Path) -> bool {
+    cfg!(target_os = "linux") && game_root.join("Hollow Knight Silksong.exe").is_file()
+}
+
+// proton maps the linux root to the z drive, and the game only understands windows paths
+fn wine_path(path: &Path) -> String {
+    format!("Z:{}", path.to_string_lossy().replace('/', "\\"))
+}
+
+const SILKSONG_APP_ID: &str = "1030300";
+const PROTON_LAUNCH_OPTIONS: &str = "WINEDLLOVERRIDES=\"winhttp=n,b\" %command%";
+
+// wine only loads the doorstop proxy over its own winhttp when told to, which only the steam launch options can do
+fn ensure_proton_dll_override() -> AppResult<()> {
+    let options = steam_launch_options(SILKSONG_APP_ID);
+    // without readable steam config, launch anyway rather than block on a guess
+    if options.is_empty() || options.iter().any(|value| value.contains("winhttp")) {
+        return Ok(());
+    }
+    Err(AppError::InvalidInput(format!(
+        "Silksong needs one Steam setting to load mods through Proton. In Steam, open Hollow Knight: \
+         Silksong → Properties → Launch Options, enter {PROTON_LAUNCH_OPTIONS} and launch again."
+    )))
+}
+
+// the launch options every local steam user has set for a game, an empty string when one has none
+fn steam_launch_options(app_id: &str) -> Vec<String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let roots = [
+        ".local/share/Steam",
+        ".steam/steam",
+        ".var/app/com.valvesoftware.Steam/data/Steam",
+    ];
+    let mut seen = std::collections::HashSet::new();
+    let mut found = Vec::new();
+    for root in roots {
+        let userdata = Path::new(&home).join(root).join("userdata");
+        let Ok(users) = std::fs::read_dir(&userdata) else {
+            continue;
+        };
+        for user in users.flatten() {
+            let vdf = user.path().join("config/localconfig.vdf");
+            let Ok(real) = vdf.canonicalize() else {
+                continue;
+            };
+            if !seen.insert(real) {
+                continue;
+            }
+            if let Ok(text) = std::fs::read_to_string(&vdf) {
+                if let Some(value) = vdf_app_launch_options(&text, app_id) {
+                    found.push(value);
+                }
+            }
+        }
+    }
+    found
+}
+
+// the launch options in a game's blocks of localconfig.vdf, some(empty) when the game is listed without any
+fn vdf_app_launch_options(text: &str, app_id: &str) -> Option<String> {
+    let key = format!("\"{app_id}\"");
+    let lines: Vec<&str> = text.lines().map(str::trim).collect();
+    let mut listed = false;
+    for (start, _) in lines.iter().enumerate().filter(|(_, line)| **line == key) {
+        listed = true;
+        let mut depth = 0;
+        for line in &lines[start + 1..] {
+            match *line {
+                "{" => depth += 1,
+                "}" => {
+                    depth -= 1;
+                    if depth <= 0 {
+                        break;
+                    }
+                }
+                _ if depth == 1 && line.starts_with("\"LaunchOptions\"") => {
+                    let value = line["\"LaunchOptions\"".len()..].trim();
+                    let value = value.strip_prefix('"').and_then(|v| v.strip_suffix('"'));
+                    return Some(value.unwrap_or_default().replace("\\\"", "\""));
+                }
+                _ => {}
+            }
+        }
+    }
+    listed.then(String::new)
 }
 
 // puts the doorstop proxy in the game folder without replacing files, with a disabled config so steam launches stay vanilla
@@ -367,4 +468,69 @@ pub(crate) fn copy_path(src: &Path, dst: &Path) -> AppResult<()> {
         std::fs::copy(src, dst)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const VDF: &str = r#"
+"UserLocalConfigStore"
+{
+	"apptickets"
+	{
+		"1030300"		"abc"
+	}
+	"Software"
+	{
+		"Valve"
+		{
+			"Steam"
+			{
+				"apps"
+				{
+					"367520"
+					{
+						"LaunchOptions"		"-nolog"
+					}
+					"1030300"
+					{
+						"LastPlayed"		"1700000000"
+						"LaunchOptions"		"WINEDLLOVERRIDES=\"winhttp=n,b\" %command%"
+					}
+				}
+			}
+		}
+	}
+}
+"#;
+
+    #[test]
+    fn reads_launch_options_from_the_apps_block() {
+        assert_eq!(
+            vdf_app_launch_options(VDF, "1030300").as_deref(),
+            Some(PROTON_LAUNCH_OPTIONS)
+        );
+        assert_eq!(
+            vdf_app_launch_options(VDF, "367520").as_deref(),
+            Some("-nolog")
+        );
+    }
+
+    #[test]
+    fn listed_without_options_is_empty_and_unlisted_is_none() {
+        let vdf = "\"apps\"\n{\n\"1030300\"\n{\n\"LastPlayed\" \"1\"\n}\n}";
+        assert_eq!(vdf_app_launch_options(vdf, "1030300").as_deref(), Some(""));
+        assert_eq!(vdf_app_launch_options(vdf, "42"), None);
+    }
+
+    #[test]
+    fn wine_path_uses_the_z_drive() {
+        assert_eq!(
+            wine_path(Path::new(
+                "/home/me/pack/BepInEx/core/BepInEx.Preloader.dll"
+            )),
+            "Z:\\home\\me\\pack\\BepInEx\\core\\BepInEx.Preloader.dll"
+        );
+    }
 }
