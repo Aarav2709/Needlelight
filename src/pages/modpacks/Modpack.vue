@@ -1,7 +1,6 @@
 <script setup lang="ts">
 // a modpack's page, its header and the mods installed in it
 import {
-	CheckCircleIcon,
 	CircleAlertIcon,
 	ClockIcon,
 	CopyIcon,
@@ -43,7 +42,6 @@ import { useRouter } from 'vue-router'
 import ModPanel from '@/components/modpacks/ModPanel.vue'
 import ModRow from '@/components/modpacks/ModRow.vue'
 import ModpackEditorModal from '@/components/ui/modal/ModpackEditorModal.vue'
-import ModpackArt from '@/components/ui/ModpackArt.vue'
 import SelectMenu from '@/components/ui/SelectMenu.vue'
 import { useModpackContext } from '@/composables/modpack'
 import { useShortcut } from '@/composables/shortcuts'
@@ -353,7 +351,6 @@ const problemText = computed(() => {
 		<div class="modpack-scroll nl-scroll min-w-0 flex-1">
 			<!-- header -->
 			<header class="hero" :style="art ? { '--_tint': art.tint } : undefined">
-				<ModpackArt :seed="modpack.path" :game="modpack.game" size="4.5rem" />
 				<div class="flex min-w-0 flex-1 flex-col gap-1.5 self-center">
 					<h1 class="title" :title="modpack.name">{{ modpack.name }}</h1>
 					<p
@@ -376,13 +373,6 @@ const problemText = computed(() => {
 						</span>
 						<span class="inline-flex items-center gap-1.5" :title="modpack.last_played ?? undefined">
 							<ClockIcon class="h-4 w-4" aria-hidden="true" /> {{ playedLabel(modpack.last_played) }}
-						</span>
-						<span
-							v-if="isActiveInGame"
-							v-tooltip="`${gameName} loads this modpack, even when started from Steam`"
-							class="inline-flex items-center gap-1.5 text-brand"
-						>
-							<CheckCircleIcon class="h-4 w-4" aria-hidden="true" /> Active in game
 						</span>
 					</div>
 				</div>

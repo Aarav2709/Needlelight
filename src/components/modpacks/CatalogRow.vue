@@ -4,7 +4,6 @@ import { computed } from 'vue'
 
 import { useModpackContext } from '@/composables/modpack'
 import {
-	addOutcome,
 	authorLine,
 	formatVersion,
 	isInstalled,
@@ -24,9 +23,6 @@ const allAuthors = computed(() => authorLine(props.mod, ctx.game.value))
 const installed = computed(() => isInstalled(props.mod))
 const busy = computed(() => ctx.isBusy(props.mod.name))
 const progress = computed(() => ctx.progressFor(props.mod.name))
-const extra = computed(() =>
-	installed.value ? 0 : addOutcome(props.mod.name, ctx.index.value).added.length,
-)
 </script>
 
 <template>
@@ -81,9 +77,6 @@ const extra = computed(() =>
 				Uninstall
 			</button>
 			<span v-if="installed && needsUpdate(mod)" class="caption text-orange">Update available</span>
-			<span v-else-if="!installed && extra > 0" class="caption text-secondary">
-				+ {{ extra }} mod{{ extra === 1 ? '' : 's' }} it needs
-			</span>
 		</div>
 	</article>
 </template>

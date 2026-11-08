@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import {
-	BugIcon,
 	DownloadIcon,
-	ExternalIcon,
-	GlobeIcon,
 	RefreshCwIcon,
 	SpinnerIcon,
 	TrashIcon,
@@ -14,7 +11,6 @@ import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue'
 
 import { useModpackContext } from '@/composables/modpack'
 import {
-	addOutcome,
 	authorLine,
 	dependenciesOf,
 	formatVersion,
@@ -24,7 +20,6 @@ import {
 	isUntracked,
 	type ModEntry,
 	needsUpdate,
-	projectLinks,
 	shortAuthorLine,
 } from '@/helpers/mods'
 import { useReadmes } from '@/store/readmes'
@@ -49,13 +44,9 @@ const hasUpdate = computed(() => !!mod.value && needsUpdate(mod.value))
 const untracked = computed(() => !!mod.value && isUntracked(mod.value))
 const busy = computed(() => ctx.isBusy(props.name))
 const progress = computed(() => ctx.progressFor(props.name))
-const links = computed(() => (mod.value ? projectLinks(mod.value) : null))
 
-// what installing or keeping this mod needs, for the install hint and the fix button
+// what keeping this mod needs, for the fix button
 
-const outcome = computed(() =>
-	mod.value && !inPack.value ? addOutcome(props.name, ctx.index.value) : null,
-)
 const dependencies = computed(() => (mod.value ? dependenciesOf(mod.value, ctx.index.value) : []))
 const problems = computed(() =>
 	inPack.value && enabled.value ? dependencies.value.filter((d) => d.status !== 'enabled') : [],
@@ -73,12 +64,6 @@ watch(
 	},
 	{ immediate: true },
 )
-
-function pageLabel(url: string) {
-	if (/^https?:\/\/(www\.)?thunderstore\.io\//i.test(url)) return 'Thunderstore'
-	if (/^https?:\/\/(www\.)?github\.com\//i.test(url)) return 'GitHub'
-	return 'Website'
-}
 
 // keyboard and focus
 
@@ -131,9 +116,6 @@ watch(
 					<DownloadIcon v-else />
 					{{ busy ? (progress !== undefined ? `Installing… ${Math.round(progress)}%` : 'Installing…') : 'Install' }}
 				</button>
-				<p v-if="outcome?.added.length" class="m-0 text-center text-xs text-secondary">
-					Also installs {{ outcome.added.length }} mod{{ outcome.added.length === 1 ? '' : 's' }} it needs
-				</p>
 			</template>
 			<template v-else>
 				<div class="flex gap-2">
@@ -172,18 +154,6 @@ watch(
 
 		<div v-if="mod" ref="body" class="panel-body nl-scroll">
 			<template v-if="mod">
-				<div v-if="links && (links.page || links.website || links.issues)" class="links">
-					<button v-if="links.page" type="button" class="link-chip" @click="ctx.openLink(links.page)">
-						<ExternalIcon class="h-3.5 w-3.5" /> {{ pageLabel(links.page) }}
-					</button>
-					<button v-if="links.website" type="button" class="link-chip" @click="ctx.openLink(links.website)">
-						<GlobeIcon class="h-3.5 w-3.5" /> {{ pageLabel(links.website) === 'GitHub' ? 'GitHub' : 'Website' }}
-					</button>
-					<button v-if="links.issues" type="button" class="link-chip link-chip--report" @click="ctx.openLink(links.issues)">
-						<BugIcon class="h-3.5 w-3.5" /> Report an issue
-					</button>
-				</div>
-
 				<p v-if="!mod.inCatalog" class="lede">
 					This mod was added to the modpack outside Needlelight, so there's no information about it
 					here. You can still enable, disable or uninstall it.
@@ -230,10 +200,6 @@ watch(
 							</dd>
 						</template>
 					</dl>
-					<p v-if="!links?.issues && links?.page" class="m-0 text-xs leading-relaxed text-secondary">
-						This project doesn't list an issue tracker; contact the author through its
-						{{ pageLabel(links.page) }} page.
-					</p>
 				</section>
 			</template>
 		</div>
@@ -300,10 +266,6 @@ watch(
 	gap: 0.5rem;
 	padding: 0.25rem 1.25rem 1rem;
 }
-.link-chip:focus-visible {
-	outline: 2px solid var(--color-brand);
-	outline-offset: 2px;
-}
 .panel-body {
 	border-top: 1px solid var(--color-divider);
 	display: flex;
@@ -318,35 +280,6 @@ watch(
 	font-size: 0.875rem;
 	line-height: 1.6;
 	color: var(--color-secondary);
-}
-.links {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.375rem;
-}
-.link-chip {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.375rem;
-	height: 1.875rem;
-	padding: 0 0.625rem;
-	border: 1px solid var(--color-divider);
-	border-radius: 0.5rem;
-	background: var(--surface-2);
-	color: var(--color-base);
-	font-size: 0.8125rem;
-	font-weight: 600;
-	cursor: pointer;
-	transition:
-		background-color 0.12s ease,
-		color 0.12s ease;
-}
-.link-chip:hover {
-	background: var(--surface-3);
-	color: var(--color-contrast);
-}
-.link-chip--report {
-	color: var(--color-brand);
 }
 .tag {
 	padding: 0.1875rem 0.5rem;
