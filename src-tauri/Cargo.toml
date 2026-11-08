@@ -21,7 +21,7 @@ thiserror = "2"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "sync"] }
 zip = "2"
-sha2 = "0.10"
+sha2 = "0.11"
 hex = "0.4"
 regex = "1"
 walkdir = "2"
