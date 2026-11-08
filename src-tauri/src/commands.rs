@@ -206,6 +206,71 @@ fn find_game_exe(settings: &AppSettings) -> Option<std::path::PathBuf> {
     candidates.into_iter().find(|path| path.is_file())
 }
 
+// a windows build on linux runs through proton, which only steam can start
+fn launches_through_steam(exe: &std::path::Path) -> bool {
+    cfg!(target_os = "linux")
+        && exe
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"))
+}
+
+fn on_path(program: &str) -> bool {
+    std::env::var_os("PATH")
+        .is_some_and(|paths| std::env::split_paths(&paths).any(|dir| dir.join(program).is_file()))
+}
+
+// steam from the path, then flatpak steam, then whatever handles steam links
+fn steam_launch_command(app_id: &str, args: &[String]) -> Command {
+    if on_path("steam") {
+        let mut command = Command::new("steam");
+        command.arg("-applaunch").arg(app_id).args(args);
+        command
+    } else if on_path("flatpak")
+        && std::path::Path::new("/var/lib/flatpak/app/com.valvesoftware.Steam").exists()
+    {
+        let mut command = Command::new("flatpak");
+        command
+            .args(["run", "com.valvesoftware.Steam", "-applaunch", app_id])
+            .args(args);
+        command
+    } else {
+        let mut command = Command::new("xdg-open");
+        command.arg(format!("steam://rungameid/{app_id}"));
+        command
+    }
+}
+
+// whether any process was started with this game executable, proton's own processes included
+fn proton_game_running(exe_name: &str) -> bool {
+    let Ok(entries) = std::fs::read_dir("/proc") else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        entry
+            .file_name()
+            .to_string_lossy()
+            .chars()
+            .all(|c| c.is_ascii_digit())
+            && std::fs::read(entry.path().join("cmdline"))
+                .is_ok_and(|cmdline| String::from_utf8_lossy(&cmdline).contains(exe_name))
+    })
+}
+
+// steam hands the launch off and exits, so wait for the game itself to start and then to close
+fn wait_for_proton_game(exe_name: &str) {
+    use std::time::{Duration, Instant};
+    let started = Instant::now();
+    while !proton_game_running(exe_name) {
+        if started.elapsed() > Duration::from_secs(120) {
+            return;
+        }
+        std::thread::sleep(Duration::from_secs(1));
+    }
+    while proton_game_running(exe_name) {
+        std::thread::sleep(Duration::from_secs(2));
+    }
+}
+
 // drops a launch reservation (pid 0) that never turned into a running process
 async fn release_launch_reservation(state: &State<'_, AppState>, game_key: &str) {
     let mut running = state.running_games.write().await;
@@ -238,6 +303,15 @@ async fn launch_with_settings(
         ));
         not_found.clone()
     })?;
+
+    let via_steam = launches_through_steam(&exe);
+    if via_steam && !extras.envs.is_empty() {
+        installer::write_install_log("Game launch failed: modpack loader needs Proton support.");
+        return Err(format!(
+            "{} modpacks can't be launched through Proton yet.",
+            settings.game.display_name()
+        ));
+    }
 
     let game_key = settings.game.as_str().to_string();
     {
@@ -275,24 +349,29 @@ async fn launch_with_settings(
     }
 
     installer::write_install_log(format!(
-        "Launching {} from {} (modded={modded}).",
+        "Launching {} from {} (modded={modded}{}).",
         exe.display(),
-        game_root.display()
+        game_root.display(),
+        if via_steam { ", through Steam" } else { "" }
     ));
-    let child = match Command::new(&exe)
-        .current_dir(&game_root)
-        // the standard steamworks workaround that stops the game restarting itself through steam
-        .env("SteamAppId", settings.game.steam_app_id())
-        .env("SteamGameId", settings.game.steam_app_id())
-        .args(&extras.args)
-        .envs(
-            extras
-                .envs
-                .iter()
-                .map(|(key, value)| (key.as_str(), value.as_str())),
-        )
-        .spawn()
-    {
+    let spawned = if via_steam {
+        steam_launch_command(settings.game.steam_app_id(), &extras.args).spawn()
+    } else {
+        Command::new(&exe)
+            .current_dir(&game_root)
+            // the standard steamworks workaround that stops the game restarting itself through steam
+            .env("SteamAppId", settings.game.steam_app_id())
+            .env("SteamGameId", settings.game.steam_app_id())
+            .args(&extras.args)
+            .envs(
+                extras
+                    .envs
+                    .iter()
+                    .map(|(key, value)| (key.as_str(), value.as_str())),
+            )
+            .spawn()
+    };
+    let child = match spawned {
         Ok(child) => child,
         Err(e) => {
             let message = format!("Failed to launch game: {e}");
@@ -324,9 +403,20 @@ async fn launch_with_settings(
     let restore_settings = settings.clone();
     let running_games = state.running_games.clone();
     let running_key = game_key.clone();
+    let exe_name = exe
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
     tokio::spawn(async move {
         let mut child = child;
-        let _ = tokio::task::spawn_blocking(move || child.wait()).await;
+        let _ = tokio::task::spawn_blocking(move || {
+            let _ = child.wait();
+            if via_steam {
+                wait_for_proton_game(&exe_name);
+            }
+        })
+        .await;
 
         if is_vanilla_hk {
             if let Err(error) = installer::ensure_hk_api_enabled(&restore_settings).await {
