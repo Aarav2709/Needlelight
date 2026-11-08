@@ -64,7 +64,7 @@
 		"@modrinth/utils": "workspace:*",
 		"@tanstack/vue-query": "5.101.4",
 		"@tresjs/cientos": "^4.3.1",
-		"@tresjs/core": "^4.3.6",
+		"@tresjs/core": "^5.10.1",
 		"@tresjs/post-processing": "^2.4.0",
 		"@types/markdown-it": "^14.2.0",
 		"@types/three": "^0.172.0",
