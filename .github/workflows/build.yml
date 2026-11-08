@@ -18,18 +18,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Ensure Tauri icon
         run: node -e "const fs=require('fs');const path=require('path');const b='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';const icons=['icon.png','icon-512.png'];for (const file of icons){const iconPath=path.join('src-tauri','icons',file);if(!fs.existsSync(iconPath)){fs.mkdirSync(path.dirname(iconPath),{recursive:true});fs.writeFileSync(iconPath,Buffer.from(b,'base64'));}}"
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -95,18 +95,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Ensure Tauri icon
         run: node -e "const fs=require('fs');const path=require('path');const b='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';const icons=['icon.png','icon-512.png'];for (const file of icons){const iconPath=path.join('src-tauri','icons',file);if(!fs.existsSync(iconPath)){fs.mkdirSync(path.dirname(iconPath),{recursive:true});fs.writeFileSync(iconPath,Buffer.from(b,'base64'));}}"
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -187,7 +187,7 @@ jobs:
           esac
 
       - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_files }}
@@ -195,7 +195,7 @@ jobs:
 
       - name: Upload updater signatures
         if: env.HAS_SIGNING_KEY == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}-updater
           path: |
@@ -204,7 +204,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             ${{ matrix.artifact_files }}
@@ -222,11 +222,11 @@ jobs:
     steps:
       - name: Checkout
         if: env.HAS_SIGNING_KEY == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download updater signatures
         if: env.HAS_SIGNING_KEY == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: "*-updater"
           path: updater
@@ -254,6 +254,6 @@ jobs:
 
       - name: Attach latest.json to the release
         if: env.HAS_SIGNING_KEY == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: latest.json
