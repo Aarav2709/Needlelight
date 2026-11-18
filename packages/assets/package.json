@@ -16,7 +16,7 @@
 		"@modrinth/tooling-config": "workspace:*",
 		"@types/node": "^26.6.6",
 		"jiti": "^2.7.0",
-		"lucide-static": "^1.70.0",
+		"lucide-static": "^1.73.0",
 		"vue": "^3.5.45"
 	}
 }
